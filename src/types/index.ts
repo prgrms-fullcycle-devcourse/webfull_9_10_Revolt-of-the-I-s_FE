@@ -1,0 +1,98 @@
+import { Circle } from 'lucide-react';
+
+// 유저의 활동 상태 (예: '개발 중', 'bg-green-500')
+export interface UserStatus {
+  label: string;
+  color: string;
+}
+
+// 개별 팀원 정보 (로그인 시 입력받는 데이터 규격)
+export interface Member {
+  name: string;
+  position: string;
+  avatar: string;
+  email: string;
+  github: string;
+}
+
+// 티켓 내부 댓글 구조
+export interface Comment {
+  id: number;
+  user: string;
+  text: string;
+  time: string;
+}
+
+// 업무 티켓(Task) 정보
+export interface Ticket {
+  id: number;
+  title: string;
+  content: string;
+  requester: string;
+  worker: string;
+  status: string;
+  createdAt: string;
+  comments: Comment[];
+}
+
+// 활동 로그 히스토리 (Sidebar에 출력됨)
+export interface Log {
+  id: number;
+  ticketId: number;
+  user: string;
+  action: string;
+  time: string;
+  type: 'default' | 'info' | 'success' | 'error'; 
+}
+
+// 팀 아카이브: 회의록 데이터
+export interface Note {
+  id: number;
+  title: string;
+  content: string;
+  author: string;
+  date: string;
+}
+
+// 팀 아카이브: 공유 링크 데이터
+export interface TeamLink {
+  id: number;
+  title: string;
+  url: string;
+  type: string;
+}
+
+/**
+ * 8. 팀(Project) 최상위 객체
+ * @description 서비스의 가장 큰 단위로, 해당 프로젝트에 귀속된 모든 데이터를 포함합니다.
+ */
+export interface Team {
+  id: string;
+  name: string;
+  password: string;
+  members: Member[];
+  tickets: Ticket[];
+  logs: Log[];
+  notes: Note[];
+  links: TeamLink[];
+  userStatuses: Record<string, UserStatus>;
+}
+
+export interface CurrentUser extends Member {}
+
+/**
+ * 9. 칸반 상태 설정 타입
+ * @description 'Todo' 등 각 컬럼의 아이콘, 색상 및 상태 전환 흐름을 정의합니다.
+ */
+export interface StatusType {
+  id: string;
+  label: string;
+icon: typeof Circle; // Lucide 아이콘 컴포넌트 타입
+  color: string;      // 아이콘 및 텍스트 색상 (Tailwind)
+  border: string;     // 컬럼/카드 테두리 색상
+  bg: string;         // 배경색
+  next: string | null;      // 다음 단계 상태 ID
+  nextLabel: string | null; // 다음 단계 버튼 문구
+  back?: string;            // 이전 단계 상태 ID (반려용)
+  backLabel?: string;       // 이전 단계 버튼 문구
+}
