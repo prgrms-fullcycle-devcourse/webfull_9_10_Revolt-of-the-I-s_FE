@@ -3,7 +3,8 @@ import { useState } from 'react';
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
-import { Login } from './pages/Login';
+import { Login } from './pages/Login'
+import { Signup } from './pages/Signup'
 import { Lobby } from './pages/Lobby';
 import { Dashboard } from './pages/Dashboard';
 import { Archive } from './pages/Archive';
@@ -144,7 +145,20 @@ export default function App() {
   };
 
   // --- 조건부 렌더링 (Auth & Lobby) ---
-  if (!currentUser) return <Login setCurrentUser={setCurrentUser} />;
+  const [authPage, setAuthPage] = useState<'login' | 'signup'>('login')
+  if (!currentUser) {
+  return authPage === 'login' ? (
+    <Login
+      setCurrentUser={setCurrentUser}
+      goSignup={() => setAuthPage('signup')}
+    />
+  ) : (
+    <Signup
+      setCurrentUser={setCurrentUser}
+      goLogin={() => setAuthPage('login')}
+    />
+  )
+}
 
   if (!activeTeamId || !isTeamAuthorized) {
     return (
