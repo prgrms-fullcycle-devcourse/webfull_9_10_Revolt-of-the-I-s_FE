@@ -17,6 +17,7 @@ export interface SignupRequest {
   phone: string
   email: string
   password: string
+  github?: string 
 }
 
 export interface AuthUser {

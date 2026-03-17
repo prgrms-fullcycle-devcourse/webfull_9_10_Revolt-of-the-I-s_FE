@@ -153,8 +153,7 @@ export default function App() {
       goSignup={() => setAuthPage('signup')}
     />
   ) : (
-    <Signup
-      setCurrentUser={setCurrentUser}
+   <Signup
       goLogin={() => setAuthPage('login')}
     />
   )
