@@ -21,7 +21,6 @@ import type { CurrentUser, Note, Team } from "./types";
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
-  // --- 데이터 로직 (Custom Hook) ---
   const {
     teams,
     setTeams,
@@ -34,9 +33,8 @@ export default function App() {
     addLog,
   } = useTeams(currentUser);
 
-  // --- UI 상태 관리 ---
   const [view, setView] = useState<"dashboard" | "members" | "archive">(
-    "dashboard",
+    "dashboard"
   );
   const [isTeamAuthorized, setIsTeamAuthorized] = useState(false);
   const [activeModal, setActiveModal] = useState<
@@ -45,17 +43,17 @@ export default function App() {
 
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [authPage, setAuthPage] = useState<"login" | "signup">("login");
 
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
-  // --- 브릿지 핸들러 (UI + Data Logic) ---
-
-  // 새 팀 생성 (Lobby 전용)
   const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser) return;
+
     const formData = new FormData(e.currentTarget);
+
     const newTeam: Team = {
       id: `team_${Date.now()}`,
       name: formData.get("teamName") as string,
@@ -78,16 +76,17 @@ export default function App() {
         [currentUser.name]: { label: "활동 중", color: "bg-green-500" },
       },
     };
+
     setTeams((prev) => [...prev, newTeam]);
     setActiveTeamId(newTeam.id);
     setIsTeamAuthorized(true);
-    setActiveModal(null); // 모달 닫기
+    setActiveModal(null);
     addLog(0, currentUser.name, "새 프로젝트 개설", "info");
   };
 
-  // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const team = teams.find((t) => t.id === activeTeamId);
     const password = (
       e.currentTarget.elements.namedItem("password") as HTMLInputElement
@@ -99,8 +98,9 @@ export default function App() {
     }
 
     const isAlreadyMember = team.members.some(
-      (m) => m.name === currentUser!.name,
+      (m) => m.name === currentUser!.name
     );
+
     if (!isAlreadyMember) {
       setTeams((prev) =>
         prev.map((t) =>
@@ -116,42 +116,36 @@ export default function App() {
                   },
                 },
               }
-            : t,
-        ),
+            : t
+        )
       );
     }
+
     setIsTeamAuthorized(true);
-    setActiveModal(null); // 모달 닫기
+    setActiveModal(null);
     addLog(0, currentUser!.name, "공간 입장", "info");
   };
 
   const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // 1. FormData 객체 생성
-    const formData = new FormData(e.currentTarget);
 
-    // 2. input 태그의 name 속성으로 값을 가져옴
+    const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
     const content = formData.get("content") as string;
     const worker = formData.get("worker") as string;
 
-    console.log(title, content, worker);
-
-    // 3. 값이 비어있는지 검증 (하나라도 없으면 생성 안 됨)
     if (!title.trim() || !content.trim() || !worker) {
       alert("모든 항목을 입력해주세요.");
       return;
     }
 
-    // 4. 훅에서 가져온 함수 호출 (인자 순서 확인!)
     handleCreateTicket(title, content, worker);
-
-    // 5. 모달 닫기
     setActiveModal(null);
   };
 
   const createNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const formData = new FormData(e.currentTarget);
     const newNote: Note = {
       id: Date.now(),
@@ -160,16 +154,18 @@ export default function App() {
       author: currentUser!.name,
       date: new Date().toISOString().split("T")[0],
     };
+
     setTeams((prev) =>
       prev.map((t) =>
-        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t,
-      ),
+        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t
+      )
     );
     setActiveModal(null);
   };
 
   const createLink = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     const formData = new FormData(e.currentTarget);
     const newLink = {
       id: Date.now(),
@@ -177,27 +173,25 @@ export default function App() {
       url: formData.get("url") as string,
       type: formData.get("type") as string,
     };
+
     setTeams((prev) =>
       prev.map((t) =>
-        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t,
-      ),
+        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t
+      )
     );
     setActiveModal(null);
   };
 
-  // --- 조건부 렌더링 (Auth & Lobby) ---
-  const [authPage, setAuthPage] = useState<"login" | "signup">("login");
   if (!currentUser) {
-return authPage === 'login' ? (
-  <Login
-    setCurrentUser={setCurrentUser}
-    goSignup={() => setAuthPage('signup')}
-  />
-) : (
-  <Signup
-    goLogin={() => setAuthPage('login')}
-  />
-)
+    return authPage === "login" ? (
+      <Login
+        setCurrentUser={setCurrentUser}
+        goSignup={() => setAuthPage("signup")}
+      />
+    ) : (
+      <Signup goLogin={() => setAuthPage("login")} />
+    );
+  }
 
   if (!activeTeamId || !isTeamAuthorized) {
     return (
@@ -212,7 +206,6 @@ return authPage === 'login' ? (
           setIsTeamAuthModalOpen={() => setActiveModal("auth")}
         />
 
-        {/* 로비 전용 모달 시스템 */}
         <Modal
           isOpen={activeModal === "createTeam"}
           onClose={() => setActiveModal(null)}
@@ -275,12 +268,11 @@ return authPage === 'login' ? (
     );
   }
 
-  // --- 메인 레이아웃 (인증 완료 후) ---
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar
         activeTeam={activeTeam!}
-        activeTeamId={activeTeamId!}
+        activeTeamId={activeTeamId}
         currentUser={currentUser}
         view={view}
         setView={setView}
@@ -301,18 +293,20 @@ return authPage === 'login' ? (
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           {view === "dashboard" && (
             <Dashboard
-              activeTeam={teams.find((t) => t.id === activeTeamId)!} // 직접 teams 배열에서 찾아서 전달
+              activeTeam={teams.find((t) => t.id === activeTeamId)!}
               setIsCreateModalOpen={() => setActiveModal("create")}
               setSelectedTicketId={setSelectedTicketId}
               updateTicketStatus={updateTicketStatus}
             />
           )}
+
           {view === "members" && (
             <Members
               activeTeam={activeTeam!}
               updatePosition={() => setActiveModal("position")}
             />
           )}
+
           {view === "archive" && (
             <Archive
               activeTeam={activeTeam!}
@@ -324,21 +318,18 @@ return authPage === 'login' ? (
         </div>
       </main>
 
-      {/* --- 메인 앱 모달 시스템 --- */}
       <Modal
         isOpen={activeModal === "create"}
         onClose={() => setActiveModal(null)}
         title="새로운 업무 요청"
       >
         <form onSubmit={createTicket} className="space-y-6">
-          {/* name="title" 확인 */}
           <input
             name="title"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="제목"
           />
-          {/* name="worker" 확인 */}
           <select
             name="worker"
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -350,7 +341,6 @@ return authPage === 'login' ? (
               </option>
             ))}
           </select>
-          {/* name="content" 확인 */}
           <textarea
             name="content"
             required
@@ -441,7 +431,6 @@ return authPage === 'login' ? (
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="팀원"
           />
-
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
@@ -451,8 +440,7 @@ return authPage === 'login' ? (
         </form>
       </Modal>
 
-      {/* 상세 페이지/모달 */}
-      {selectedTicket && (
+      {selectedTicket && currentUser && (
         <TicketDetail
           ticket={selectedTicket}
           activeTeam={activeTeam!}
@@ -463,8 +451,8 @@ return authPage === 'login' ? (
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
             handleAddComment(
-              selectedTicketId!,
-              formData.get("comment") as string,
+              selectedTicket.id,
+              formData.get("comment") as string
             );
             e.currentTarget.reset();
           }}
