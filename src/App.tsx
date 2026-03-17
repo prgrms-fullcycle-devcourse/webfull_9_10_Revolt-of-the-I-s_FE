@@ -21,6 +21,7 @@ import type { CurrentUser, Note, Team } from "./types";
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // --- 데이터 로직 (Custom Hook) ---
   const {
     teams,
     setTeams,
@@ -33,6 +34,7 @@ export default function App() {
     addLog,
   } = useTeams(currentUser);
 
+  // --- UI 상태 관리 ---
   const [view, setView] = useState<"dashboard" | "members" | "archive">(
     "dashboard"
   );
@@ -48,6 +50,9 @@ export default function App() {
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
+  // --- 브릿지 핸들러 (UI + Data Logic) ---
+
+  // 새 팀 생성 (Lobby 전용)
   const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -84,6 +89,7 @@ export default function App() {
     addLog(0, currentUser.name, "새 프로젝트 개설", "info");
   };
 
+  // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -129,17 +135,26 @@ export default function App() {
   const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // 1. FormData 객체 생성
     const formData = new FormData(e.currentTarget);
+
+    // 2. input 태그의 name 속성으로 값을 가져옴
     const title = formData.get("title") as string;
     const content = formData.get("content") as string;
     const worker = formData.get("worker") as string;
 
+    console.log(title, content, worker);
+
+    // 3. 값이 비어있는지 검증 (하나라도 없으면 생성 안 됨)
     if (!title.trim() || !content.trim() || !worker) {
       alert("모든 항목을 입력해주세요.");
       return;
     }
 
+    // 4. 훅에서 가져온 함수 호출 (인자 순서 확인!)
     handleCreateTicket(title, content, worker);
+
+    // 5. 모달 닫기
     setActiveModal(null);
   };
 
@@ -182,6 +197,7 @@ export default function App() {
     setActiveModal(null);
   };
 
+  // --- 조건부 렌더링 (Auth & Lobby) --
   if (!currentUser) {
     return authPage === "login" ? (
       <Login
@@ -206,6 +222,7 @@ export default function App() {
           setIsTeamAuthModalOpen={() => setActiveModal("auth")}
         />
 
+        {/* 로비 전용 모달 시스템 */}
         <Modal
           isOpen={activeModal === "createTeam"}
           onClose={() => setActiveModal(null)}
@@ -268,6 +285,7 @@ export default function App() {
     );
   }
 
+  // --- 메인 레이아웃 (인증 완료 후) ---
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar
@@ -318,18 +336,21 @@ export default function App() {
         </div>
       </main>
 
+      {/* --- 메인 앱 모달 시스템 --- */}    
       <Modal
         isOpen={activeModal === "create"}
         onClose={() => setActiveModal(null)}
         title="새로운 업무 요청"
       >
         <form onSubmit={createTicket} className="space-y-6">
+          {/* name="title" 확인 */}
           <input
             name="title"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="제목"
           />
+          {/* name="worker" 확인 */}
           <select
             name="worker"
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -341,6 +362,7 @@ export default function App() {
               </option>
             ))}
           </select>
+          {/* name="content" 확인 */}
           <textarea
             name="content"
             required
@@ -439,7 +461,8 @@ export default function App() {
           </button>
         </form>
       </Modal>
-
+      
+      {/* 상세 페이지/모달 */}
       {selectedTicket && currentUser && (
         <TicketDetail
           ticket={selectedTicket}
