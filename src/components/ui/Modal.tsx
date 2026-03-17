@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,10 +23,16 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
       <div className={`bg-white w-full ${maxWidth} rounded-[48px] shadow-2xl p-10 relative z-10 overflow-hidden flex flex-col max-h-[90vh]`}>
         
         {/* 모달 헤더 섹션: 제목 */}
-        <header className="p-6 border-b border-slate-50">
+        <header className="p-6 flex justify-between items-center border-b border-slate-50">
           <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight text-center">
             {title}
           </h3>
+          <button 
+            onClick={onClose} 
+            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+          >
+            <X size={20} />
+          </button>
         </header>
 
         {/* 모달 내부 콘텐츠 */}
