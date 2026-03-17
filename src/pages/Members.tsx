@@ -1,11 +1,12 @@
-import { Mail, Github, ArrowRight } from 'lucide-react';
-import type { Team } from '../types';
+import { Mail, Github, SquarePen, Smartphone, ArrowRight } from "lucide-react";
+import type { Team } from "../types";
 
 interface MembersProps {
   activeTeam: Team;
+  updatePosition: (open: boolean) => void; // 포지션 변경 모달 함수
 }
 
-export const Members = ({ activeTeam }: MembersProps) => {
+export const Members = ({ activeTeam, updatePosition }: MembersProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {activeTeam.members.map((member) => (
@@ -20,7 +21,7 @@ export const Members = ({ activeTeam }: MembersProps) => {
             </div>
             <span
               className={`absolute bottom-1 right-1 w-5 h-5 border-4 border-white rounded-full ${
-                activeTeam.userStatuses[member.name]?.color ?? 'bg-green-500'
+                activeTeam.userStatuses[member.name]?.color ?? "bg-green-500"
               }`}
             />
           </div>
@@ -29,25 +30,33 @@ export const Members = ({ activeTeam }: MembersProps) => {
           <h3 className="text-xl font-black text-slate-900 mb-1">
             {member.name}
           </h3>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[11px] font-bold uppercase tracking-wider mb-2">
-            {member.position}
-          </div>
+          <button
+            onClick={() => updatePosition(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full text-[11px] font-bold uppercase tracking-wider mb-2 cursor-pointer"
+          >
+            {member.position || "팀원"}
+            <SquarePen size={16} className="text-blue-600 shrink-0" />{" "}
+          </button>
 
           {/* 현재 상태 */}
           <div className="text-[10px] font-bold text-slate-400 mb-6 flex items-center gap-1.5">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                activeTeam.userStatuses[member.name]?.color ?? 'bg-green-500'
+                activeTeam.userStatuses[member.name]?.color ?? "bg-green-500"
               }`}
             />
-            {activeTeam.userStatuses[member.name]?.label ?? '활동 중'}
+            {activeTeam.userStatuses[member.name]?.label ?? "활동 중"}
           </div>
 
           {/* 연락처 정보 */}
           <div className="w-full space-y-3 pt-6 border-t border-slate-50">
             <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl text-[13px] font-medium text-slate-700">
-              <Mail size={16} className="text-slate-400 shrink-0" />{' '}
-              {member.email || '이메일 미등록'}
+              <Mail size={16} className="text-slate-400 shrink-0" />{" "}
+              {member.email}
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl text-[13px] font-medium text-slate-700">
+              <Smartphone size={16} className="text-slate-400 shrink-0" />{" "}
+              전화번호가 노출
             </div>
             {member.github && (
               <a
@@ -57,7 +66,7 @@ export const Members = ({ activeTeam }: MembersProps) => {
                 className="flex items-center justify-between p-3 bg-slate-900 rounded-2xl text-[13px] font-medium text-white hover:bg-slate-800 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Github size={16} className="text-slate-400 shrink-0" />{' '}
+                  <Github size={16} className="text-slate-400 shrink-0" />{" "}
                   GitHub
                 </div>
                 <ArrowRight size={14} />
