@@ -89,6 +89,11 @@ export default function App() {
     addLog(0, currentUser.name, "새 프로젝트 개설", "info");
   };
 
+  // 새 팀 개설 모달 닫기
+  const handleCloseCreateTeamModal = () => {
+    setActiveModal(null);
+  };
+
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -225,28 +230,45 @@ export default function App() {
         {/* 로비 전용 모달 시스템 */}
         <Modal
           isOpen={activeModal === "createTeam"}
-          onClose={() => setActiveModal(null)}
-          title="새 프로젝트 개설"
+          onClose={handleCloseCreateTeamModal}
+          title="새 팀 개설"
+          maxWidth="max-w-md"
         >
-          <form onSubmit={handleCreateTeam} className="space-y-6">
+          <form onSubmit={handleCreateTeam} className="space-y-4">
+            {/* 팀 이름 입력 */}
             <input
               name="teamName"
               required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+              minLength={2}
+              maxLength={30}
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
               placeholder="팀 이름"
             />
+
+            {/* 비밀번호 입력 */}
             <input
               name="teamPassword"
               type="password"
               required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
               placeholder="비밀번호"
             />
+
+            {/* 팀 생성 버튼 */}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl shadow-xl hover:bg-blue-700 transition-all"
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
             >
-              생성 및 입장
+              팀 생성 및 입장
+            </button>
+
+            {/* 취소 버튼 */}
+            <button
+              type="button"
+              onClick={handleCloseCreateTeamModal}
+              className="w-full bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all"
+            >
+              취소
             </button>
           </form>
         </Modal>

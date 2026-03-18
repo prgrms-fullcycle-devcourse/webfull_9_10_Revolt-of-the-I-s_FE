@@ -34,6 +34,13 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     )
   }, [teams, currentUser])
 
+  // 팀 이름 중복 체크
+  const isTeamNameTaken = (teamName: string) => {
+    return teams.some(
+      (team) => team.name.trim().toLowerCase() === teamName.trim().toLowerCase()
+    )
+  }
+
   /**
    * [핵심 함수] addLog: 활동 로그 생성
    * @param ticketId 관련 티켓 번호 (시스템 로그일 경우 0)
@@ -65,6 +72,115 @@ export const useTeams = (currentUser: CurrentUser | null) => {
           : t
       )
     )
+  }
+
+  /**
+   * [기능] createTeam: 새 팀 생성
+   */
+  const createTeam = (teamName: string, teamPassword: string) => {
+    if (!currentUser) {
+      return { ok: false, message: '유저 정보가 없습니다.' }
+    }
+
+    const trimmedName = teamName.trim()
+    const trimmedPassword = teamPassword.trim()
+
+    // 팀 이름 검증
+    if (trimmedName.length < 2 || trimmedName.length > 30) {
+      return { ok: false, message: '팀 이름은 2자 이상 30자 이하로 입력해주세요.' }
+    }
+
+    // 비밀번호 검증
+    if (!trimmedPassword) {
+      return { ok: false, message: '비밀번호를 입력해주세요.' }
+    }
+
+    // 팀 이름 중복 체크
+    if (isTeamNameTaken(trimmedName)) {
+      return { ok: false, message: '이미 존재하는 팀 이름입니다.' }
+    }
+
+    const newTeam: Team = {
+      id: `team_${Date.now()}`,
+      name: trimmedName,
+      password: trimmedPassword,
+      members: [{ ...currentUser }],
+      tickets: [],
+      logs: [
+        {
+          id: Date.now(),
+          ticketId: 0,
+          user: currentUser.name,
+          action: '새 프로젝트 개설',
+          time: '현재',
+          type: 'info',
+        },
+      ],
+      notes: [],
+      links: [],
+      userStatuses: {
+        [currentUser.name]: { label: '활동 중', color: 'bg-green-500' },
+      },
+    }
+
+    setTeams((prev) => [...prev, newTeam])
+    setActiveTeamId(newTeam.id)
+
+    return {
+      ok: true,
+      message: '팀이 생성되었습니다.',
+      team: newTeam,
+    }
+  }
+
+  /**
+   * [기능] joinTeam: 팀 가입 처리
+   */
+  const joinTeam = (teamId: string, password: string) => {
+    if (!currentUser) {
+      return { ok: false, message: '유저 정보가 없습니다.' }
+    }
+
+    const targetTeam = teams.find((team) => team.id === teamId)
+
+    if (!targetTeam) {
+      return { ok: false, message: '팀을 찾을 수 없습니다.' }
+    }
+
+    if (targetTeam.password !== password) {
+      return { ok: false, message: '비밀번호가 틀렸습니다.' }
+    }
+
+    const isAlreadyMember = targetTeam.members.some(
+      (member) => member.name === currentUser.name
+    )
+
+    if (!isAlreadyMember) {
+      setTeams((prev) =>
+        prev.map((team) =>
+          team.id === teamId
+            ? {
+                ...team,
+                members: [...team.members, currentUser],
+                userStatuses: {
+                  ...team.userStatuses,
+                  [currentUser.name]: {
+                    label: '방금 입장',
+                    color: 'bg-green-500',
+                  },
+                },
+              }
+            : team
+        )
+      )
+    }
+
+    setActiveTeamId(teamId)
+
+    return {
+      ok: true,
+      message: '팀 입장 완료',
+    }
   }
 
   /**
@@ -197,6 +313,11 @@ export const useTeams = (currentUser: CurrentUser | null) => {
               members: team.members.filter(
                 (member) => member.name !== currentUser.name
               ),
+              userStatuses: Object.fromEntries(
+                Object.entries(team.userStatuses).filter(
+                  ([userName]) => userName !== currentUser.name
+                )
+              ),
             }
           : team
       )
@@ -217,6 +338,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     activeTeam,
     joinedTeams,
     availableTeams,
+    isTeamNameTaken,
+    createTeam,
+    joinTeam,
     addLog,
     updateTicketStatus,
     handleCreateTicket,
