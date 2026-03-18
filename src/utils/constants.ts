@@ -108,7 +108,26 @@ export const INITIAL_TEAM: Team = {
       worker: '민수',
       status: 'Doing',
       createdAt: '2026.03.11 10:00',
-      comments: [],
+      comments: [
+        {
+          id: 101,
+          user: '민수', 
+          text: '네, 확인했습니다. 해당 정보는 payload에 담아드리면 될까요?',
+          time: '2026.03.11 10:05',
+        },
+        {
+          id: 102,
+          user: '영아', 
+          text: '네, 맞습니다! 권한 코드(role) 형태로 부탁드려요.',
+          time: '2026.03.11 10:10',
+        },
+        {
+          id: 103,
+          user: '민수',
+          text: '알겠습니다. 오늘 오후 중으로 수정해서 배포해둘게요.',
+          time: '2026.03.11 10:15',
+        }
+      ],
     },
     {
       id: 2,
