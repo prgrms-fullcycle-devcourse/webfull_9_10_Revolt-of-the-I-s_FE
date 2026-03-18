@@ -446,7 +446,6 @@ export default function App() {
           activeTeam={activeTeam!}
           currentUser={currentUser}
           onClose={() => setSelectedTicketId(null)}
-          updateTicketStatus={updateTicketStatus}
           addComment={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
