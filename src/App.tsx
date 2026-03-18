@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
 
 // 레이아웃 및 페이지
 import { Sidebar } from "./components/layout/Sidebar";
@@ -232,56 +231,46 @@ export default function App() {
         <Modal
           isOpen={activeModal === "createTeam"}
           onClose={handleCloseCreateTeamModal}
-          title=""
+          title="새 팀 개설"
           maxWidth="max-w-md"
         >
-          <div className="relative px-2 pt-1 pb-2">
-            {/* 뒤로가기 버튼 */}
+          <form onSubmit={handleCreateTeam} className="space-y-4">
+            {/* 팀 이름 입력 */}
+            <input
+              name="teamName"
+              required
+              minLength={2}
+              maxLength={30}
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+              placeholder="팀 이름"
+            />
+
+            {/* 비밀번호 입력 */}
+            <input
+              name="teamPassword"
+              type="password"
+              required
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+              placeholder="비밀번호"
+            />
+
+            {/* 팀 생성 버튼 */}
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
+            >
+              팀 생성 및 입장
+            </button>
+
+            {/* 취소 버튼 */}
             <button
               type="button"
               onClick={handleCloseCreateTeamModal}
-              className="absolute left-0 top-0 flex items-center gap-1 text-sm font-bold text-slate-400 hover:text-slate-700 transition-colors"
-            >       
-              <ArrowLeft size={16} />
-              뒤로가기
+              className="w-full bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all"
+            >
+              취소
             </button>
-
-            <div className="pt-8">
-              {/* 모달 제목 */}
-              <h2 className="mb-6 text-xl font-black text-slate-900">
-                새 팀 개설
-              </h2>
-
-              <form onSubmit={handleCreateTeam} className="space-y-4">
-                {/* 팀 이름 입력 */}
-                <input
-                  name="teamName"
-                  required
-                  minLength={2}
-                  maxLength={30}
-                  className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="팀 이름"
-                />
-
-                {/* 비밀번호 입력 */}
-                <input
-                  name="teamPassword"
-                  type="password"
-                  required
-                  className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="비밀번호"
-                />
-
-                {/* 팀 생성 버튼 */}
-                <button
-                  type="submit"
-                  className="w-full rounded-2xl bg-blue-600 py-4 font-black text-white shadow-lg transition-all hover:bg-blue-700"
-                >
-                  팀 생성 및 입장
-                </button>
-              </form>
-            </div>
-          </div>
+          </form>
         </Modal>
 
         <Modal

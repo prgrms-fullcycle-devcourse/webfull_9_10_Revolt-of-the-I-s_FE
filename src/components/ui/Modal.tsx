@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,17 +24,25 @@ export const Modal = ({
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
       {/* 모달 외부 클릭 시 닫기 위한 투명 배경 */}
       <div className="absolute inset-0" onClick={onClose} />
-
+      
       {/* 실제 모달 콘텐츠 박스 */}
-      <div
-        className={`bg-white w-full ${maxWidth} rounded-[48px] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]`}
-      >
+      <div className={`bg-white w-full ${maxWidth} rounded-[48px] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]`}>
+        
         {/* 모달 헤더 섹션: 제목 */}
-        <header className="px-8 py-6 border-b border-slate-100 relative">
-          <h3 className="text-lg font-black text-slate-800 tracking-tight text-center">
+        <header className="px-8 py-6 border-b border-slate-50 relative">
+          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight text-center">
             {title}
           </h3>
 
+          {/* X 닫기 버튼 */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+            aria-label="모달 닫기"
+          >
+            <X size={20} />
+          </button>
         </header>
 
         {/* 모달 내부 콘텐츠 */}
