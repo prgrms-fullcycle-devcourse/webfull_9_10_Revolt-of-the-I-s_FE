@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 // 레이아웃 및 페이지
 import { Sidebar } from "./components/layout/Sidebar";
@@ -21,6 +22,7 @@ import type { CurrentUser, Note, Team } from "./types";
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // --- 데이터 로직 (Custom Hook) ---
   const {
     teams,
     setTeams,
@@ -33,6 +35,7 @@ export default function App() {
     addLog,
   } = useTeams(currentUser);
 
+  // --- UI 상태 관리 ---
   const [view, setView] = useState<"dashboard" | "members" | "archive">(
     "dashboard"
   );
@@ -45,9 +48,29 @@ export default function App() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [authPage, setAuthPage] = useState<"login" | "signup">("login");
 
+  // 보안 인증 입력 상태
+  const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(""));
+  const [authError, setAuthError] = useState("");
+  const authInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 보안 인증 입력 포커스 상태
+  const [isAuthInputFocused, setIsAuthInputFocused] = useState(false);
+
+  // 보안 인증 커서 위치
+  const [authCursorIndex, setAuthCursorIndex] = useState(0);
+
+  // 보안 인증 숫자 표시 여부
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+
+  // 6자리 모두 입력됐는지 확인
+  const isAuthPasswordComplete = authPassword.every((digit) => digit !== "");
+
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
+  // --- 브릿지 핸들러 (UI + Data Logic) ---
+
+  // 새 팀 생성 (Lobby 전용)
   const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -84,16 +107,152 @@ export default function App() {
     addLog(0, currentUser.name, "새 프로젝트 개설", "info");
   };
 
+  // 새 팀 개설 모달 닫기
+  const handleCloseCreateTeamModal = () => {
+    setActiveModal(null);
+  };
+
+  // 보안 인증 모달 닫기
+  const handleCloseAuthModal = () => {
+    setActiveModal(null);
+    setActiveTeamId(null);
+    setAuthPassword(Array(6).fill(""));
+    setAuthError("");
+    setAuthCursorIndex(0);
+    setShowAuthPassword(false);
+  };
+
+  // 보안 인증 붙여넣기 처리
+  const handleAuthPasswordPaste = (
+    e: React.ClipboardEvent<HTMLInputElement>
+  ) => {
+    e.preventDefault();
+
+    const onlyNumber = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+
+    const nextPassword = Array(6).fill("");
+    onlyNumber.split("").forEach((digit, index) => {
+      nextPassword[index] = digit;
+    });
+
+    setAuthPassword(nextPassword);
+
+    // 마지막 입력 칸으로 커서 이동
+    if (onlyNumber.length === 0) {
+      setAuthCursorIndex(0);
+    } else if (onlyNumber.length >= 6) {
+      setAuthCursorIndex(5);
+    } else {
+      setAuthCursorIndex(onlyNumber.length);
+    }
+
+    if (authError) {
+      setAuthError("");
+    }
+  };
+
+  // 보안 인증 입력칸 포커스
+  const handleFocusAuthInput = () => {
+    authInputRef.current?.focus();
+  };
+
+  // 보안 인증 클릭한 칸으로 커서 이동
+  const handleAuthBoxMouseDown = (
+    e: React.MouseEvent<HTMLDivElement>,
+    index: number
+  ) => {
+    e.preventDefault();
+    authInputRef.current?.focus();
+    setAuthCursorIndex(index);
+  };
+
+  // 보안 인증 숫자/백스페이스 입력 처리
+  const handleAuthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab") return;
+
+    if (e.key === "Backspace") {
+      e.preventDefault();
+
+      const nextPassword = [...authPassword];
+
+      // 현재 칸에 값이 있으면 현재 칸만 지움
+      if (nextPassword[authCursorIndex] !== "") {
+        nextPassword[authCursorIndex] = "";
+        setAuthPassword(nextPassword);
+      }
+      // 현재 칸이 비어있으면 앞 칸만 지움
+      else if (authCursorIndex > 0) {
+        nextPassword[authCursorIndex - 1] = "";
+        setAuthPassword(nextPassword);
+        setAuthCursorIndex(authCursorIndex - 1);
+      }
+
+      if (authError) {
+        setAuthError("");
+      }
+      return;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+
+      const nextPassword = [...authPassword];
+      nextPassword[authCursorIndex] = "";
+      setAuthPassword(nextPassword);
+
+      if (authError) {
+        setAuthError("");
+      }
+      return;
+    }
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
+      return;
+    }
+
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+
+    e.preventDefault();
+
+    const nextPassword = [...authPassword];
+
+    // 현재 커서 위치 숫자만 바꿈
+    nextPassword[authCursorIndex] = e.key;
+    setAuthPassword(nextPassword);
+
+    // 다음 칸으로 커서 이동
+    if (authCursorIndex < 5) {
+      setAuthCursorIndex(authCursorIndex + 1);
+    }
+
+    if (authError) {
+      setAuthError("");
+    }
+  };
+
+  // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const team = teams.find((t) => t.id === activeTeamId);
-    const password = (
-      e.currentTarget.elements.namedItem("password") as HTMLInputElement
-    ).value;
+    const authPasswordValue = authPassword.join("");
 
-    if (!team || password !== team.password) {
-      alert("비밀번호가 틀렸습니다.");
+    if (!team || !isAuthPasswordComplete || authPasswordValue !== team.password) {
+      setAuthError("비밀번호가 일치하지 않습니다.");
       return;
     }
 
@@ -123,23 +282,36 @@ export default function App() {
 
     setIsTeamAuthorized(true);
     setActiveModal(null);
+    setAuthPassword(Array(6).fill(""));
+    setAuthError("");
+    setAuthCursorIndex(0);
+    setShowAuthPassword(false);
     addLog(0, currentUser!.name, "공간 입장", "info");
   };
 
   const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // 1. FormData 객체 생성
     const formData = new FormData(e.currentTarget);
+
+    // 2. input 태그의 name 속성으로 값을 가져옴
     const title = formData.get("title") as string;
     const content = formData.get("content") as string;
     const worker = formData.get("worker") as string;
 
+    console.log(title, content, worker);
+
+    // 3. 값이 비어있는지 검증 (하나라도 없으면 생성 안 됨)
     if (!title.trim() || !content.trim() || !worker) {
       alert("모든 항목을 입력해주세요.");
       return;
     }
 
+    // 4. 훅에서 가져온 함수 호출 (인자 순서 확인!)
     handleCreateTicket(title, content, worker);
+
+    // 5. 모달 닫기
     setActiveModal(null);
   };
 
@@ -215,6 +387,7 @@ export default function App() {
     }, 100);
   };
 
+  // --- 조건부 렌더링 (Auth & Lobby) --
   if (!currentUser) {
     return authPage === "login" ? (
       <Login
@@ -239,68 +412,158 @@ export default function App() {
           setIsTeamAuthModalOpen={() => setActiveModal("auth")}
         />
 
+        {/* 로비 전용 모달 시스템 */}
         <Modal
           isOpen={activeModal === "createTeam"}
-          onClose={() => setActiveModal(null)}
-          title="새 프로젝트 개설"
+          onClose={handleCloseCreateTeamModal}
+          title="새 팀 개설"
+          maxWidth="max-w-md"
         >
-          <form onSubmit={handleCreateTeam} className="space-y-6">
+          <form onSubmit={handleCreateTeam} className="space-y-4">
+            {/* 팀 이름 입력 */}
             <input
               name="teamName"
               required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+              minLength={2}
+              maxLength={30}
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
               placeholder="팀 이름"
             />
+
+            {/* 비밀번호 입력 */}
             <input
               name="teamPassword"
               type="password"
               required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
               placeholder="비밀번호"
             />
+
+            {/* 팀 생성 버튼 */}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl shadow-xl hover:bg-blue-700 transition-all"
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
             >
-              생성 및 입장
+              팀 생성 및 입장
+            </button>
+
+            {/* 취소 버튼 */}
+            <button
+              type="button"
+              onClick={handleCloseCreateTeamModal}
+              className="w-full bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all"
+            >
+              취소
             </button>
           </form>
         </Modal>
 
         <Modal
           isOpen={activeModal === "auth"}
-          onClose={() => {
-            setActiveModal(null);
-            setActiveTeamId(null);
-          }}
+          onClose={handleCloseAuthModal}
           title="보안 인증"
+          maxWidth="max-w-md"
         >
-          <div className="mb-8 text-center">
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-              비밀번호를 입력하세요
-            </p>
+          <div className="space-y-5">
+            {/* 안내 문구 */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  비밀번호를 입력하세요
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  6자리 숫자를 입력해주세요
+                </p>
+              </div>
+
+              {/* 비밀번호 보기/숨기기 버튼 */}
+              <button
+                type="button"
+                onClick={() => setShowAuthPassword((prev) => !prev)}
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <form onSubmit={handleTeamAuth} className="space-y-4">
+              {/* 실제 입력용 숨김 input */}
+              <input
+                ref={authInputRef}
+                name="password"
+                type="text"
+                inputMode="numeric"
+                autoFocus
+                onKeyDown={handleAuthKeyDown}
+                onPaste={handleAuthPasswordPaste}
+                onFocus={() => setIsAuthInputFocused(true)}
+                onBlur={() => setIsAuthInputFocused(false)}
+                className="absolute opacity-0 pointer-events-none"
+              />
+
+              {/* PIN 입력 UI */}
+              <div
+                onClick={handleFocusAuthInput}
+                className="grid grid-cols-6 gap-2 cursor-text"
+              >
+                {Array.from({ length: 6 }).map((_, index) => {
+                  // 현재 커서 위치 표시
+                  const isCurrentCursor =
+                    isAuthInputFocused && index === authCursorIndex;
+
+                  return (
+                    <div
+                      key={index}
+                      onMouseDown={(e) => handleAuthBoxMouseDown(e, index)}
+                      className="h-12 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center text-lg font-black text-slate-700"
+                    >
+                      {/* 입력된 값은 보기 상태에 따라 숫자/점으로 표시 */}
+                      {authPassword[index] ? (
+                        <div className="flex items-center gap-1">
+                          <span>
+                            {showAuthPassword ? authPassword[index] : "•"}
+                          </span>
+                          {isCurrentCursor && (
+                            <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
+                          )}
+                        </div>
+                      ) : isCurrentCursor ? (
+                        <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
+                      ) : (
+                        ""
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 인증 버튼 */}
+              <button
+                type="submit"
+                disabled={!isAuthPasswordComplete}
+                className={`w-full font-black py-4 rounded-2xl shadow-lg transition-all ${
+                  isAuthPasswordComplete
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                인증 및 입장
+              </button>
+
+              {/* 에러 문구 */}
+              {authError && (
+                <p className="text-sm font-bold text-red-500 text-center">
+                  {authError}
+                </p>
+              )}
+            </form>
           </div>
-          <form onSubmit={handleTeamAuth} className="space-y-8">
-            <input
-              name="password"
-              type="password"
-              required
-              autoFocus
-              className="w-full bg-slate-50 rounded-3xl px-8 py-5 text-center text-3xl font-black tracking-[0.5em] focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-              placeholder="••••"
-            />
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl shadow-xl hover:bg-blue-700 transition-all"
-            >
-              인증 및 입장
-            </button>
-          </form>
         </Modal>
       </>
     );
   }
 
+  // --- 메인 레이아웃 (인증 완료 후) ---
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar
@@ -352,18 +615,21 @@ export default function App() {
         </div>
       </main>
 
+      {/* --- 메인 앱 모달 시스템 --- */}
       <Modal
         isOpen={activeModal === "create"}
         onClose={() => setActiveModal(null)}
         title="새로운 업무 요청"
       >
         <form onSubmit={createTicket} className="space-y-6">
+          {/* name="title" 확인 */}
           <input
             name="title"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="제목"
           />
+          {/* name="worker" 확인 */}
           <select
             name="worker"
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -375,6 +641,7 @@ export default function App() {
               </option>
             ))}
           </select>
+          {/* name="content" 확인 */}
           <textarea
             name="content"
             required
@@ -474,6 +741,7 @@ export default function App() {
         </form>
       </Modal>
 
+      {/* 상세 페이지/모달 */}
       {selectedTicket && currentUser && (
         <TicketDetail
           ticket={selectedTicket}
