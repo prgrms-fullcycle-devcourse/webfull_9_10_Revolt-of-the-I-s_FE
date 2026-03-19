@@ -41,6 +41,11 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     )
   }
 
+  // 6자리 숫자 비밀번호 체크
+  const isValidTeamPassword = (password: string) => {
+    return /^\d{6}$/.test(password)
+  }
+
   /**
    * [핵심 함수] addLog: 활동 로그 생성
    * @param ticketId 관련 티켓 번호 (시스템 로그일 경우 0)
@@ -95,6 +100,11 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       return { ok: false, message: '비밀번호를 입력해주세요.' }
     }
 
+    // 6자리 숫자 비밀번호 검증
+    if (!isValidTeamPassword(trimmedPassword)) {
+      return { ok: false, message: '비밀번호는 6자리 숫자로 입력해주세요.' }
+    }
+
     // 팀 이름 중복 체크
     if (isTeamNameTaken(trimmedName)) {
       return { ok: false, message: '이미 존재하는 팀 이름입니다.' }
@@ -141,14 +151,20 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       return { ok: false, message: '유저 정보가 없습니다.' }
     }
 
+    const trimmedPassword = password.trim()
     const targetTeam = teams.find((team) => team.id === teamId)
 
     if (!targetTeam) {
       return { ok: false, message: '팀을 찾을 수 없습니다.' }
     }
 
-    if (targetTeam.password !== password) {
-      return { ok: false, message: '비밀번호가 틀렸습니다.' }
+    // 인증 입력값 형식 체크
+    if (!isValidTeamPassword(trimmedPassword)) {
+      return { ok: false, message: '비밀번호는 6자리 숫자로 입력해주세요.' }
+    }
+
+    if (targetTeam.password !== trimmedPassword) {
+      return { ok: false, message: '비밀번호가 일치하지 않습니다.' }
     }
 
     const isAlreadyMember = targetTeam.members.some(
@@ -339,6 +355,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     joinedTeams,
     availableTeams,
     isTeamNameTaken,
+    isValidTeamPassword,
     createTeam,
     joinTeam,
     addLog,
