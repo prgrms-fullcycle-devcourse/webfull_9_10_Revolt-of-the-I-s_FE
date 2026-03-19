@@ -59,7 +59,6 @@ export const Modal = ({
             <X size={20} />
           </button>
         )}
-
         {/* 모달 내부 콘텐츠 */}
         <div className="flex-1 overflow-y-auto scrollbar-hide p-8">
           {children}

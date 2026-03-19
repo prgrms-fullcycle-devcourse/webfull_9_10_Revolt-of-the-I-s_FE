@@ -370,6 +370,39 @@ export default function App() {
     setActiveModal(null);
   };
 
+  const handleLeaveTeam = (teamId: string | number | null) => {
+    if (!teamId) return;
+
+    if (!window.confirm("정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.")) return;
+
+    console.log("탈퇴 시작 - 팀 ID:", teamId); // 디버깅용 로그
+
+    // 전체 팀 목록에서 해당 팀의 '참여 상태'만 업데이트
+    // (참여 중인 팀 목록은 보통 t.isJoined === true 인 것들만 필터링해서 보여주고 계실 거예요)
+    setTeams(prevTeams => 
+      prevTeams.map((t) => 
+        // t.id와 teamId의 타입을 강제로 맞춰서 비교합니다.
+        String(t.id) === String(teamId) 
+          ? { ...t, isJoined: false } 
+          : t
+      )
+    );
+
+    // 현재 활성화된 팀일 경우 로비로 튕겨내기
+    if (String(activeTeamId) === String(teamId)) {
+      console.log("로비로 이동 중...");
+      setIsTeamAuthorized(false);
+      setActiveTeamId(null);
+      // 뷰를 대시보드나 로비로 전환 (필요시 추가)
+      setView('dashboard'); 
+    }
+
+    // 알림창은 모든 처리가 끝난 후 띄우기
+    setTimeout(() => {
+      alert("팀 탈퇴가 완료되었습니다.");
+    }, 100);
+  };
+
   // --- 조건부 렌더링 (Auth & Lobby) --
   if (!currentUser) {
     return authPage === 'login' ? (
@@ -564,6 +597,7 @@ export default function App() {
         setActiveTeamId={setActiveTeamId}
         setTeams={setTeams}
         addLog={addLog}
+        onLeaveTeam = {handleLeaveTeam}
       />
 
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -808,7 +842,6 @@ export default function App() {
           activeTeam={activeTeam!}
           currentUser={currentUser}
           onClose={() => setSelectedTicketId(null)}
-          updateTicketStatus={updateTicketStatus}
           addComment={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);

@@ -1,5 +1,5 @@
 import { useState } from 'react'; 
-import { LayoutDashboard, Users, FileText, History, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, History, ChevronRight, Bell } from 'lucide-react';
 import type { Team, CurrentUser } from '../../types';
 import { StatusBadge } from '../status/StatusBadge';
 import { StatusPicker } from "../status/StatusPicker";
@@ -15,6 +15,7 @@ interface SidebarProps {
   setActiveTeamId: (id: string | null) => void; // 팀 전환용
   setTeams: React.Dispatch<React.SetStateAction<Team[]>>; // 유저 상태 업데이트 함수
   addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void; // 활동 로그 기록 함수
+  onLeaveTeam: (id: string | number) => void; //팀 탈퇴 함수
 }
 
 export const Sidebar = ({ 
@@ -27,17 +28,25 @@ export const Sidebar = ({
   activeTeamId,
   setActiveTeamId,
   setTeams,
-  addLog 
+  addLog,
+  onLeaveTeam
 }: SidebarProps) => {
   // 상태 선택 팝업창의 열림/닫힘 여부
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
+  // Sidebar 컴포넌트 내부 상단에 추가
+  const [activeLogTab, setActiveLogTab] = useState<'all' | 'mine'>('all');
   // 내 현재 상태 정보 가져오기 (기본값: 활동 중)
   const myStatus = activeTeam.userStatuses[currentUser.name] || { 
     label: '활동 중', 
     color: 'bg-green-500' 
   };
 
+  // 탭에 따른 로그 필터링
+  const filteredLogs = activeLogTab === 'all' 
+    ? activeTeam.logs 
+    : activeTeam.logs.filter(log => log.user === currentUser.name);
+  
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
       {/* 상단 로고 및 내비게이션 영역 */}
@@ -66,17 +75,34 @@ export const Sidebar = ({
 
       {/* 히스토리 로그 영역 */}
       <div className="px-4 mb-4 shrink-0">
-        <div className="bg-slate-50/80 rounded-2xl border border-slate-100 p-3">
-          <div className="flex items-center gap-2 mb-3 px-1">
+      <div className="bg-slate-50/80 rounded-2xl border border-slate-100 p-3">
+        {/* 로그 헤더: 로고와 탭 전환 버튼 */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
             <History size={14} className="text-blue-500" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Log</span>
           </div>
           
+          <div className="flex bg-slate-200/50 p-0.5 rounded-lg">
+            <button 
+              onClick={() => setActiveLogTab('all')}
+              className={`text-[9px] px-2 py-1 rounded-md transition-all font-bold ${activeLogTab === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              로그
+            </button>
+            <button 
+              onClick={() => setActiveLogTab('mine')}
+              className={`text-[9px] px-2 py-1 rounded-md transition-all font-bold ${activeLogTab === 'mine' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              내 소식
+            </button>
+          </div>
+        </div>
+          
           {/* 로그 리스트 */}
-          <div className="space-y-3 max-h-35 overflow-y-auto pr-1 scrollbar-hide">
-            {activeTeam.logs.map((log) => {
-              console.log("로그 타입 확인:", log.type);
-              // 로그 타입별 색상 매핑
+          <div className="space-y-3 max-h-40 overflow-y-auto pr-1 scrollbar-hide min-h-40">
+          {filteredLogs.length > 0 ? (
+            filteredLogs.map((log) => {
               const logStyles = {
                 default: { dot: 'bg-slate-400', border: 'border-slate-200', text: 'text-slate-500', bg: '' },
                 info: { dot: 'bg-blue-500', border: 'border-blue-200', text: 'text-blue-600', bg: 'bg-blue-50/30' },
@@ -102,7 +128,14 @@ export const Sidebar = ({
                   </p>
                 </div>
               );
-            })}
+            })
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center py-8 text-slate-300">
+                <Bell size={20} className="mb-2 opacity-20" />
+                <p className="text-[10px] font-medium">새로운 소식이 없습니다.</p>
+              </div>
+            )
+            }
           </div>
         </div>
       </div>
@@ -139,6 +172,13 @@ export const Sidebar = ({
               setActiveTeamId(null);
               setIsTeamAuthorized(false);
             }}
+            handleLeaveTeam={() => {
+            // activeTeamId가 null일 수도 있으므로 안전하게 처리
+            if (activeTeamId) {
+              onLeaveTeam(activeTeamId); // App.tsx의 handleLeaveTeam 실행
+              setIsStatusPickerOpen(false); // 실행 후 팝업 닫기
+            }
+          }}      
           />
         )}
       </div>

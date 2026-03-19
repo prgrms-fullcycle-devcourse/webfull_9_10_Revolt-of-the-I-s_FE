@@ -15,6 +15,30 @@ export const Dashboard = ({
   setSelectedTicketId, 
   updateTicketStatus 
 }: DashboardProps) => {
+
+  // 전체 티켓이 하나도 없는지 확인
+  const isEmpty = activeTeam.tickets.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+        <div className="text-center space-y-3 mb-10">
+          <p className="text-slate-400 font-medium text-2xl whitespace-pre-wrap">
+            { "팀원들과 빠르게 \n 업무 요청을 해보세요!" }
+          </p>
+        </div>
+
+        {/* 새 요청 추가 버튼 */}
+        <button
+          onClick={setIsCreateModalOpen}
+          className="group bg-blue-600 hover:bg-blue-700 text-white px-30 py-5 rounded-4xl font-black flex items-center gap-3 shadow-2xl shadow-blue-200 transition-all active:scale-95 text-xl" 
+        >
+          새 요청
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-6 h-full min-w-300">
       {/* 
@@ -31,8 +55,7 @@ export const Dashboard = ({
             status={status}
             tickets={filteredTickets}
             onTicketClick={setSelectedTicketId}
-            onAddTicketClick={setIsCreateModalOpen}
-            updateTicketStatus={updateTicketStatus}
+            updateTicketStatus={updateTicketStatus} 
           />
         );
       })}
