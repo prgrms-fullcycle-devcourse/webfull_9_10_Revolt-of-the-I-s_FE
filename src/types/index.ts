@@ -87,7 +87,7 @@ export interface CurrentUser extends Member {}
 export interface StatusType {
   id: string;
   label: string;
-icon: typeof Circle; // Lucide 아이콘 컴포넌트 타입
+  icon: typeof Circle; // Lucide 아이콘 컴포넌트 타입
   color: string;      // 아이콘 및 텍스트 색상 (Tailwind)
   border: string;     // 컬럼/카드 테두리 색상
   bg: string;         // 배경색

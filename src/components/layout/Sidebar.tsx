@@ -15,6 +15,7 @@ interface SidebarProps {
   setActiveTeamId: (id: string | null) => void; // 팀 전환용
   setTeams: React.Dispatch<React.SetStateAction<Team[]>>; // 유저 상태 업데이트 함수
   addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void; // 활동 로그 기록 함수
+  onLeaveTeam: (id: string | number) => void; //팀 탈퇴 함수
 }
 
 export const Sidebar = ({ 
@@ -27,7 +28,8 @@ export const Sidebar = ({
   activeTeamId,
   setActiveTeamId,
   setTeams,
-  addLog 
+  addLog,
+  onLeaveTeam
 }: SidebarProps) => {
   // 상태 선택 팝업창의 열림/닫힘 여부
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
@@ -37,7 +39,7 @@ export const Sidebar = ({
     label: '활동 중', 
     color: 'bg-green-500' 
   };
-
+  
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
       {/* 상단 로고 및 내비게이션 영역 */}
@@ -139,6 +141,13 @@ export const Sidebar = ({
               setActiveTeamId(null);
               setIsTeamAuthorized(false);
             }}
+            handleLeaveTeam={() => {
+            // activeTeamId가 null일 수도 있으므로 안전하게 처리
+            if (activeTeamId) {
+              onLeaveTeam(activeTeamId); // App.tsx의 handleLeaveTeam 실행
+              setIsStatusPickerOpen(false); // 실행 후 팝업 닫기
+            }
+          }}      
           />
         )}
       </div>
