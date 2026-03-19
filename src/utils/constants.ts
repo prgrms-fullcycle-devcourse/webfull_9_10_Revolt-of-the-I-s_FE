@@ -6,7 +6,7 @@ export const AVATARS = ['👩‍💻', '👨‍💻', '🎨', '⚙️', '🚀', 
 
 /**
  * [핵심 로직] 칸반 보드의 상태 흐름(Workflow) 정의
- * 💡 API 연결 시: 
+ * 💡 API 연결 시:
  * - 'id'값(todo, doing 등)은 백엔드 DB의 ticket_status 컬럼값과 정확히 일치해야합니다.
  * - 상태 추가/변경 시 이 객체만 수정하면 화면과 버튼 로직이 자동으로 업데이트됩니다.
  */
@@ -135,14 +135,24 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1,
       title: '주간 회의록 (03.11)',
-      content:
-        '### 결정 사항\n- MVP 기능 확정\n- 이번주 UI 완성',
+      content: '### 결정 사항\n- MVP 기능 확정\n- 이번주 UI 완성',
       author: '영아',
       date: '2026.03.11',
     },
   ],
   links: [
-    { id: 1, title: '기획서 (Notion)', url: 'https://notion.so', type: 'planning' },
+    {
+      id: 1,
+      title: 'API 명세 링크',
+      url: 'https://www.notion.so/i-Station-API-ver2-3263c7fd06d980709274d7582b66cf0b?source=copy_link',
+      type: 'links',
+    },
+    {
+      id: 2,
+      title: '기획서 (Notion)입니다 반드시 확인해주세요',
+      url: 'https://notion.so',
+      type: 'documents',
+    },
   ],
 
   /**
