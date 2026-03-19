@@ -1,22 +1,22 @@
-import { useState } from "react";
+import { useState } from 'react';
 
 // 레이아웃 및 페이지
-import { Sidebar } from "./components/layout/Sidebar";
-import { Header } from "./components/layout/Header";
-import { Login } from "./pages/Login";
-import { Signup } from "./pages/Signup";
-import { Lobby } from "./pages/Lobby";
-import { Dashboard } from "./pages/Dashboard";
-import { Archive } from "./pages/Archive";
-import { Members } from "./pages/Members";
-import { TicketDetail } from "./components/task/TicketDetail";
+import { Sidebar } from './components/layout/Sidebar';
+import { Header } from './components/layout/Header';
+import { Login } from './pages/Login';
+import { Signup } from './pages/Signup';
+import { Lobby } from './pages/Lobby';
+import { Dashboard } from './pages/Dashboard';
+import { Archive } from './pages/Archive';
+import { Members } from './pages/Members';
+import { TicketDetail } from './components/task/TicketDetail';
 
 // 공통 UI 및 모달
-import { Modal } from "./components/ui/Modal";
+import { Modal } from './components/ui/Modal';
 
 // 훅 및 타입
-import { useTeams } from "./hooks/useTeams";
-import type { CurrentUser, Note, Team } from "./types";
+import { useTeams } from './hooks/useTeams';
+import type { CurrentUser, Note, Team, TeamLink } from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -35,17 +35,27 @@ export default function App() {
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
-  const [view, setView] = useState<"dashboard" | "members" | "archive">(
-    "dashboard"
+  const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
+    'dashboard',
   );
   const [isTeamAuthorized, setIsTeamAuthorized] = useState(false);
   const [activeModal, setActiveModal] = useState<
-    "create" | "note" | "link" | "createTeam" | "auth" | "position" | null
+    | 'create'
+    | 'note'
+    | 'link'
+    | 'createTeam'
+    | 'auth'
+    | 'position'
+    | 'document'
+    | 'updateNote'
+    | 'deleteLinks'
+    | null
   >(null);
 
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [authPage, setAuthPage] = useState<"login" | "signup">("login");
+  const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
+  const [deletedLink, setLinkIdToDelete] = useState<TeamLink>();
 
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
@@ -61,8 +71,8 @@ export default function App() {
 
     const newTeam: Team = {
       id: `team_${Date.now()}`,
-      name: formData.get("teamName") as string,
-      password: formData.get("teamPassword") as string,
+      name: formData.get('teamName') as string,
+      password: formData.get('teamPassword') as string,
       members: [{ ...currentUser }],
       tickets: [],
       logs: [
@@ -70,15 +80,15 @@ export default function App() {
           id: Date.now(),
           ticketId: 0,
           user: currentUser.name,
-          action: "새 프로젝트 개설",
-          time: "현재",
-          type: "info",
+          action: '새 프로젝트 개설',
+          time: '현재',
+          type: 'info',
         },
       ],
       notes: [],
       links: [],
       userStatuses: {
-        [currentUser.name]: { label: "활동 중", color: "bg-green-500" },
+        [currentUser.name]: { label: '활동 중', color: 'bg-green-500' },
       },
     };
 
@@ -86,7 +96,7 @@ export default function App() {
     setActiveTeamId(newTeam.id);
     setIsTeamAuthorized(true);
     setActiveModal(null);
-    addLog(0, currentUser.name, "새 프로젝트 개설", "info");
+    addLog(0, currentUser.name, '새 프로젝트 개설', 'info');
   };
 
   // 팀 인증 (Lobby 전용)
@@ -95,16 +105,16 @@ export default function App() {
 
     const team = teams.find((t) => t.id === activeTeamId);
     const password = (
-      e.currentTarget.elements.namedItem("password") as HTMLInputElement
+      e.currentTarget.elements.namedItem('password') as HTMLInputElement
     ).value;
 
     if (!team || password !== team.password) {
-      alert("비밀번호가 틀렸습니다.");
+      alert('비밀번호가 틀렸습니다.');
       return;
     }
 
     const isAlreadyMember = team.members.some(
-      (m) => m.name === currentUser!.name
+      (m) => m.name === currentUser!.name,
     );
 
     if (!isAlreadyMember) {
@@ -117,19 +127,19 @@ export default function App() {
                 userStatuses: {
                   ...t.userStatuses,
                   [currentUser!.name]: {
-                    label: "방금 입장",
-                    color: "bg-green-500",
+                    label: '방금 입장',
+                    color: 'bg-green-500',
                   },
                 },
               }
-            : t
-        )
+            : t,
+        ),
       );
     }
 
     setIsTeamAuthorized(true);
     setActiveModal(null);
-    addLog(0, currentUser!.name, "공간 입장", "info");
+    addLog(0, currentUser!.name, '공간 입장', 'info');
   };
 
   const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
@@ -139,15 +149,15 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
 
     // 2. input 태그의 name 속성으로 값을 가져옴
-    const title = formData.get("title") as string;
-    const content = formData.get("content") as string;
-    const worker = formData.get("worker") as string;
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+    const worker = formData.get('worker') as string;
 
     console.log(title, content, worker);
 
     // 3. 값이 비어있는지 검증 (하나라도 없으면 생성 안 됨)
     if (!title.trim() || !content.trim() || !worker) {
-      alert("모든 항목을 입력해주세요.");
+      alert('모든 항목을 입력해주세요.');
       return;
     }
 
@@ -164,16 +174,16 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
     const newNote: Note = {
       id: Date.now(),
-      title: formData.get("title") as string,
-      content: formData.get("content") as string,
+      title: formData.get('title') as string,
+      content: formData.get('content') as string,
       author: currentUser!.name,
-      date: new Date().toISOString().split("T")[0],
+      date: new Date().toISOString().split('T')[0],
     };
 
     setTeams((prev) =>
       prev.map((t) =>
-        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t
-      )
+        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t,
+      ),
     );
     setActiveModal(null);
   };
@@ -184,28 +194,28 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
     const newLink = {
       id: Date.now(),
-      title: formData.get("title") as string,
-      url: formData.get("url") as string,
-      type: formData.get("type") as string,
+      title: formData.get('title') as string,
+      url: formData.get('url') as string,
+      type: formData.get('type') as string,
     };
 
     setTeams((prev) =>
       prev.map((t) =>
-        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t
-      )
+        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t,
+      ),
     );
     setActiveModal(null);
   };
 
   // --- 조건부 렌더링 (Auth & Lobby) --
   if (!currentUser) {
-    return authPage === "login" ? (
+    return authPage === 'login' ? (
       <Login
         setCurrentUser={setCurrentUser}
-        goSignup={() => setAuthPage("signup")}
+        goSignup={() => setAuthPage('signup')}
       />
     ) : (
-      <Signup goLogin={() => setAuthPage("login")} />
+      <Signup goLogin={() => setAuthPage('login')} />
     );
   }
 
@@ -218,13 +228,13 @@ export default function App() {
           setCurrentUser={setCurrentUser}
           setActiveTeamId={setActiveTeamId}
           setIsTeamAuthorized={setIsTeamAuthorized}
-          setIsCreateTeamModalOpen={() => setActiveModal("createTeam")}
-          setIsTeamAuthModalOpen={() => setActiveModal("auth")}
+          setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
+          setIsTeamAuthModalOpen={() => setActiveModal('auth')}
         />
 
         {/* 로비 전용 모달 시스템 */}
         <Modal
-          isOpen={activeModal === "createTeam"}
+          isOpen={activeModal === 'createTeam'}
           onClose={() => setActiveModal(null)}
           title="새 프로젝트 개설"
         >
@@ -252,7 +262,7 @@ export default function App() {
         </Modal>
 
         <Modal
-          isOpen={activeModal === "auth"}
+          isOpen={activeModal === 'auth'}
           onClose={() => {
             setActiveModal(null);
             setActiveTeamId(null);
@@ -305,40 +315,46 @@ export default function App() {
         <Header
           view={view}
           activeTeam={activeTeam!}
-          setIsCreateModalOpen={() => setActiveModal("create")}
+          setIsCreateModalOpen={() => setActiveModal('create')}
         />
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {view === "dashboard" && (
+          {view === 'dashboard' && (
             <Dashboard
               activeTeam={teams.find((t) => t.id === activeTeamId)!}
-              setIsCreateModalOpen={() => setActiveModal("create")}
+              setIsCreateModalOpen={() => setActiveModal('create')}
               setSelectedTicketId={setSelectedTicketId}
               updateTicketStatus={updateTicketStatus}
             />
           )}
 
-          {view === "members" && (
+          {view === 'members' && (
             <Members
               activeTeam={activeTeam!}
-              updatePosition={() => setActiveModal("position")}
+              updatePosition={() => setActiveModal('position')}
             />
           )}
 
-          {view === "archive" && (
+          {view === 'archive' && (
             <Archive
               activeTeam={activeTeam!}
-              setIsLinkModalOpen={() => setActiveModal("link")}
-              setIsNoteModalOpen={() => setActiveModal("note")}
-              setSelectedNote={setSelectedNote}
+              setIsLinkModalOpen={() => setActiveModal('link')}
+              setIsDocModalOpen={() => setActiveModal('document')}
+              setIsNoteModalOpen={() => setActiveModal('note')}
+              setIsDeleteLinkModalOpen={(link: TeamLink) => {
+                setActiveModal('deleteLinks');
+                setLinkIdToDelete(link);
+              }}
+              setSelectedNote={(note) => setSelectedNote(note)}
+              updateSelectedNote={() => setActiveModal('updateNote')}
             />
           )}
         </div>
       </main>
 
-      {/* --- 메인 앱 모달 시스템 --- */}    
+      {/* --- 메인 앱 모달 시스템 --- */}
       <Modal
-        isOpen={activeModal === "create"}
+        isOpen={activeModal === 'create'}
         onClose={() => setActiveModal(null)}
         title="새로운 업무 요청"
       >
@@ -379,7 +395,7 @@ export default function App() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === "note"}
+        isOpen={activeModal === 'note'}
         onClose={() => setActiveModal(null)}
         title="회의록 기록"
       >
@@ -407,7 +423,7 @@ export default function App() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === "link"}
+        isOpen={activeModal === 'link'}
         onClose={() => setActiveModal(null)}
         title="공유 링크 추가"
       >
@@ -425,14 +441,7 @@ export default function App() {
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
             placeholder="https://..."
           />
-          <select
-            name="type"
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
-          >
-            <option value="planning">기획</option>
-            <option value="dev">개발</option>
-            <option value="design">디자인</option>
-          </select>
+
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
@@ -443,7 +452,36 @@ export default function App() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === "position"}
+        isOpen={activeModal === 'document'}
+        onClose={() => setActiveModal(null)}
+        title="문서 링크 추가"
+      >
+        <form onSubmit={createLink} className="space-y-6">
+          <input
+            name="title"
+            required
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            placeholder="문서 이름"
+          />
+          <input
+            name="url"
+            type="url"
+            required
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
+            placeholder="파일 업로드 os 기본 라이브러리로 교체 예정"
+          />
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
+          >
+            등록하기
+          </button>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'position'}
         onClose={() => setActiveModal(null)}
         title="내 포지션 수정"
       >
@@ -461,7 +499,53 @@ export default function App() {
           </button>
         </form>
       </Modal>
-      
+
+      <Modal
+        isOpen={activeModal === 'updateNote'}
+        onClose={() => setActiveModal(null)}
+        title="회의록 수정"
+      >
+        <form onSubmit={createNote} className="space-y-6">
+          <input
+            name="title"
+            required
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            placeholder="기존에 기록된 회의 주제 데이터 뿌리기"
+          />
+          <textarea
+            name="content"
+            required
+            rows={8}
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            placeholder="기존에 기록된 회의 내용 뿌리기"
+          />
+          <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
+            수정하기
+          </button>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={activeModal === 'deleteLinks'}
+        onClose={() => setActiveModal(null)}
+        title={`${deletedLink?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
+      >
+        <div className="flex justify-between items-center gap-2">
+          <button
+            className=" bg-red-600 w-full hover:bg-red-700 text-white px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
+            onClick={() => console.log('링크 삭제 api호출하고 팝업 닫기')}
+          >
+            삭제하기
+          </button>
+          <button
+            className=" bg-slate-600 w-full hover:bg-slate-700 text-white py-3 rounded-2xl font-black shadow-lg cursor-pointer "
+            onClick={() => setActiveModal(null)}
+          >
+            취소
+          </button>
+        </div>
+      </Modal>
+
       {/* 상세 페이지/모달 */}
       {selectedTicket && currentUser && (
         <TicketDetail
@@ -475,7 +559,7 @@ export default function App() {
             const formData = new FormData(e.currentTarget);
             handleAddComment(
               selectedTicket.id,
-              formData.get("comment") as string
+              formData.get('comment') as string,
             );
             e.currentTarget.reset();
           }}
@@ -494,12 +578,20 @@ export default function App() {
               {selectedNote.content}
             </p>
           </div>
-          <button
-            onClick={() => setSelectedNote(null)}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold"
-          >
-            확인 완료
-          </button>
+          <div className="flex justify-between">
+            <button
+              onClick={() => console.log('회의록 수정 api호출하고 팝업 닫기')}
+              className=" px-4 py-4  bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer "
+            >
+              회의록 수정
+            </button>
+            <button
+              onClick={() => setSelectedNote(null)}
+              className=" px-4 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold cursor-pointer "
+            >
+              확인 완료
+            </button>
+          </div>
         </Modal>
       )}
     </div>
