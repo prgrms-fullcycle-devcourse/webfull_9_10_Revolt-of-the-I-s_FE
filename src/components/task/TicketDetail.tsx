@@ -35,14 +35,23 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
               #{activeTeam.tickets.indexOf(ticket) + 1}
             </div>
             <div className="min-w-0">
-              <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">{ticket.title}</h3>
+              <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">
+                {ticket.title}
+              </h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">STATUS:</span>
-                <span className="text-[10px] font-black text-blue-600 uppercase">{ticket.status}</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  STATUS:
+                </span>
+                <span className="text-[10px] font-black text-blue-600 uppercase">
+                  {ticket.status}
+                </span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all shrink-0">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all shrink-0"
+          >
             <X size={28} />
           </button>
         </header>
@@ -54,20 +63,25 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 mb-6">
               <Clock size={12} /> {ticket.createdAt} 발행
             </div>
-            <div className="text-sm text-slate-600 leading-relaxed mb-8">{ticket.content}</div>
+            <div className="text-sm text-slate-600 leading-relaxed mb-8">
+              {ticket.content}
+            </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-center gap-8">
               <div className="text-center">
-                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">REQUESTER</p>
+                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">
+                  REQUESTER
+                </p>
                 <p className="font-black text-slate-800">{ticket.requester}</p>
               </div>
               <ArrowRight size={20} className="text-slate-200 shrink-0" />
               <div className="text-center">
-                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">WORKER</p>
+                <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">
+                  WORKER
+                </p>
                 <p className="font-black text-blue-600">{ticket.worker}</p>
               </div>
             </div>
           </div>
-          
 
           {/* 댓글 섹션 */}
           <div className="space-y-6"> {/* 간격을 조금 더 넓혔어요 */}
@@ -109,13 +123,19 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
             <div ref={messagesEndRef} />
           </div>
         </div>
-        </div>
-        
+
         {/* 푸터 섹션: 댓글 입력 폼 */}
         <div className="p-8 border-t border-slate-100 bg-white shrink-0">
           <form onSubmit={addComment} className="relative">
-            <input name="comment" className="w-full bg-slate-100 border-none rounded-2xl px-6 py-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 pr-12" placeholder="피드백이나 질문을 남겨주세요..." />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all">
+            <input
+              name="comment"
+              className="w-full bg-slate-100 border-none rounded-2xl px-6 py-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 pr-12"
+              placeholder="피드백이나 질문을 남겨주세요..."
+            />
+            <button
+              type="submit"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+            >
               <Send size={20} />
             </button>
           </form>
