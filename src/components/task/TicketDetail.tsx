@@ -121,6 +121,7 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
 
             {/* 스크롤 하단 이동 지점 */}
             <div ref={messagesEndRef} />
+            </div>
           </div>
         </div>
 
