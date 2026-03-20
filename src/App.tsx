@@ -1,7 +1,5 @@
-
-import { useRef, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-
+import { useRef, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -19,7 +17,13 @@ import { Modal } from './components/ui/Modal';
 
 // 훅 및 타입
 import { useTeams } from './hooks/useTeams';
-import type { CurrentUser, Note, Team, TeamLink } from './types';
+import {
+  type Member,
+  type CurrentUser,
+  type Note,
+  type Team,
+  type TeamLink,
+} from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -58,11 +62,12 @@ export default function App() {
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
-  const [deletedLink, setLinkIdToDelete] = useState<TeamLink>();
+  const [deletedLink, setLinkIdToDelete] = useState<TeamLink | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   // 보안 인증 입력 상태
-  const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(""));
-  const [authError, setAuthError] = useState("");
+  const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
+  const [authError, setAuthError] = useState('');
   const authInputRef = useRef<HTMLInputElement | null>(null);
 
   // 보안 인증 입력 포커스 상태
@@ -75,7 +80,7 @@ export default function App() {
   const [showAuthPassword, setShowAuthPassword] = useState(false);
 
   // 6자리 모두 입력됐는지 확인
-  const isAuthPasswordComplete = authPassword.every((digit) => digit !== "");
+  const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
 
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
@@ -128,25 +133,25 @@ export default function App() {
   const handleCloseAuthModal = () => {
     setActiveModal(null);
     setActiveTeamId(null);
-    setAuthPassword(Array(6).fill(""));
-    setAuthError("");
+    setAuthPassword(Array(6).fill(''));
+    setAuthError('');
     setAuthCursorIndex(0);
     setShowAuthPassword(false);
   };
 
   // 보안 인증 붙여넣기 처리
   const handleAuthPasswordPaste = (
-    e: React.ClipboardEvent<HTMLInputElement>
+    e: React.ClipboardEvent<HTMLInputElement>,
   ) => {
     e.preventDefault();
 
     const onlyNumber = e.clipboardData
-      .getData("text")
-      .replace(/\D/g, "")
+      .getData('text')
+      .replace(/\D/g, '')
       .slice(0, 6);
 
-    const nextPassword = Array(6).fill("");
-    onlyNumber.split("").forEach((digit, index) => {
+    const nextPassword = Array(6).fill('');
+    onlyNumber.split('').forEach((digit, index) => {
       nextPassword[index] = digit;
     });
 
@@ -162,7 +167,7 @@ export default function App() {
     }
 
     if (authError) {
-      setAuthError("");
+      setAuthError('');
     }
   };
 
@@ -174,7 +179,7 @@ export default function App() {
   // 보안 인증 클릭한 칸으로 커서 이동
   const handleAuthBoxMouseDown = (
     e: React.MouseEvent<HTMLDivElement>,
-    index: number
+    index: number,
   ) => {
     e.preventDefault();
     authInputRef.current?.focus();
@@ -183,51 +188,51 @@ export default function App() {
 
   // 보안 인증 숫자/백스페이스 입력 처리
   const handleAuthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Tab") return;
+    if (e.key === 'Tab') return;
 
-    if (e.key === "Backspace") {
+    if (e.key === 'Backspace') {
       e.preventDefault();
 
       const nextPassword = [...authPassword];
 
       // 현재 칸에 값이 있으면 현재 칸만 지움
-      if (nextPassword[authCursorIndex] !== "") {
-        nextPassword[authCursorIndex] = "";
+      if (nextPassword[authCursorIndex] !== '') {
+        nextPassword[authCursorIndex] = '';
         setAuthPassword(nextPassword);
       }
       // 현재 칸이 비어있으면 앞 칸만 지움
       else if (authCursorIndex > 0) {
-        nextPassword[authCursorIndex - 1] = "";
+        nextPassword[authCursorIndex - 1] = '';
         setAuthPassword(nextPassword);
         setAuthCursorIndex(authCursorIndex - 1);
       }
 
       if (authError) {
-        setAuthError("");
+        setAuthError('');
       }
       return;
     }
 
-    if (e.key === "Delete") {
+    if (e.key === 'Delete') {
       e.preventDefault();
 
       const nextPassword = [...authPassword];
-      nextPassword[authCursorIndex] = "";
+      nextPassword[authCursorIndex] = '';
       setAuthPassword(nextPassword);
 
       if (authError) {
-        setAuthError("");
+        setAuthError('');
       }
       return;
     }
 
-    if (e.key === "ArrowLeft") {
+    if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
       return;
     }
 
-    if (e.key === "ArrowRight") {
+    if (e.key === 'ArrowRight') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
       return;
@@ -252,7 +257,7 @@ export default function App() {
     }
 
     if (authError) {
-      setAuthError("");
+      setAuthError('');
     }
   };
 
@@ -262,10 +267,14 @@ export default function App() {
 
     const team = teams.find((t) => t.id === activeTeamId);
 
-    const authPasswordValue = authPassword.join("");
+    const authPasswordValue = authPassword.join('');
 
-    if (!team || !isAuthPasswordComplete || authPasswordValue !== team.password) {
-      setAuthError("비밀번호가 일치하지 않습니다.");
+    if (
+      !team ||
+      !isAuthPasswordComplete ||
+      authPasswordValue !== team.password
+    ) {
+      setAuthError('비밀번호가 일치하지 않습니다.');
 
       return;
     }
@@ -297,12 +306,11 @@ export default function App() {
     setIsTeamAuthorized(true);
     setActiveModal(null);
 
-    setAuthPassword(Array(6).fill(""));
-    setAuthError("");
+    setAuthPassword(Array(6).fill(''));
+    setAuthError('');
     setAuthCursorIndex(0);
     setShowAuthPassword(false);
-    addLog(0, currentUser!.name, "공간 입장", "info");
-
+    addLog(0, currentUser!.name, '공간 입장', 'info');
   };
 
   const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
@@ -351,6 +359,13 @@ export default function App() {
     setActiveModal(null);
   };
 
+  // 회의록 수정
+  const updateNote = (e: React.FormEvent<HTMLFormElement>) => {
+    // 기능 개발 추후
+    e.preventDefault();
+    console.log('회의록을 수정합니다.');
+  };
+
   const createLink = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -373,34 +388,43 @@ export default function App() {
   const handleLeaveTeam = (teamId: string | number | null) => {
     if (!teamId) return;
 
-    if (!window.confirm("정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.")) return;
+    if (
+      !window.confirm(
+        '정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.',
+      )
+    )
+      return;
 
-    console.log("탈퇴 시작 - 팀 ID:", teamId); // 디버깅용 로그
+    console.log('탈퇴 시작 - 팀 ID:', teamId); // 디버깅용 로그
 
     // 전체 팀 목록에서 해당 팀의 '참여 상태'만 업데이트
     // (참여 중인 팀 목록은 보통 t.isJoined === true 인 것들만 필터링해서 보여주고 계실 거예요)
-    setTeams(prevTeams => 
-      prevTeams.map((t) => 
+    setTeams((prevTeams) =>
+      prevTeams.map((t) =>
         // t.id와 teamId의 타입을 강제로 맞춰서 비교합니다.
-        String(t.id) === String(teamId) 
-          ? { ...t, isJoined: false } 
-          : t
-      )
+        String(t.id) === String(teamId) ? { ...t, isJoined: false } : t,
+      ),
     );
 
     // 현재 활성화된 팀일 경우 로비로 튕겨내기
     if (String(activeTeamId) === String(teamId)) {
-      console.log("로비로 이동 중...");
+      console.log('로비로 이동 중...');
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
       // 뷰를 대시보드나 로비로 전환 (필요시 추가)
-      setView('dashboard'); 
+      setView('dashboard');
     }
 
     // 알림창은 모든 처리가 끝난 후 띄우기
     setTimeout(() => {
-      alert("팀 탈퇴가 완료되었습니다.");
+      alert('팀 탈퇴가 완료되었습니다.');
     }, 100);
+  };
+
+  // 포지션 수정
+  const updatePosition = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log('포지션을 수정합니다');
   };
 
   // --- 조건부 렌더링 (Auth & Lobby) --
@@ -430,12 +454,10 @@ export default function App() {
 
         {/* 로비 전용 모달 시스템 */}
         <Modal
-
-          isOpen={activeModal === "createTeam"}
+          isOpen={activeModal === 'createTeam'}
           onClose={handleCloseCreateTeamModal}
           title="새 팀 개설"
           maxWidth="max-w-md"
-
         >
           <form onSubmit={handleCreateTeam} className="space-y-4">
             {/* 팀 이름 입력 */}
@@ -477,10 +499,8 @@ export default function App() {
         </Modal>
 
         <Modal
-
-          isOpen={activeModal === "auth"}
+          isOpen={activeModal === 'auth'}
           onClose={handleCloseAuthModal}
-
           title="보안 인증"
           maxWidth="max-w-md"
         >
@@ -541,7 +561,7 @@ export default function App() {
                       {authPassword[index] ? (
                         <div className="flex items-center gap-1">
                           <span>
-                            {showAuthPassword ? authPassword[index] : "•"}
+                            {showAuthPassword ? authPassword[index] : '•'}
                           </span>
                           {isCurrentCursor && (
                             <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
@@ -550,7 +570,7 @@ export default function App() {
                       ) : isCurrentCursor ? (
                         <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
                       ) : (
-                        ""
+                        ''
                       )}
                     </div>
                   );
@@ -563,8 +583,8 @@ export default function App() {
                 disabled={!isAuthPasswordComplete}
                 className={`w-full font-black py-4 rounded-2xl shadow-lg transition-all ${
                   isAuthPasswordComplete
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}
               >
                 인증 및 입장
@@ -597,7 +617,7 @@ export default function App() {
         setActiveTeamId={setActiveTeamId}
         setTeams={setTeams}
         addLog={addLog}
-        onLeaveTeam = {handleLeaveTeam}
+        onLeaveTeam={handleLeaveTeam}
       />
 
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -620,7 +640,10 @@ export default function App() {
           {view === 'members' && (
             <Members
               activeTeam={activeTeam!}
-              updatePosition={() => setActiveModal('position')}
+              updatePosition={(member: Member) => {
+                setActiveModal('position');
+                setSelectedMember(member);
+              }}
             />
           )}
 
@@ -635,7 +658,6 @@ export default function App() {
                 setLinkIdToDelete(link);
               }}
               setSelectedNote={(note) => setSelectedNote(note)}
-              updateSelectedNote={() => setActiveModal('updateNote')}
             />
           )}
         </div>
@@ -693,20 +715,20 @@ export default function App() {
             name="title"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
-            placeholder="회의 주제"
+            placeholder="회의 제목"
           />
           <textarea
             name="content"
             required
             rows={8}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
-            placeholder="결정 사항을 기록하세요"
+            placeholder="내용 입력"
           />
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
           >
-            저장하기
+            기록하기
           </button>
         </form>
       </Modal>
@@ -774,42 +796,22 @@ export default function App() {
         onClose={() => setActiveModal(null)}
         title="내 포지션 수정"
       >
-        <form className="space-y-6">
+        <form
+          className="space-y-6"
+          onSubmit={(e) => {
+            updatePosition(e);
+          }}
+        >
           <input
             name="title"
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="팀원"
+            defaultValue={selectedMember?.position}
           />
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
           >
-            수정하기
-          </button>
-        </form>
-      </Modal>
-
-
-      <Modal
-        isOpen={activeModal === 'updateNote'}
-        onClose={() => setActiveModal(null)}
-        title="회의록 수정"
-      >
-        <form onSubmit={createNote} className="space-y-6">
-          <input
-            name="title"
-            required
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
-            placeholder="기존에 기록된 회의 주제 데이터 뿌리기"
-          />
-          <textarea
-            name="content"
-            required
-            rows={8}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
-            placeholder="기존에 기록된 회의 내용 뿌리기"
-          />
-          <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
             수정하기
           </button>
         </form>
@@ -868,7 +870,7 @@ export default function App() {
           </div>
           <div className="flex justify-between">
             <button
-              onClick={() => console.log('회의록 수정 api호출하고 팝업 닫기')}
+              onClick={() => setActiveModal('updateNote')}
               className=" px-4 py-4  bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer "
             >
               회의록 수정
@@ -882,6 +884,38 @@ export default function App() {
           </div>
         </Modal>
       )}
+
+      <Modal
+        isOpen={activeModal === 'updateNote'}
+        onClose={() => setActiveModal(null)}
+        title="회의록 수정"
+      >
+        <form
+          onSubmit={(e) => {
+            updateNote(e);
+          }}
+          className="space-y-6"
+        >
+          <input
+            name="title"
+            required
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            placeholder="회의 제목"
+            defaultValue={selectedNote?.title}
+          />
+          <textarea
+            name="content"
+            required
+            rows={8}
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            placeholder="내용 입력"
+            defaultValue={selectedNote?.content}
+          />
+          <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
+            수정하기
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
