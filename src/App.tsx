@@ -59,11 +59,27 @@ export default function App() {
     | null
   >(null);
 
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
-  const [deletedLink, setLinkIdToDelete] = useState<TeamLink | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const selectedTicket =
+    activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
+
+  // 회의록 상태
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [note, setNote] = useState({ title: '', content: '' });
+  const isNoteValid = note.title.length > 0 && note.content.length > 0;
+
+  // 포지션 수정 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [position, setPosition] = useState({ title: '' });
+  const isPositionValid = position.title.length > 0;
+
+  // 링크, 문서 관련 상태
+  const [linkDoc, setLinkDoc] = useState({ title: '', url: '' });
+  const isLinkDocValid = linkDoc.title.length > 0 && linkDoc.url.length > 0;
+  const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
+    null,
+  );
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -81,9 +97,6 @@ export default function App() {
 
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
-
-  const selectedTicket =
-    activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
@@ -363,7 +376,10 @@ export default function App() {
   const updateNote = (e: React.FormEvent<HTMLFormElement>) => {
     // 기능 개발 추후
     e.preventDefault();
-    console.log('회의록을 수정합니다.');
+    console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
+    // 회의록 수정 api 호출
+    // setSelectedNote 실행하여 selectedNote 상태값 반영
+    // 모달 닫기
   };
 
   const createLink = (e: React.FormEvent<HTMLFormElement>) => {
@@ -383,6 +399,14 @@ export default function App() {
       ),
     );
     setActiveModal(null);
+  };
+
+  const deleteLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log(`${selectedLinkToDelete?.id}의 링크를 삭제합니다.`);
+    // 삭제 api 호출
+    // 성공, 실패 시 분기 처리
+    // 성공 시 filter로 ui 제거 후 상태값 변경
   };
 
   const handleLeaveTeam = (teamId: string | number | null) => {
@@ -424,7 +448,7 @@ export default function App() {
   // 포지션 수정
   const updatePosition = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log('포지션을 수정합니다');
+    console.log(`${selectedMember?.position}을 수정합니다.`);
   };
 
   // --- 조건부 렌더링 (Auth & Lobby) --
@@ -640,6 +664,7 @@ export default function App() {
           {view === 'members' && (
             <Members
               activeTeam={activeTeam!}
+              currentUser={currentUser}
               updatePosition={(member: Member) => {
                 setActiveModal('position');
                 setSelectedMember(member);
@@ -655,7 +680,7 @@ export default function App() {
               setIsNoteModalOpen={() => setActiveModal('note')}
               setIsDeleteLinkModalOpen={(link: TeamLink) => {
                 setActiveModal('deleteLinks');
-                setLinkIdToDelete(link);
+                setLinkToDelete(link);
               }}
               setSelectedNote={(note) => setSelectedNote(note)}
             />
@@ -707,18 +732,27 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'note'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+          setNote({ title: '', content: '' });
+        }}
         title="회의록 기록"
       >
         <form onSubmit={createNote} className="space-y-6">
           <input
             name="title"
+            onChange={(e) => {
+              setNote({ ...note, title: e.target.value });
+            }}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
           />
           <textarea
             name="content"
+            onChange={(e) => {
+              setNote({ ...note, content: e.target.value });
+            }}
             required
             rows={8}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
@@ -726,7 +760,12 @@ export default function App() {
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
+            disabled={!isNoteValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg ${
+              isNoteValid
+                ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            }`}
           >
             기록하기
           </button>
@@ -735,18 +774,29 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'link'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+          setLinkDoc({ title: '', url: '' });
+        }}
         title="공유 링크 추가"
       >
         <form onSubmit={createLink} className="space-y-6">
           <input
             name="title"
+            onChange={(e) => {
+              setLinkDoc({ ...linkDoc, title: e.target.value });
+              console.log(linkDoc);
+              console.log(isLinkDocValid);
+            }}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="사이트 이름"
           />
           <input
             name="url"
+            onChange={(e) => {
+              setLinkDoc({ ...linkDoc, url: e.target.value });
+            }}
             type="url"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
@@ -755,7 +805,12 @@ export default function App() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
+            disabled={!isLinkDocValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
+              isLinkDocValid
+                ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            }`}
           >
             등록하기
           </button>
@@ -764,19 +819,28 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'document'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+          setLinkDoc({ title: '', url: '' });
+        }}
         title="문서 링크 추가"
       >
         <form onSubmit={createLink} className="space-y-6">
           <input
             name="title"
             required
+            onChange={(e) => {
+              setLinkDoc({ ...linkDoc, title: e.target.value });
+            }}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="문서 이름"
           />
           <input
             name="url"
             type="url"
+            onChange={(e) => {
+              setLinkDoc({ ...linkDoc, url: e.target.value });
+            }}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
             placeholder="파일 업로드 os 기본 라이브러리로 교체 예정"
@@ -784,7 +848,12 @@ export default function App() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
+            disabled={!isLinkDocValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
+              isLinkDocValid
+                ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            }`}
           >
             등록하기
           </button>
@@ -807,10 +876,18 @@ export default function App() {
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="팀원"
             defaultValue={selectedMember?.position}
+            onChange={(e) => {
+              setPosition({ ...position, title: e.target.value });
+            }}
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg"
+            disabled={!isPositionValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
+              isPositionValid
+                ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            }`}
           >
             수정하기
           </button>
@@ -820,12 +897,12 @@ export default function App() {
       <Modal
         isOpen={activeModal === 'deleteLinks'}
         onClose={() => setActiveModal(null)}
-        title={`${deletedLink?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
+        title={`${selectedLinkToDelete?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
       >
         <div className="flex justify-between items-center gap-2">
           <button
-            className=" bg-red-600 w-full hover:bg-red-700 text-white px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
-            onClick={() => console.log('링크 삭제 api호출하고 팝업 닫기')}
+            className=" bg-red-100 w-full hover:bg-red-200 text-red-500 px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
+            onClick={(e) => deleteLink(e)}
           >
             삭제하기
           </button>
