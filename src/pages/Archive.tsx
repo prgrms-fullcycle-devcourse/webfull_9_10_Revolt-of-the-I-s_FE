@@ -15,7 +15,6 @@ interface ArchiveProps {
   setIsNoteModalOpen: (open: boolean) => void; // 회의록 추가 모달 제어 함수
   setIsDeleteLinkModalOpen: (open: TeamLink) => void; // 링크 삭제 모달 호출 함수
   setSelectedNote: (note: Note) => void; // 특정 회의록 클릭 시 상세보기 모달 호출 함수
-  updateSelectedNote: (open: boolean) => void; // 특정 회의록 의 수정 클릭 시 수정 팝업 호출 함수
 }
 
 export const Archive = ({
@@ -25,7 +24,6 @@ export const Archive = ({
   setIsNoteModalOpen,
   setIsDeleteLinkModalOpen,
   setSelectedNote,
-  updateSelectedNote,
 }: ArchiveProps) => {
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto py-4">
@@ -136,12 +134,6 @@ export const Archive = ({
             className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95 text-sm shrink-0 cursor-pointer"
           >
             <Plus size={18} /> 회의록 작성
-          </button>
-          <button
-            onClick={() => updateSelectedNote(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-100 transition-all active:scale-95 text-sm shrink-0 cursor-pointer"
-          >
-            <Plus size={18} /> 임시 버튼
           </button>
         </div>
 
