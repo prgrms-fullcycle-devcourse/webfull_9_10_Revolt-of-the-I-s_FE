@@ -967,6 +967,9 @@ export default function App() {
             );
             e.currentTarget.reset();
           }}
+          setTeams={setTeams}
+          activeTeamId={activeTeamId}
+          addLog={addLog}
         />
       )}
 
