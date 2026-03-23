@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Search, PlusCircle, LogOut, Users, X } from "lucide-react";
+import { Search, PlusCircle, LogOut, Users, X, DoorOpen } from "lucide-react";
 import type React from "react";
 import type { Team, CurrentUser } from "../types";
 
@@ -72,14 +72,28 @@ export const Lobby = ({
         setActiveTeamId(team.id); // 클릭한 팀 ID 저장
         setIsTeamAuthModalOpen(); // 인증 모달(비밀번호 입력) 호출
       }}
-      className="w-full max-w-[320px] rounded-[28px] bg-white px-6 py-6 shadow-sm border border-slate-100 cursor-pointer transition-all hover:shadow-md"
+      className="relative w-full max-w-[320px] rounded-[28px] bg-white px-6 py-6 shadow-sm border border-slate-100 cursor-pointer transition-all hover:shadow-md"
     >
+      {/* 참여 중인 팀만 우측 상단에 탈퇴 버튼 노출 */}
+      {isMyTeam && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation(); // 카드 클릭 이벤트 방지
+            handleLeaveTeam(team);
+          }}
+          className="absolute top-5 right-5 text-slate-400 hover:text-red-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 transition-all"
+        >
+          팀 탈퇴 <DoorOpen size={12} />
+        </button>
+      )}
+
       <div className="flex items-start gap-4 mb-5">
         <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl">
           🏢
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pr-16">
           <h3 className="truncate text-lg font-black text-slate-900">
             {team.name}
           </h3>
@@ -107,20 +121,6 @@ export const Lobby = ({
             스페이스 입장
           </span>
         </div>
-
-        {/* 참여 중인 팀만 탈퇴 버튼 노출 */}
-        {isMyTeam && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation(); // 카드 클릭 이벤트 방지
-              handleLeaveTeam(team);
-            }}
-            className="w-full rounded-2xl border border-red-200 bg-red-50 py-2.5 text-xs font-black tracking-widest text-red-500 hover:bg-red-500 hover:text-white transition-colors"
-          >
-            팀 탈퇴
-          </button>
-        )}
       </div>
     </div>
   );
