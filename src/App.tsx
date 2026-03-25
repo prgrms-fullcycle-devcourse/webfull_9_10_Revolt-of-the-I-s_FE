@@ -71,15 +71,23 @@ export default function App() {
 
   // 포지션 수정 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [position, setPosition] = useState({ title: '' });
+  const [position, setPosition] = useState<{ title: string }>({ title: '' });
   const isPositionValid = position.title.length > 0;
 
   // 링크, 문서 관련 상태
-  const [linkDoc, setLinkDoc] = useState({ title: '', url: '' });
-  const isLinkDocValid = linkDoc.title.length > 0 && linkDoc.url.length > 0;
+  const [linkData, setLinkData] = useState<{ title: string; url: string }>({
+    title: '',
+    url: '',
+  });
+  const isLinkValid = linkData.title.length > 0 && linkData.url.length > 0;
   const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
     null,
   );
+  const [docData, setDocData] = useState<{ title: string; file: File | null }>({
+    title: '',
+    file: null,
+  });
+  const isDocValid = docData.title.length > 0 && docData.file;
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -717,7 +725,7 @@ export default function App() {
                 name="worker"
                 className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-[16px] text-slate-600 cursor-pointer appearance-none transition-all"
               >
-              <option value="">담당자 선택</option>
+                <option value="">담당자 선택</option>
                 {activeTeam?.members.map((m) => (
                   <option key={m.name} value={m.name}>
                     {m.name}
@@ -727,12 +735,23 @@ export default function App() {
 
               {/* 화살표 커스텀 */}
               <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2.5 4.5L6 8L9.5 4.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
             </div>
-            
           </div>
           {/* 상세 내용 영역 */}
           <div className="space-y-1.5">
@@ -813,7 +832,7 @@ export default function App() {
         isOpen={activeModal === 'link'}
         onClose={() => {
           setActiveModal(null);
-          setLinkDoc({ title: '', url: '' });
+          setLinkData({ title: '', url: '' });
         }}
         title="공유 링크 추가"
       >
@@ -821,9 +840,9 @@ export default function App() {
           <input
             name="title"
             onChange={(e) => {
-              setLinkDoc({ ...linkDoc, title: e.target.value });
-              console.log(linkDoc);
-              console.log(isLinkDocValid);
+              setLinkData({ ...linkData, title: e.target.value });
+              console.log(linkData);
+              console.log(isLinkValid);
             }}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -832,7 +851,7 @@ export default function App() {
           <input
             name="url"
             onChange={(e) => {
-              setLinkDoc({ ...linkDoc, url: e.target.value });
+              setLinkData({ ...linkData, url: e.target.value });
             }}
             type="url"
             required
@@ -842,9 +861,9 @@ export default function App() {
 
           <button
             type="submit"
-            disabled={!isLinkDocValid}
+            disabled={!isLinkValid}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isLinkDocValid
+              isLinkValid
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -858,7 +877,7 @@ export default function App() {
         isOpen={activeModal === 'document'}
         onClose={() => {
           setActiveModal(null);
-          setLinkDoc({ title: '', url: '' });
+          setDocData({ title: '', file: null });
         }}
         title="문서 링크 추가"
       >
@@ -867,27 +886,27 @@ export default function App() {
             name="title"
             required
             onChange={(e) => {
-              setLinkDoc({ ...linkDoc, title: e.target.value });
+              setDocData({ ...docData, title: e.target.value });
             }}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="문서 이름"
           />
           <input
-            name="url"
-            type="url"
-            onChange={(e) => {
-              setLinkDoc({ ...linkDoc, url: e.target.value });
-            }}
+            name="file"
+            type="file"
+            accept=".pdf"
             required
+            onChange={(e) => {
+              setDocData({ ...docData, title: e.target.value });
+            }}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
-            placeholder="파일 업로드 os 기본 라이브러리로 교체 예정"
           />
 
           <button
             type="submit"
-            disabled={!isLinkDocValid}
+            disabled={!isDocValid}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isLinkDocValid
+              isDocValid
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
