@@ -87,7 +87,7 @@ export default function App() {
     title: '',
     file: null,
   });
-  const isDocValid = docData.title.length > 0 && docData.file;
+  const isDocValid = docData.title.length > 0 && docData.file !== null;
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -841,8 +841,6 @@ export default function App() {
             name="title"
             onChange={(e) => {
               setLinkData({ ...linkData, title: e.target.value });
-              console.log(linkData);
-              console.log(isLinkValid);
             }}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -885,7 +883,7 @@ export default function App() {
           <input
             name="title"
             required
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               setDocData({ ...docData, title: e.target.value });
             }}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
@@ -896,8 +894,9 @@ export default function App() {
             type="file"
             accept=".pdf"
             required
-            onChange={(e) => {
-              setDocData({ ...docData, title: e.target.value });
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0] || null;
+              setDocData({ ...docData, file: file });
             }}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
           />
