@@ -1,63 +1,77 @@
-/**
- * [API] 사용자 인증 및 세션 관리
- * @description 로그인, 회원가입, 토큰 검증 등 인증 관련 백엔드 통신을 전담합니다.
- * TODO: 백엔드 API 명세서 수령 후 엔드포인트 및 DTO 정의 필요
- */
-
-
 import { api } from './client'
 
+// 로그인 요청 body 타입
 export interface LoginRequest {
   email: string
   password: string
 }
 
+// 회원가입 요청 body 타입
 export interface SignupRequest {
-  name: string
-  phone: string
   email: string
   password: string
-  github?: string 
-}
-
-export interface AuthUser {
   name: string
-  email: string
-  position: string
-  github: string
-  avatar: string
+  phone: string
+  github_url?: string
 }
 
-const USE_MOCK = true
+// 회원가입 성공/실패 응답 타입
+export interface SignupResponse {
+  success: boolean
+  data: {
+    uuid: string
+  } | null
+  meta: null
+  error: string | null
+}
 
-export const loginApi = async (data: LoginRequest): Promise<AuthUser> => {
-  if (USE_MOCK) {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    return {
-      name: data.email.split('@')[0],
-      email: data.email,
-      position: '',
-      github: '',
-      avatar: '',
-    }
-  }
+// 로그인 성공 시 내려오는 유저 정보 타입
+export interface LoginUser {
+  uuid: string
+  name: string
+  profile_image: string | null
+}
 
+// 로그인 성공/실패 응답 타입
+export interface LoginResponse {
+  success: boolean
+  data: {
+    token: string
+    user: LoginUser
+    meta: null
+  } | null
+  error: string | null
+}
+
+// 로그아웃 성공/실패 응답 타입
+export interface LogoutResponse {
+  success: boolean
+  data: {
+    message: string
+  } | null
+  meta?: null
+  error: string | null
+}
+
+// 회원가입 API 호출
+export const signupApi = async (
+  data: SignupRequest
+): Promise<SignupResponse> => {
+  const res = await api.post('/auth/signup', data)
+  return res.data
+}
+
+// 로그인 API 호출
+export const loginApi = async (
+  data: LoginRequest
+): Promise<LoginResponse> => {
   const res = await api.post('/auth/login', data)
   return res.data
 }
 
-export const signupApi = async (data: SignupRequest): Promise<AuthUser> => {
-  if (USE_MOCK) {
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    return {
-      name: data.name,
-      email: data.email,
-      position: '',
-      github: '',
-      avatar: '',
-    }
-  }
 
-  const res = await api.post('/auth/signup', data)
+// 로그아웃 API 호출
+export const logoutApi = async (): Promise<LogoutResponse> => {
+  const res = await api.post('/auth/logout')
   return res.data
 }

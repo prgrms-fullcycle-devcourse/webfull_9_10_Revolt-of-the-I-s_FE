@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { AtSign, Lock, LogIn, ChevronRight } from 'lucide-react'
 import { loginApi } from '../api/auth'
 import type { CurrentUser } from '../types'
-import { AVATARS } from '../utils/constants'
+import axios from 'axios'
 
 // Props 타입 정의: 로그인 성공 시 유저 정보를 저장할 함수와 회원가입 이동 함수
 interface LoginProps {
@@ -23,14 +23,35 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
   // --- [3] 데이터 통신 (API Mutation) ---
   const loginMutation = useMutation({
     mutationFn: loginApi, // api/auth.ts에 정의된 로그인 호출 함수
-    onSuccess: (user) => {
-      // 로그인 성공 시: 유저 데이터에 랜덤 아바타를 추가하여 앱 전체 상태에 저장
+
+    // 로그인 성공
+    onSuccess: (data) => {
+      // success가 false이거나 data가 없으면 실패 처리
+      if (!data.success || !data.data) {
+        alert(data.error || '로그인에 실패했습니다.')
+        return
+      }
+
+      // 쿠키 방식이라 토큰은 localStorage에 저장하지 않음
+      // 브라우저가 Set-Cookie를 자동으로 저장하고 이후 요청에 함께 보냄
+
+      // App.tsx에서 쓰는 CurrentUser 구조로 맞춰서 저장
       setCurrentUser({
-        ...user,
-        avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)],
+        name: data.data.user.name,
+        email,
+        position: '',
+        github: '',
+        avatar: data.data.user.profile_image || '',
       })
     },
-    onError: () => {
+    // 로그인 실패
+    onError: (error) => {
+
+      // axios 에러인지 먼저 확인
+      if (axios.isAxiosError(error)) {
+        alert(error.response?.data?.error || '로그인에 실패했습니다.')
+        return
+      }
       // 로그인 실패 시 에러 알림
       alert('로그인에 실패했습니다.')
     },
