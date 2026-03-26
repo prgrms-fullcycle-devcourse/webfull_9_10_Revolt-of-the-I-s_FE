@@ -74,7 +74,7 @@ export const USER_ACTIVITIES: UserStatus[] = [
 export const INITIAL_TEAM: Team = {
   id: 'team_1',
   name: 'i들의 반란',
-  password: '123456',
+  password: '1234',
   members: [
     {
       name: '영아',

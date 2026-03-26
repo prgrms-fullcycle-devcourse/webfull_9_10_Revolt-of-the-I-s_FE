@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Trash2 } from 'lucide-react';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -66,7 +66,10 @@ export default function App() {
 
   // 회의록 상태
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [note, setNote] = useState({ title: '', content: '' });
+  const [note, setNote] = useState<{ title: string; content: string }>({
+    title: '',
+    content: '',
+  });
   const isNoteValid = note.title.length > 0 && note.content.length > 0;
 
   // 포지션 수정 관련 상태
@@ -88,6 +91,7 @@ export default function App() {
     file: null,
   });
   const isDocValid = docData.title.length > 0 && docData.file !== null;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -876,6 +880,7 @@ export default function App() {
         onClose={() => {
           setActiveModal(null);
           setDocData({ title: '', file: null });
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }}
         title="문서 링크 추가"
       >
@@ -883,23 +888,48 @@ export default function App() {
           <input
             name="title"
             required
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            onChange={(e) => {
               setDocData({ ...docData, title: e.target.value });
             }}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold "
             placeholder="문서 이름"
           />
           <input
             name="file"
+            id="file-upload"
             type="file"
             accept=".pdf"
+            ref={fileInputRef}
             required
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            onChange={(e) => {
               const file = e.target.files?.[0] || null;
               setDocData({ ...docData, file: file });
             }}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
+            className="hidden"
           />
+          {/* input file 커스텀 ui */}
+          {docData.file ? (
+            <div className="flex justify-between w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold">
+              <span>📄 {docData.file.name}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocData({ ...docData, file: null });
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="group cursor-pointer rounded-md"
+              >
+                <Trash2 className=" text-slate-500 group-hover:text-red-400" />
+              </button>
+            </div>
+          ) : (
+            <label
+              htmlFor="file-upload"
+              className="block w-full px-6 py-4 bg-slate-50 font-bold rounded-2xl hover:bg-slate-200 outline-none cursor-pointer"
+            >
+              <span className="">pdf 파일 첨부</span>
+            </label>
+          )}
 
           <button
             type="submit"
