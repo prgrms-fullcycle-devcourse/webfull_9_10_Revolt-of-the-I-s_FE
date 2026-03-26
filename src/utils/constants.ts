@@ -102,7 +102,8 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content:
+        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -125,7 +126,7 @@ export const INITIAL_TEAM: Team = {
           user: '민수',
           text: '알겠습니다. 오늘 오후 중으로 수정해서 배포해둘게요.',
           time: '2026.03.11 10:15',
-        }
+        },
       ],
     },
     {
@@ -182,5 +183,5 @@ export const INITIAL_TEAM: Team = {
     민수: { label: '회의 중', color: 'bg-blue-500' },
     지수: { label: '자리 비움', color: 'bg-slate-300' },
   },
-  isJoined: false
+  // isJoined: false,
 };
