@@ -10,7 +10,7 @@ interface SidebarProps {
   view: string; // 현재 화면 위치
   setView: (view: 'dashboard' | 'members' | 'archive') => void; // 화면 전환 함수
   setIsTeamAuthorized: (auth: boolean) => void; // 로비로 나가기 위한 인증 해제 함수
-  setCurrentUser: (user: CurrentUser | null) => void; // 로그아웃용
+  onLogout: () => void // App.tsx에서 내려준 공통 로그아웃 함수
   activeTeamId: string | null; 
   setActiveTeamId: (id: string | null) => void; // 팀 전환용
   setTeams: React.Dispatch<React.SetStateAction<Team[]>>; // 유저 상태 업데이트 함수
@@ -24,9 +24,9 @@ export const Sidebar = ({
   view, 
   setView, 
   setIsTeamAuthorized,
-  setCurrentUser,
+  onLogout,
   activeTeamId,
-  setActiveTeamId,
+  // setActiveTeamId,
   setTeams,
   addLog,
   onLeaveTeam
@@ -168,9 +168,8 @@ export const Sidebar = ({
               addLog(0, currentUser.name, `상태: ${act.label}`, 'info');
             }}
             onLogout={() => {
-              setCurrentUser(null);
-              setActiveTeamId(null);
-              setIsTeamAuthorized(false);
+              onLogout(); // App.tsx의 로그아웃 API + 상태 초기화 함수 실행
+              setIsStatusPickerOpen(false); // 팝업 닫기
             }}
             handleLeaveTeam={() => {
             // activeTeamId가 null일 수도 있으므로 안전하게 처리

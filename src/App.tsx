@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { logoutApi } from './api/auth';
 
 // 레이아웃 및 페이지
