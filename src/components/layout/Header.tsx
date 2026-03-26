@@ -58,7 +58,10 @@ export const Header = ({ view, activeTeam, setIsCreateModalOpen }: HeaderProps) 
         {/* 오른쪽: 액션 버튼 섹션 (대시보드에서만 새 업무 발행 가능) */}
         {view === 'dashboard' && (
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+                console.log("새 요청 버튼 클릭됨"); 
+                setIsCreateModalOpen(true);
+              }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2 shadow-md active:scale-95 transition-all"
           >
             <Plus size={18} /> 새 요청
