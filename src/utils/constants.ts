@@ -183,5 +183,5 @@ export const INITIAL_TEAM: Team = {
     민수: { label: '회의 중', color: 'bg-blue-500' },
     지수: { label: '자리 비움', color: 'bg-slate-300' },
   },
-  isJoined: false,
+  // isJoined: false,
 };
