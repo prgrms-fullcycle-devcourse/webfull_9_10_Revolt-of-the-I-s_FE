@@ -5,13 +5,13 @@
 
 import { useState } from "react";
 import { Search, PlusCircle, LogOut, Users, X, DoorOpen } from "lucide-react";
-import type React from "react";
+// import type React from "react";
 import type { Team, CurrentUser } from "../types";
 
 interface LobbyProps {
   teams: Team[]; // 전체 프로젝트(팀) 배열
   currentUser: CurrentUser; // 현재 접속한 사용자 정보
-  setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser | null>>; // 시스템 로그아웃 함수
+  onLogout: () => void; // App.tsx에서 내려준 공통 로그아웃 함수
   setActiveTeamId: (id: string) => void; // 클릭한 팀을 활성화하는 함수
   setIsTeamAuthorized: (auth: boolean) => void;
   setIsCreateTeamModalOpen: () => void; // 새 팀 만들기 모달 열기
@@ -21,7 +21,7 @@ interface LobbyProps {
 export const Lobby = ({
   teams,
   currentUser,
-  setCurrentUser,
+  onLogout, // 로그아웃 버튼 클릭 시 실행
   setActiveTeamId,
   setIsCreateTeamModalOpen,
   setIsTeamAuthModalOpen,
@@ -148,11 +148,11 @@ export const Lobby = ({
             </button>
           </div>
 
-          <button
-            onClick={() => setCurrentUser(null)}
-            className="text-slate-400 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all py-2.5"
+          <button // 직접 상태 변경 말고 App.tsx의 로그아웃 함수 호출
+             onClick={onLogout} 
+             className="text-slate-400 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all py-2.5"
           >
-            로그아웃 <LogOut size={14} />
+              로그아웃 <LogOut size={14} />
           </button>
         </header>
 

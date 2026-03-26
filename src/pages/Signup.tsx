@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { UserPlus, User, Phone, AtSign, Lock, Github, ChevronRight } from 'lucide-react'
 import { signupApi } from '../api/auth'
+import axios from 'axios'
 
 interface SignupProps {
   goLogin: () => void
@@ -43,11 +44,32 @@ export const Signup = ({ goLogin }: SignupProps) => {
 
   const signupMutation = useMutation({
     mutationFn: signupApi,
-    onSuccess: () => {
+
+    // 회원가입 성공
+    onSuccess: (data) => {
+
+      // success가 false면 서버에서 실패 응답을 준 경우
+      if (!data.success) {
+        setErrorMessage(data.error || '회원가입에 실패했습니다.')
+        return
+      }
+
       setErrorMessage('')
+      alert('회원가입이 완료되었습니다.')
       goLogin()
     },
-    onError: () => {
+
+    // 회원가입 실패
+    onError: (error) => {
+
+      // axios 에러인지 확인 후 서버 에러 문구 사용
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.error || '회원가입에 실패했습니다.'
+        )
+        return
+      }
+      // 그 외 에러
       setErrorMessage('회원가입에 실패했습니다.')
     },
   })
@@ -63,6 +85,7 @@ export const Signup = ({ goLogin }: SignupProps) => {
 
     setErrorMessage('')
 
+    // 서버 요청 형식에 맞게 하이픈 포함 전화번호로 변환
     const formattedPhone = `${onlyPhone.slice(0, 3)}-${onlyPhone.slice(3, 7)}-${onlyPhone.slice(7, 11)}`
 
     signupMutation.mutate({
@@ -70,7 +93,7 @@ export const Signup = ({ goLogin }: SignupProps) => {
       phone: formattedPhone,
       email: email.trim(),
       password,
-      github: github.trim(),
+      github_url: github.trim(),
     })
   }
 

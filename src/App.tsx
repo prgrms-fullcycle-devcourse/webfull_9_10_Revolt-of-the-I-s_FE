@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { useRef, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { Eye, EyeOff } from 'lucide-react'
+import { logoutApi } from './api/auth'
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -59,6 +61,7 @@ export default function App() {
     | null
   >(null);
 
+
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const selectedTicket =
@@ -97,6 +100,9 @@ export default function App() {
 
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
+
+  // 로그아웃 API 호출
+  const logoutMutation = useMutation({mutationFn: logoutApi,});
 
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
@@ -463,13 +469,52 @@ export default function App() {
     );
   }
 
+  // 공통 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      const data = await logoutMutation.mutateAsync()
+
+      // 로그아웃 성공이 아니면 실패 메시지 출력 후 종료
+      if (!data.success) {
+        alert(data.error || '로그아웃에 실패했습니다.')
+        return
+      }
+
+      // 서버에서 성공 메시지를 주면 한 번만 표시
+      if (data.data?.message) {
+        alert(data.data.message)
+      } else {
+        alert('로그아웃 되었습니다.')
+      }
+
+      // 로그아웃 성공했을 때만 프론트 상태 초기화
+      // localStorage.removeItem('accessToken')
+      setCurrentUser(null)
+      setActiveTeamId(null)
+      setIsTeamAuthorized(false)
+      setActiveModal(null)
+
+      // 보안 인증 관련 상태도 초기화
+      setAuthPassword(Array(6).fill(''))
+      setAuthError('')
+      setAuthCursorIndex(0)
+      setShowAuthPassword(false)
+
+      // 로그인 화면으로 돌리기
+      setAuthPage('login')
+    } catch (error) {
+      console.log(error)
+      alert('로그아웃에 실패했습니다.')
+    }
+  }
+
   if (!activeTeamId || !isTeamAuthorized) {
     return (
       <>
         <Lobby
           teams={teams}
           currentUser={currentUser}
-          setCurrentUser={setCurrentUser}
+          onLogout={handleLogout}
           setActiveTeamId={setActiveTeamId}
           setIsTeamAuthorized={setIsTeamAuthorized}
           setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
@@ -637,7 +682,7 @@ export default function App() {
         view={view}
         setView={setView}
         setIsTeamAuthorized={setIsTeamAuthorized}
-        setCurrentUser={setCurrentUser}
+        onLogout={handleLogout}
         setActiveTeamId={setActiveTeamId}
         setTeams={setTeams}
         addLog={addLog}
