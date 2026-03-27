@@ -10,6 +10,12 @@ export const AVATARS = ['👩‍💻', '👨‍💻', '🎨', '⚙️', '🚀', 
  * - 'id'값(todo, doing 등)은 백엔드 DB의 ticket_status 컬럼값과 정확히 일치해야합니다.
  * - 상태 추가/변경 시 이 객체만 수정하면 화면과 버튼 로직이 자동으로 업데이트됩니다.
  */
+
+export const TEST_CONFIG = {
+  // 팀 아이디 임의 설정
+  TEMPORARY_TEAM_ID: 1, 
+};
+
 export const STATUS_TYPES: StatusType[] = [
   {
     id: 'Todo', // DB 저장 값
@@ -74,9 +80,10 @@ export const USER_ACTIVITIES: UserStatus[] = [
 export const INITIAL_TEAM: Team = {
   id: 'team_1',
   name: 'i들의 반란',
-  password: '1234',
+  password: '123456',
   members: [
     {
+      id: 1,
       name: '영아',
       position: 'Backend Lead',
       avatar: '👩‍💻',
@@ -84,6 +91,7 @@ export const INITIAL_TEAM: Team = {
       github: 'https://github.com/younga',
     },
     {
+      id: 2,
       name: '민수',
       position: 'Frontend Dev',
       avatar: '👨‍💻',
@@ -91,6 +99,7 @@ export const INITIAL_TEAM: Team = {
       github: '',
     },
     {
+      id: 3,
       name: '지수',
       position: 'UI/UX Designer',
       avatar: '🎨',

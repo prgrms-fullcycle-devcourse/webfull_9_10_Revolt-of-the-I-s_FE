@@ -38,7 +38,7 @@ export default function App() {
     setActiveTeamId,
     activeTeam,
     updateTicketStatus,
-    handleCreateTicket,
+    // handleCreateTicket,
     handleAddComment,
     addLog,
   } = useTeams(currentUser);
@@ -342,32 +342,6 @@ export default function App() {
     setAuthCursorIndex(0);
     setShowAuthPassword(false);
     addLog(0, currentUser!.name, '공간 입장', 'info');
-  };
-
-  const createTicket = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    // 1. FormData 객체 생성
-    const formData = new FormData(e.currentTarget);
-
-    // 2. input 태그의 name 속성으로 값을 가져옴
-    const title = formData.get('title') as string;
-    const content = formData.get('content') as string;
-    const worker = formData.get('worker') as string;
-
-    console.log(title, content, worker);
-
-    // 3. 값이 비어있는지 검증 (하나라도 없으면 생성 안 됨)
-    if (!title.trim() || !content.trim() || !worker) {
-      alert('모든 항목을 입력해주세요.');
-      return;
-    }
-
-    // 4. 훅에서 가져온 함수 호출 (인자 순서 확인!)
-    handleCreateTicket(title, content, worker);
-
-    // 5. 모달 닫기
-    setActiveModal(null);
   };
 
   const createNote = (e: React.FormEvent<HTMLFormElement>) => {
@@ -709,12 +683,17 @@ export default function App() {
         />
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {view === 'dashboard' && (
+          {view === 'dashboard' && activeTeam && (
             <Dashboard
-              activeTeam={teams.find((t) => t.id === activeTeamId)!}
-              setIsCreateModalOpen={() => setActiveModal('create')}
+              activeTeam={activeTeam}
+              setTeams={setTeams}
+              addLog={addLog}
+              activeTeamId={activeTeamId}
+              currentUser={currentUser}
               setSelectedTicketId={setSelectedTicketId}
               updateTicketStatus={updateTicketStatus}
+              activeModal={activeModal} // 현재 모달 상태
+              setActiveModal={setActiveModal} // 상태 변경 함수
             />
           )}
 
@@ -744,96 +723,6 @@ export default function App() {
           )}
         </div>
       </main>
-
-      {/* --- 새 요청 발행 모달 --- */}
-      <Modal
-        isOpen={activeModal === 'create'}
-        onClose={() => setActiveModal(null)}
-        title="새로운 업무 요청"
-      >
-        <form onSubmit={createTicket} className="space-y-6">
-          {/* 업무 타이틀 작성 영역 */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-400 ml-1 uppercase tracking-wider">
-              업무 타이틀
-            </label>
-            <input
-              name="title"
-              required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
-              placeholder="업무 핵심 주제"
-            />
-          </div>
-          {/* 담당자 선택 영역 */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-400 ml-1 uppercase tracking-wider">
-              담당자 선택
-            </label>
-            <div className="relative">
-              <select
-                name="worker"
-                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-[16px] text-slate-600 cursor-pointer appearance-none transition-all"
-              >
-                <option value="">담당자 선택</option>
-                {activeTeam?.members.map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* 화살표 커스텀 */}
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M2.5 4.5L6 8L9.5 4.5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-          {/* 상세 내용 영역 */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-400 ml-1 uppercase tracking-wider">
-              상세 내용
-            </label>
-            <textarea
-              name="content"
-              required
-              className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none min-h-37.5 font-bold"
-              placeholder="수정 사항을 상세히 입력하세요."
-            />
-
-            {/* 버튼 영역 */}
-            <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setActiveModal(null)}
-                className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-2xl font-bold hover:bg-slate-200 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                취소
-              </button>
-
-              <button
-                type="submit"
-                className="flex-2 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                요청 발행 (Todo)
-              </button>
-            </div>
-          </div>
-        </form>
-      </Modal>
 
       <Modal
         isOpen={activeModal === 'note'}
