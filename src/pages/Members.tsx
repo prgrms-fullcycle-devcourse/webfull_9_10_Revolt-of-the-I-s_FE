@@ -25,7 +25,21 @@ export const Members = ({
             {/* 아바타 섹션 */}
             <div className="relative mb-6">
               <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-4xl shadow-inner">
-                {member.avatar}
+                {member.avatar ? (
+                  member.avatar.startsWith('http') ? (
+                    <img
+                      src={member.avatar}
+                      alt={member.name}
+                      className="w-full h-full rounded-3xl object-cover"
+                    />
+                  ) : (
+                    <span>{member.avatar}</span>  // 이모지는 그냥 텍스트로 렌더링
+                  )
+                ) : (
+                  <span className="text-2xl font-black text-slate-400">
+                    {member.name[0]}
+                  </span>
+                )}
               </div>
               <span
                 className={`absolute bottom-1 right-1 w-5 h-5 border-4 border-white rounded-full ${

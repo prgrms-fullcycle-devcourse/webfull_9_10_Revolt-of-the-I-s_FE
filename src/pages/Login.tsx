@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AtSign, Lock, LogIn, ChevronRight } from 'lucide-react'
 import { loginApi } from '../api/auth'
+import { AVATARS } from '../utils/constants'
 import type { CurrentUser } from '../types'
 import axios from 'axios'
 
@@ -26,11 +27,13 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
 
     // 로그인 성공
     onSuccess: (data) => {
-      // success가 false이거나 data가 없으면 실패 처리
       if (!data.success || !data.data) {
         alert(data.error || '로그인에 실패했습니다.')
         return
       }
+      
+      // 성공했을 때만 randomAvatar 할당
+      const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
 
       // 쿠키 방식이라 토큰은 localStorage에 저장하지 않음
       // 브라우저가 Set-Cookie를 자동으로 저장하고 이후 요청에 함께 보냄
@@ -41,8 +44,8 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         email,
         position: '',
         github: '',
-        avatar: data.data.user.profile_image || '',
-      })
+        avatar: data.data.user.profile_image || randomAvatar, 
+      }) // 기본 이미지 경로
     },
     // 로그인 실패
     onError: (error) => {

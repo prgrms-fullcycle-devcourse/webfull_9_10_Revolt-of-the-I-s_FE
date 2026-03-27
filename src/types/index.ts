@@ -10,7 +10,7 @@ export interface UserStatus {
 export interface Member {
   name: string;
   position: string;
-  avatar: string;
+  avatar?: string;
   email: string;
   github: string;
 }
@@ -78,7 +78,7 @@ export interface Team {
   userStatuses: Record<string, UserStatus>;
 }
 
-export interface CurrentUser extends Member {}
+export type CurrentUser = Member
 
 /**
  * 9. 칸반 상태 설정 타입
