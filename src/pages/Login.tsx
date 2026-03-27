@@ -32,9 +32,6 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         return
       }
 
-      // 쿠키 방식이라 토큰은 localStorage에 저장하지 않음
-      // 브라우저가 Set-Cookie를 자동으로 저장하고 이후 요청에 함께 보냄
-
       // App.tsx에서 쓰는 CurrentUser 구조로 맞춰서 저장
       setCurrentUser({
         name: data.data.user.name,

@@ -37,61 +37,87 @@ export const Dashboard = ({
 // -- Task 생성 api 호출 및 응답 함수 --
 const handleCreateTicket = async (e: React.FormEvent<HTMLFormElement>) => {
   e.preventDefault(); // 페이지 새로고침 방지
-
-  const formData = new FormData(e.currentTarget);
-  const selectedId = formData.get('worker_id'); 
-
-  const selectedMember = membersWithId?.find(
-    (m) => String(m.id) === String(selectedId)
-  );
-
-  // [추후 수정] 임시 teamId 설정
-  const tempTeamId = Number(activeTeam) || 1; 
-  console.log("teamId:", tempTeamId);
-
-  if (!selectedMember) {
-    alert("담당자를 선택해주세요.");
-    return;
-  }
-  
-  // api로 전송할 최종 데이터 정의
-  const ticketData: CreateTicketRequest = {
-      title: formData.get('title') as string,
-      worker_id: Number(selectedMember.id),
-      content: formData.get('content') as string,
-    };
+  console.log("--- 🚀 업무 생성 프로세스 시작 ---");
 
   try {
-    // API 호출
-    const newTicket = await createTicketApi(tempTeamId, ticketData);
-    console.log('api 호출 성공')
-
-    // 생성된 Task ui 출력
-    setTeams((prev: any[]) => prev.map(team => {
-      if (String(team.id) === String(activeTeam)) {
-        return {
-          ...team,
-          tickets: [...team.tickets, newTicket] // 응답 데이터로 새 task 생성
-        };
-      }
-      console.log('새 Task 생성할 data : ', newTicket)
-      return team;
-    }));
-
-    // 로그 추가 및 응답 처리
-    addLog(
-      newTicket.id, 
-      currentUser.name, 
-      `새 업무 요청: ${newTicket.title}`,
-      'success'
+    const formData = new FormData(e.currentTarget);
+    const selectedId = formData.get('worker_id'); 
+    
+    // 1. 선택된 담당자 찾기
+    const selectedMember = membersWithId?.find(
+      (m) => String(m.id) === String(selectedId)
     );
-    closeCreateModal();
-    alert("업무가 성공적으로 요청되었습니다!");
-  } catch (error) {
-    console.error("티켓 생성 실패:", error);
-    alert("업무 요청 중 오류가 발생했습니다.");
-  }
-};
+
+    const tempTeamId = Number(activeTeam) || 11; 
+    console.log("teamId:", tempTeamId);
+
+    if (!selectedMember) {
+      alert("담당자를 선택해주세요.");
+      return;
+    }
+  
+    // api로 전송할 최종 데이터 정의
+    const ticketData: CreateTicketRequest = {
+        title: formData.get('title') as string,
+        content: formData.get('content') as string,
+        worker_id: '7aa4d04a-41d2-4144-a00c-b3d40bfa84f7',
+      };
+
+      console.log("전송할 Ticket Data:", ticketData);
+      console.log(" API 호출 시도 중...");
+
+      const newTicket = await createTicketApi(Number(tempTeamId), ticketData);
+
+      console.log("API 호출 성공! 응답 데이터:", newTicket);
+      console.log("tempTeamId:", tempTeamId);
+
+      setTeams((prev: Team[]) => {
+        console.log("현재 전체 팀 목록(prev):", prev);
+        
+        return prev.map(team => {
+          const isTargetTeam = String(team.id) === String(tempTeamId);
+          console.log(`팀 비교 체크: 대상ID(${tempTeamId}) == 현재ID(${team.id}) -> ${isTargetTeam}`);
+
+          if (isTargetTeam) {
+            // 서버 응답 데이터 구조 확인
+            console.log("서버에서 온 원본 newTicket:", newTicket);
+
+            const ticketWithStatus = {
+              ...newTicket,
+              status: newTicket?.status || 'Todo' 
+            };
+
+            console.log('UI에 추가될 최종 티켓 객체:', ticketWithStatus);
+
+            const updatedTeam = {
+              ...team,
+              tickets: [...(team.tickets || []), ticketWithStatus]
+            };
+            
+            console.log('업데이트된 팀 객체:', updatedTeam);
+            return updatedTeam;
+          }
+          return team;
+        });
+      });
+      console.log('setTeams 실행 명령 완료');
+
+        // 로그 추가 및 응답 처리
+        addLog(
+          newTicket.id, 
+          currentUser.name, 
+          `새 업무 요청: ${newTicket.data.title}`,
+          'success'
+        );
+
+        console.log('프로세스 완료');
+        closeCreateModal();
+        alert("업무가 성공적으로 요청되었습니다!");
+      } catch (error) {
+        console.error("티켓 생성 실패:", error);
+        alert("업무 요청 중 오류가 발생했습니다.");
+      }
+    };
 
 // 원본 데이터에 가짜 ID를 입힌 "새로운 리스트"를 생성
   const membersWithId = activeTeam?.members.map((m, index) => ({
@@ -216,6 +242,7 @@ const handleCreateTicket = async (e: React.FormEvent<HTMLFormElement>) => {
     <>
       <div className="flex gap-6 h-full min-w-300">
         {STATUS_TYPES.map((status) => {
+          // 업데이트 된 teams에서 현재 팀의 task 필터링
           const filteredTickets = activeTeam.tickets.filter((t) => t.status === status.id);
           return (
             <KanbanColumn

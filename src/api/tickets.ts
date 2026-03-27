@@ -8,7 +8,7 @@ import { api } from './client'
 export interface CreateTicketRequest {
   title: string;
   content: string;
-  worker_id: number;
+  worker_id: string;
 }
 
 // 응답 데이터 타입 정의
