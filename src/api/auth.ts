@@ -38,8 +38,8 @@ export interface LoginResponse {
   data: {
     token: string
     user: LoginUser
-    meta: null
   } | null
+  meta: null
   error: string | null
 }
 
@@ -72,6 +72,6 @@ export const loginApi = async (
 
 // 로그아웃 API 호출
 export const logoutApi = async (): Promise<LogoutResponse> => {
-  const res = await api.post('/auth/logout')
+  const res = await api.post('/auth/logout', {}, { withCredentials: true })
   return res.data
 }

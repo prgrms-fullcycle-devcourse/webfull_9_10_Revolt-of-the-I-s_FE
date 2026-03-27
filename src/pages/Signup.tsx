@@ -93,7 +93,7 @@ export const Signup = ({ goLogin }: SignupProps) => {
       phone: formattedPhone,
       email: email.trim(),
       password,
-      github_url: github.trim(),
+      github_url: github.trim() || undefined,
     })
   }
 
