@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { logoutApi } from './api/auth';
+import { logoutApi, getMyInfoApi } from './api/auth';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -29,6 +29,7 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // 로딩 상태 확인
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -44,10 +45,14 @@ export default function App() {
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
+
+  // 팀 인증 여부 (로비 통과 여부)
+  const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
+    return localStorage.getItem('isTeamAuthorized') === 'true';
+  });
   const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
-    'dashboard',
+    (localStorage.getItem('currentView') as any) || 'dashboard'
   );
-  const [isTeamAuthorized, setIsTeamAuthorized] = useState(false);
   const [activeModal, setActiveModal] = useState<
     | 'create'
     | 'note'
@@ -116,7 +121,90 @@ export default function App() {
   // 로그아웃 API 호출
   const logoutMutation = useMutation({mutationFn: logoutApi,});
 
+  // --- 세션 복원 로직 ---
+  useEffect(() => {
+    const restoreSession = async () => {
+      console.log("로그인 한 유저 정보 복원 시도 ..");
+      try {
+        const user = await getMyInfoApi();
+        console.log("로그인 한 유저 정보 복원 성공:", user);
+        if (user) {
+          setCurrentUser({
+              id: user.id || Date.now(), 
+              name: user.name || "Unknown",
+              avatar: user.avatar || "",
+              email: user.email || "",
+              position: user.position || "팀원",
+              github: user.github || "",
+            });
+            const lastTeamId = localStorage.getItem('lastTeamId');
+          if (lastTeamId) setActiveTeamId(lastTeamId);
+        }
+      } catch (error) {
+        console.log("로그인 한 유저 정보 복원 실패:", error);
+      } finally {
+        console.log("로딩 해제");
+        setIsAuthLoading(false);
+      }
+    };
+
+    restoreSession(); 
+  }, []);
+
+  // --- 세션 유지 로직 ---
+  useEffect(() => {
+    // 로그인이 되어 있을 때만 저장
+    if (currentUser) {
+      localStorage.setItem('currentView', view);
+      localStorage.setItem('isTeamAuthorized', String(isTeamAuthorized));
+      
+      // activeTeamId 저장
+      if (activeTeamId) {
+        localStorage.setItem('lastTeamId', String(activeTeamId));
+      }
+    }
+  }, [view, isTeamAuthorized, activeTeamId, currentUser]);
+
   // --- 브릿지 핸들러 (UI + Data Logic) ---
+
+  // 공통 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      const data = await logoutMutation.mutateAsync()
+
+      // 로그아웃 성공이 아니면 실패 메시지 출력 후 종료
+      if (!data.success) {
+        alert(data.error || '로그아웃에 실패했습니다.')
+        return
+      }
+
+      // 서버에서 성공 메시지를 주면 한 번만 표시
+      if (data.data?.message) {
+        alert(data.data.message)
+      } else {
+        alert('로그아웃 되었습니다.')
+      }
+
+      // 로그아웃 성공했을 때만 프론트 상태 초기화
+      // localStorage.removeItem('accessToken')
+      setCurrentUser(null)
+      setActiveTeamId(null)
+      setIsTeamAuthorized(false)
+      setActiveModal(null)
+
+      // 보안 인증 관련 상태도 초기화
+      setAuthPassword(Array(6).fill(''))
+      setAuthError('')
+      setAuthCursorIndex(0)
+      setShowAuthPassword(false)
+
+      // 로그인 화면으로 돌리기
+      setAuthPage('login')
+    } catch (error) {
+      console.log(error)
+      alert('로그아웃에 실패했습니다.')
+    }
+  };
 
   // 새 팀 생성 (Lobby 전용)
   const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
@@ -444,6 +532,16 @@ export default function App() {
   };
 
   // --- 조건부 렌더링 (Auth & Lobby) --
+  // 로딩 처리 추가 - 인증 확인이 끝나기 전 로딩 스피너 표시
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-blue-500 font-black animate-pulse">인증 정보 확인 중...</div>
+      </div>
+    );
+  }
+
+  // 인증 확인이 끝났는데 유저 정보가 없는 경우
   if (!currentUser) {
     return authPage === 'login' ? (
       <Login
@@ -455,48 +553,10 @@ export default function App() {
     );
   }
 
-  // 공통 로그아웃 처리
-  const handleLogout = async () => {
-    try {
-      const data = await logoutMutation.mutateAsync()
-
-      // 로그아웃 성공이 아니면 실패 메시지 출력 후 종료
-      if (!data.success) {
-        alert(data.error || '로그아웃에 실패했습니다.')
-        return
-      }
-
-      // 서버에서 성공 메시지를 주면 한 번만 표시
-      if (data.data?.message) {
-        alert(data.data.message)
-      } else {
-        alert('로그아웃 되었습니다.')
-      }
-
-      // 로그아웃 성공했을 때만 프론트 상태 초기화
-      // localStorage.removeItem('accessToken')
-      setCurrentUser(null)
-      setActiveTeamId(null)
-      setIsTeamAuthorized(false)
-      setActiveModal(null)
-
-      // 보안 인증 관련 상태도 초기화
-      setAuthPassword(Array(6).fill(''))
-      setAuthError('')
-      setAuthCursorIndex(0)
-      setShowAuthPassword(false)
-
-      // 로그인 화면으로 돌리기
-      setAuthPage('login')
-    } catch (error) {
-      console.log(error)
-      alert('로그아웃에 실패했습니다.')
-    }
-  }
-
-  if (!activeTeamId || !isTeamAuthorized) {
     return (
       <>
+      {!activeTeamId || !isTeamAuthorized ? (
+        // case 1: 팀이 선택되지 않았거나 인증이 안 된 경우 -> 로비 화면
         <Lobby
           teams={teams}
           currentUser={currentUser}
@@ -506,7 +566,74 @@ export default function App() {
           setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
           setIsTeamAuthModalOpen={() => setActiveModal('auth')}
         />
+      ) : (
+        // case 2: 팀 인증 완료 시 -> 대시보드 화면
+        <div className="flex h-screen bg-slate-50 overflow-hidden">
+          <Sidebar
+            activeTeam={activeTeam!}
+            activeTeamId={activeTeamId}
+            currentUser={currentUser}
+            view={view}
+            setView={setView}
+            setIsTeamAuthorized={setIsTeamAuthorized}
+            onLogout={handleLogout}
+            setActiveTeamId={setActiveTeamId}
+            setTeams={setTeams}
+            addLog={addLog}
+            onLeaveTeam={handleLeaveTeam}
+          />
+          <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+            <Header
+              view={view}
+              activeTeam={activeTeam!}
+              setIsCreateModalOpen={() => setActiveModal('create')}
+            />
 
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              {view === 'dashboard' && activeTeam && (
+                <Dashboard
+                  activeTeam={activeTeam}
+                  setTeams={setTeams}
+                  addLog={addLog}
+                  activeTeamId={activeTeamId}
+                  currentUser={currentUser}
+                  setSelectedTicketId={setSelectedTicketId}
+                  updateTicketStatus={updateTicketStatus}
+                  activeModal={activeModal} // 현재 모달 상태
+                  setActiveModal={setActiveModal} // 상태 변경 함수
+                />
+              )}
+
+              {view === 'members' && (
+                <Members
+                  activeTeam={activeTeam!}
+                  currentUser={currentUser}
+                  updatePosition={(member: Member) => {
+                    setActiveModal('position');
+                    setSelectedMember(member);
+                  }}
+                />
+              )}
+
+              {view === 'archive' && (
+                <Archive
+                  activeTeam={activeTeam!}
+                  setIsLinkModalOpen={() => setActiveModal('link')}
+                  setIsDocModalOpen={() => setActiveModal('document')}
+                  setIsNoteModalOpen={() => setActiveModal('note')}
+                  setIsDeleteLinkModalOpen={(link: TeamLink) => {
+                    setActiveModal('deleteLinks');
+                    setLinkToDelete(link);
+                  }}
+                  setSelectedNote={(note) => setSelectedNote(note)}
+                />
+              )}
+            </div>
+          </main>
+          </div>
+        )}
+
+        {/* --- 공통 모달 영역 --- */}
         {/* 로비 전용 모달 시스템 */}
         <Modal
           isOpen={activeModal === 'createTeam'}
@@ -654,77 +781,8 @@ export default function App() {
             </form>
           </div>
         </Modal>
-      </>
-    );
-  }
 
-  // --- 메인 레이아웃 (인증 완료 후) ---
-  return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar
-        activeTeam={activeTeam!}
-        activeTeamId={activeTeamId}
-        currentUser={currentUser}
-        view={view}
-        setView={setView}
-        setIsTeamAuthorized={setIsTeamAuthorized}
-        onLogout={handleLogout}
-        setActiveTeamId={setActiveTeamId}
-        setTeams={setTeams}
-        addLog={addLog}
-        onLeaveTeam={handleLeaveTeam}
-      />
-
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <Header
-          view={view}
-          activeTeam={activeTeam!}
-          setIsCreateModalOpen={() => setActiveModal('create')}
-        />
-
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {view === 'dashboard' && activeTeam && (
-            <Dashboard
-              activeTeam={activeTeam}
-              setTeams={setTeams}
-              addLog={addLog}
-              activeTeamId={activeTeamId}
-              currentUser={currentUser}
-              setSelectedTicketId={setSelectedTicketId}
-              updateTicketStatus={updateTicketStatus}
-              activeModal={activeModal} // 현재 모달 상태
-              setActiveModal={setActiveModal} // 상태 변경 함수
-            />
-          )}
-
-          {view === 'members' && (
-            <Members
-              activeTeam={activeTeam!}
-              currentUser={currentUser}
-              updatePosition={(member: Member) => {
-                setActiveModal('position');
-                setSelectedMember(member);
-              }}
-            />
-          )}
-
-          {view === 'archive' && (
-            <Archive
-              activeTeam={activeTeam!}
-              setIsLinkModalOpen={() => setActiveModal('link')}
-              setIsDocModalOpen={() => setActiveModal('document')}
-              setIsNoteModalOpen={() => setActiveModal('note')}
-              setIsDeleteLinkModalOpen={(link: TeamLink) => {
-                setActiveModal('deleteLinks');
-                setLinkToDelete(link);
-              }}
-              setSelectedNote={(note) => setSelectedNote(note)}
-            />
-          )}
-        </div>
-      </main>
-
-      <Modal
+        <Modal
         isOpen={activeModal === 'note'}
         onClose={() => {
           setActiveModal(null);
@@ -933,6 +991,7 @@ export default function App() {
           </button>
         </div>
       </Modal>
+
       {/* 상세 페이지/모달 */}
       {selectedTicket && currentUser && (
         <TicketDetail
@@ -1015,6 +1074,6 @@ export default function App() {
           </button>
         </form>
       </Modal>
-    </div>
-  );
-}
+      </>
+    );
+  }
