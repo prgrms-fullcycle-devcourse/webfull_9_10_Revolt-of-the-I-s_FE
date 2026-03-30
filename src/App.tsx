@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createTeamApi, joinTeamApi } from './api/team'
+import { type JoinTeamRequest } from './types'
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { logoutApi } from './api/auth';
 
@@ -23,7 +25,7 @@ import {
   type Member,
   type CurrentUser,
   type Note,
-  type Team,
+  // type Team,
   type TeamLink,
 } from './types';
 
@@ -32,7 +34,6 @@ export default function App() {
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
-    teams,
     setTeams,
     activeTeamId,
     setActiveTeamId,
@@ -110,50 +111,47 @@ export default function App() {
   // 보안 인증 숫자 표시 여부
   const [showAuthPassword, setShowAuthPassword] = useState(false);
 
-  // 6자리 모두 입력됐는지 확인
-  const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
+  // 팀 목록 최신화를 위한 QueryClient
+  const queryClient = useQueryClient();
 
   // 로그아웃 API 호출
   const logoutMutation = useMutation({mutationFn: logoutApi,});
 
+  // 6자리 모두 입력됐는지 확인
+  const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
+
+
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
-  // 새 팀 생성 (Lobby 전용)
-  const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!currentUser) return;
+  // 팀 생성 API 호출
+  const createTeamMutation = useMutation({
+  mutationFn: createTeamApi,
+  onSuccess: (data) => {
+    if (!data.success || !data.data) {
+      alert(data.error || '팀 생성에 실패했습니다.')
+      return
+    }
+    queryClient.invalidateQueries({ queryKey: ['teams'] })
+    setActiveTeamId(String(data.data.id))
+    setIsTeamAuthorized(true)
+    setActiveModal(null)
+  },
+  onError: () => {
+    alert('팀 생성에 실패했습니다.')
+  }
+});
 
-    const formData = new FormData(e.currentTarget);
+// 새 팀 생성 (Lobby 전용)
+const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  if (!currentUser) return;
+  const formData = new FormData(e.currentTarget);
+  createTeamMutation.mutate({
+    name: formData.get('teamName') as string,
+    pin_password: formData.get('teamPassword') as string,
+  })
+};
 
-    const newTeam: Team = {
-      id: `team_${Date.now()}`,
-      name: formData.get('teamName') as string,
-      password: formData.get('teamPassword') as string,
-      members: [{ ...currentUser }],
-      tickets: [],
-      logs: [
-        {
-          id: Date.now(),
-          ticketId: 0,
-          user: currentUser.name,
-          action: '새 프로젝트 개설',
-          time: '현재',
-          type: 'info',
-        },
-      ],
-      notes: [],
-      links: [],
-      userStatuses: {
-        [currentUser.name]: { label: '활동 중', color: 'bg-green-500' },
-      },
-    };
-
-    setTeams((prev) => [...prev, newTeam]);
-    setActiveTeamId(newTeam.id);
-    setIsTeamAuthorized(true);
-    setActiveModal(null);
-    addLog(0, currentUser.name, '새 프로젝트 개설', 'info');
-  };
 
   // 새 팀 개설 모달 닫기
   const handleCloseCreateTeamModal = () => {
@@ -292,57 +290,43 @@ export default function App() {
     }
   };
 
-  // 팀 인증 (Lobby 전용)
-  const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
 
-    const team = teams.find((t) => t.id === activeTeamId);
-
-    const authPasswordValue = authPassword.join('');
-
-    if (
-      !team ||
-      !isAuthPasswordComplete ||
-      authPasswordValue !== team.password
-    ) {
-      setAuthError('비밀번호가 일치하지 않습니다.');
-
-      return;
+  // 팀 가입/입장 API 호출
+const joinTeamMutation = useMutation({
+  mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
+    joinTeamApi(teamId, data),
+  onSuccess: (data) => {
+    if (!data.success) {
+      setAuthError(data.error || '비밀번호가 일치하지 않습니다.')
+      return
     }
+    queryClient.invalidateQueries({ queryKey: ['teams'] })
+    setIsTeamAuthorized(true)
+    setActiveModal(null)
+    setAuthPassword(Array(6).fill(''))
+    setAuthError('')
+    setAuthCursorIndex(0)
+    setShowAuthPassword(false)
+    addLog(0, currentUser!.name, '공간 입장', 'info')
+  },
+  onError: () => {
+    setAuthError('비밀번호가 일치하지 않습니다.')
+  }
+})
 
-    const isAlreadyMember = team.members.some(
-      (m) => m.name === currentUser!.name,
-    );
+// 팀 인증 (Lobby 전용)
+const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  if (!activeTeamId || !isAuthPasswordComplete) return
 
-    if (!isAlreadyMember) {
-      setTeams((prev) =>
-        prev.map((t) =>
-          t.id === activeTeamId
-            ? {
-                ...t,
-                members: [...t.members, currentUser!],
-                userStatuses: {
-                  ...t.userStatuses,
-                  [currentUser!.name]: {
-                    label: '방금 입장',
-                    color: 'bg-green-500',
-                  },
-                },
-              }
-            : t,
-        ),
-      );
+  joinTeamMutation.mutate({
+    teamId: activeTeamId,
+    data: {
+      password: authPassword.join(''),
+      userId: currentUser!.id ?? 0,
     }
-
-    setIsTeamAuthorized(true);
-    setActiveModal(null);
-
-    setAuthPassword(Array(6).fill(''));
-    setAuthError('');
-    setAuthCursorIndex(0);
-    setShowAuthPassword(false);
-    addLog(0, currentUser!.name, '공간 입장', 'info');
-  };
+  })
+}
 
   const createNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -498,7 +482,6 @@ export default function App() {
     return (
       <>
         <Lobby
-          teams={teams}
           currentUser={currentUser}
           onLogout={handleLogout}
           setActiveTeamId={setActiveTeamId}

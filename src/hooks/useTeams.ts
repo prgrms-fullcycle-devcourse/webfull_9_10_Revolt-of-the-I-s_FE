@@ -4,14 +4,60 @@
  * @param currentUser 현재 접속한 유저 정보 (로그 기록 및 권한 확인용)
  */
 import { useState, useMemo } from 'react'
-import type { Team, Ticket, CurrentUser } from '../types'
-import { INITIAL_TEAM } from '../utils/constants'
+import { useQuery } from '@tanstack/react-query'
+import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types'
+import { INITIAL_TEAM, AVATARS } from '../utils/constants'
+import { getTeamsApi } from '../api/team'
 import { formatLogTime } from '../utils/format'
+
+// API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
+const convertTeam = (team: TeamFromApi): Team => ({
+  id: String(team.id),
+  name: team.name,
+  password: '',
+  isMember: team.isMember,
+  members: team.members.map((m) => ({
+    id: m.id,
+    name: m.user.name,
+    position: m.position,
+    avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
+    email: m.user.email,
+    github: m.user.github_url || '',
+  })),
+  tickets: [],
+  logs: [],
+  notes: [],
+  links: [],
+  userStatuses: Object.fromEntries(
+    team.members.map((m) => [
+      m.user.name,
+      { label: m.status || '활동 중', color: 'bg-green-500' }
+    ])
+  ),
+})
 
 // 상태 관리 - 팀 리스트 및 참여중인 팀 ID
 export const useTeams = (currentUser: CurrentUser | null) => {
-  const [teams, setTeams] = useState<Team[]>([INITIAL_TEAM])
+  const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM])
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null)
+
+  // GET /teams API 호출로 팀 목록 가져오기
+  const { data } = useQuery({
+    queryKey: ['teams'],
+    queryFn: getTeamsApi,
+    enabled: !!currentUser,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
+  // API 팀 목록과 로컬 팀 목록 합치기
+  const teams = useMemo(() => {
+    const apiTeams = data?.data?.map(convertTeam) ?? []
+    return [
+      ...apiTeams,
+      ...localTeams.filter((t) => !apiTeams.find((a) => a.id === t.id))
+    ]
+  }, [data, localTeams])
 
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
@@ -68,7 +114,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         t.id === activeTeamId
           ? {
               ...t,
-              // 최신 로그를 맨 위로 올리고, 성능을 위해 최근 20개만 유지
               logs: [
                 { id: Date.now(), ticketId, user: userName, action, time, type },
                 ...t.logs,
@@ -90,22 +135,18 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     const trimmedName = teamName.trim()
     const trimmedPassword = teamPassword.trim()
 
-    // 팀 이름 검증
     if (trimmedName.length < 2 || trimmedName.length > 30) {
       return { ok: false, message: '팀 이름은 2자 이상 30자 이하로 입력해주세요.' }
     }
 
-    // 비밀번호 검증
     if (!trimmedPassword) {
       return { ok: false, message: '비밀번호를 입력해주세요.' }
     }
 
-    // 6자리 숫자 비밀번호 검증
     if (!isValidTeamPassword(trimmedPassword)) {
       return { ok: false, message: '비밀번호는 6자리 숫자로 입력해주세요.' }
     }
 
-    // 팀 이름 중복 체크
     if (isTeamNameTaken(trimmedName)) {
       return { ok: false, message: '이미 존재하는 팀 이름입니다.' }
     }
@@ -158,7 +199,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       return { ok: false, message: '팀을 찾을 수 없습니다.' }
     }
 
-    // 인증 입력값 형식 체크
     if (!isValidTeamPassword(trimmedPassword)) {
       return { ok: false, message: '비밀번호는 6자리 숫자로 입력해주세요.' }
     }
@@ -201,9 +241,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
   /**
    * [기능] updateTicketStatus: 티켓의 진행 상태 변경
-   * @param id 티켓 ID
-   * @param newStatus 변경될 상태 (todo, doing, done 등)
-   * @param isReject 반려 여부 (true일 경우 빨간색 로그 생성)
    */
   const updateTicketStatus = (
     id: number,
@@ -225,7 +262,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       )
     )
 
-    // 상태 변화에 따른 로그 타입 결정
     let logType: 'info' | 'success' | 'error' = 'info'
     if (isReject) logType = 'error'
     else if (newStatus === 'done') logType = 'success'

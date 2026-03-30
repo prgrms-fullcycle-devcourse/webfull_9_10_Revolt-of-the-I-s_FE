@@ -2,14 +2,14 @@
  * Lobby 페이지
  * @description 가입된 팀과 가입 가능한 팀을 구분하여 보여주며, 실시간 검색 및 새 팀 개설 기능을 제공합니다.
  */
-
 import { useState } from "react";
+import { useQuery } from '@tanstack/react-query'
 import { Search, PlusCircle, LogOut, Users, X, DoorOpen } from "lucide-react";
-// import type React from "react";
-import type { Team, CurrentUser } from "../types";
+import { getTeamsApi } from '../api/team'
+import { AVATARS } from '../utils/constants'
+import type { Team, TeamFromApi, CurrentUser } from "../types";
 
 interface LobbyProps {
-  teams: Team[]; // 전체 프로젝트(팀) 배열
   currentUser: CurrentUser; // 현재 접속한 사용자 정보
   onLogout: () => void; // App.tsx에서 내려준 공통 로그아웃 함수
   setActiveTeamId: (id: string) => void; // 클릭한 팀을 활성화하는 함수
@@ -18,10 +18,35 @@ interface LobbyProps {
   setIsTeamAuthModalOpen: () => void; // 비밀번호 인증 모달 열기
 }
 
+// API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
+const convertTeam = (team: TeamFromApi): Team => ({
+  id: String(team.id),
+  name: team.name,
+  password: '',
+  isMember: team.isMember,
+  members: team.members.map((m) => ({
+    id: m.id,
+    name: m.user.name,
+    position: m.position,
+    avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
+    email: m.user.email,
+    github: m.user.github_url || '',
+  })),
+  tickets: [],
+  logs: [],
+  notes: [],
+  links: [],
+  userStatuses: Object.fromEntries(
+    team.members.map((m) => [
+      m.user.name,
+      { label: m.status || '활동 중', color: 'bg-green-500' }
+    ])
+  ),
+})
+
 export const Lobby = ({
-  teams,
   currentUser,
-  onLogout, // 로그아웃 버튼 클릭 시 실행
+  onLogout,
   setActiveTeamId,
   setIsCreateTeamModalOpen,
   setIsTeamAuthModalOpen,
@@ -29,12 +54,23 @@ export const Lobby = ({
   // 로비 내 팀 검색을 위한 지역 상태
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
+  // GET /teams API 호출
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['teams'],
+    queryFn: getTeamsApi,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
+  // API 응답 데이터를 Team 타입으로 변환
+  const teams = data?.data?.map(convertTeam) ?? []
+
   // 검색어 정리
   const normalizedQuery = teamSearchQuery.trim().toLowerCase();
 
   // [Helper] 해당 팀에 내가 이미 멤버로 포함되어 있는지 확인
   const isMember = (team: Team) =>
-    team.members.some((m) => m.name === currentUser.name);
+    team.isMember === true;
 
   // [Helper] 검색어와 팀 이름이 매칭되는지 확인 (대소문자 무시)
   const matchSearch = (team: Team) =>
@@ -55,6 +91,20 @@ export const Lobby = ({
       userName: currentUser.name,
     });
   };
+
+  // 로딩 중 화면
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center text-slate-400 font-bold">
+      팀 목록을 불러오는 중...
+    </div>
+  )
+
+  // 에러 화면
+  if (isError) return (
+    <div className="min-h-screen flex items-center justify-center text-red-400 font-bold">
+      팀 목록을 불러오지 못했습니다.
+    </div>
+  )
 
   /**
    * TeamCard 내부 컴포넌트
@@ -148,11 +198,11 @@ export const Lobby = ({
             </button>
           </div>
 
-          <button // 직접 상태 변경 말고 App.tsx의 로그아웃 함수 호출
-             onClick={onLogout} 
-             className="text-slate-400 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all py-2.5"
+          <button
+            onClick={onLogout}
+            className="text-slate-400 hover:text-red-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all py-2.5"
           >
-              로그아웃 <LogOut size={14} />
+            로그아웃 <LogOut size={14} />
           </button>
         </header>
 
