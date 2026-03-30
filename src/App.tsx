@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { logoutApi } from './api/auth';
+import { logoutApi, getMyInfoApi } from './api/auth';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -30,6 +30,7 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -43,7 +44,9 @@ export default function App() {
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
-  const [isTeamAuthorized, setIsTeamAuthorized] = useState(false);
+  const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
+    return localStorage.getItem('isTeamAuthorized') === 'true';
+  });
   const savedView = localStorage.getItem('currentView') as 'dashboard' | 'members' | 'archive' | null;
   const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
     savedView || 'dashboard'
@@ -156,6 +159,50 @@ export default function App() {
       setAuthError('비밀번호가 일치하지 않습니다.')
     }
   });
+
+  // 세션 복원 로직
+  useEffect(() => {
+    const restoreSession = async () => {
+      console.log('로그인 한 유저 정보 복원 시도 ..');
+      try {
+        const user = await getMyInfoApi();
+        console.log('로그인 한 유저 정보 복원 성공:', user);
+        if (user) {
+          setCurrentUser({
+            id: user.id || Date.now(),
+            name: user.name || 'Unknown',
+            avatar: user.avatar || '',
+            email: user.email || '',
+            position: user.position || '팀원',
+            github: user.github || '',
+          });
+          const lastTeamId = localStorage.getItem('lastTeamId');
+          const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+          if (lastTeamId && wasAuthorized) {
+            setActiveTeamId(lastTeamId);
+            setIsTeamAuthorized(true); // ← 이게 없어서 Sidebar가 렌더링되는데 activeTeam이 null인 거예요
+          }
+        }
+      } catch (error) {
+        console.log('로그인 한 유저 정보 복원 실패:', error);
+      } finally {
+        console.log('로딩 해제');
+        setIsAuthLoading(false);
+      }
+    };
+    restoreSession();
+  }, [setActiveTeamId]);
+
+  // --- 세션 유지 로직 ---
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentView', view);
+      localStorage.setItem('isTeamAuthorized', String(isTeamAuthorized));
+      if (activeTeamId) {
+        localStorage.setItem('lastTeamId', String(activeTeamId));
+      }
+    }
+  }, [view, isTeamAuthorized, activeTeamId, currentUser]);
 
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
@@ -381,7 +428,15 @@ export default function App() {
     }
   }
 
-  // --- 조건부 렌더링 (Auth & Lobby) ---
+  // --- 조건부 렌더링 ---
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
+        <div className="text-blue-500 font-black animate-pulse">인증 정보 확인 중...</div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return authPage === 'login' ? (
       <Login
@@ -395,7 +450,7 @@ export default function App() {
 
   return (
     <>
-      {!activeTeamId || !isTeamAuthorized ? (
+      {!activeTeamId || !isTeamAuthorized || !activeTeam ? (
         <Lobby
           currentUser={currentUser}
           onLogout={handleLogout}
