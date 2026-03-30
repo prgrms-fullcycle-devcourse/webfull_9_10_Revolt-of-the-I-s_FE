@@ -1,3 +1,4 @@
+import type { CurrentUser } from "../types"
 import { api } from './client'
 
 // 로그인 요청 body 타입
@@ -75,3 +76,9 @@ export const logoutApi = async (): Promise<LogoutResponse> => {
   const res = await api.post('/auth/logout', {}, { withCredentials: true })
   return res.data
 }
+
+// 로그인한 유저 정보 조회 api 호출
+export const getMyInfoApi = async (): Promise<CurrentUser> => {
+  const response = await api.get('/users/me');
+  return response.data.data; 
+};
