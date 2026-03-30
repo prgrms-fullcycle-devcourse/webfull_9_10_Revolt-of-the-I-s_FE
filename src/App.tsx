@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { logoutApi, getMyInfoApi } from './api/auth';
+import { logoutApi } from './api/auth';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -30,7 +30,7 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthLoading] = useState(false);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -160,36 +160,6 @@ export default function App() {
     }
   });
 
-  // 세션 복원 로직
-  useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const user = await getMyInfoApi()
-
-        if (!user) return
-
-        setCurrentUser({
-          name: user.email || 'Unknown',
-          avatar: '',
-          email: user.email || '',
-          position: '팀원',
-          github: '',
-        })
-
-        const saved = localStorage.getItem('lastTeamId')
-        if (!saved) return
-
-        setActiveTeamId(saved) // string으로 그대로 넘기면 돼요
-      } catch (error) {
-        console.log('세션 복원 실패:', error)
-      } finally {
-        setIsAuthLoading(false)
-      }
-    }
-
-    restoreSession()
-  }, [setActiveTeamId])
-
   // 세션 유지 로직
   useEffect(() => {
     if (currentUser) {
@@ -316,17 +286,13 @@ export default function App() {
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-
     if (!activeTeamId || !isAuthPasswordComplete) return
-
-    const userId = Number(currentUser!.id)
-    if (isNaN(userId)) return
 
     joinTeamMutation.mutate({
       teamId: activeTeamId,
       data: {
         password: authPassword.join(''),
-        userId: userId,
+        userId: Number(currentUser!.id) || 0,
       }
     })
   }
