@@ -47,10 +47,11 @@ export default function App() {
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
     return localStorage.getItem('isTeamAuthorized') === 'true';
   });
+  const savedView = localStorage.getItem('currentView') as 'dashboard' | 'members' | 'archive' | null;
   const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
-    (localStorage.getItem('currentView') as any) || 'dashboard'
+    savedView || 'dashboard'
   );
-  const [activeModal, setActiveModal] = useState
+  const [activeModal, setActiveModal] = useState<
     | 'create'
     | 'note'
     | 'link'
@@ -61,7 +62,7 @@ export default function App() {
     | 'updateNote'
     | 'deleteLinks'
     | null
-  >(null);
+  >(null)
 
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
@@ -162,31 +163,32 @@ export default function App() {
   // 세션 복원 로직
   useEffect(() => {
     const restoreSession = async () => {
-      console.log('로그인 한 유저 정보 복원 시도 ..');
       try {
-        const user = await getMyInfoApi();
-        console.log('로그인 한 유저 정보 복원 성공:', user);
-        if (user) {
-          setCurrentUser({
-            id: user.id || Date.now(),
-            name: user.name || 'Unknown',
-            avatar: user.avatar || '',
-            email: user.email || '',
-            position: user.position || '팀원',
-            github: user.github || '',
-          });
-          const lastTeamId = localStorage.getItem('lastTeamId');
-          if (lastTeamId) setActiveTeamId(lastTeamId);
-        }
+        const user = await getMyInfoApi()
+
+        if (!user) return
+
+        setCurrentUser({
+          name: user.email || 'Unknown',
+          avatar: '',
+          email: user.email || '',
+          position: '팀원',
+          github: '',
+        })
+
+        const saved = localStorage.getItem('lastTeamId')
+        if (!saved) return
+
+        setActiveTeamId(saved) // string으로 그대로 넘기면 돼요
       } catch (error) {
-        console.log('로그인 한 유저 정보 복원 실패:', error);
+        console.log('세션 복원 실패:', error)
       } finally {
-        console.log('로딩 해제');
-        setIsAuthLoading(false);
+        setIsAuthLoading(false)
       }
-    };
-    restoreSession();
-  }, []);
+    }
+
+    restoreSession()
+  }, [setActiveTeamId])
 
   // 세션 유지 로직
   useEffect(() => {
@@ -314,12 +316,17 @@ export default function App() {
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
     if (!activeTeamId || !isAuthPasswordComplete) return
+
+    const userId = Number(currentUser!.id)
+    if (isNaN(userId)) return
+
     joinTeamMutation.mutate({
       teamId: activeTeamId,
       data: {
         password: authPassword.join(''),
-        userId: currentUser!.id ?? 0,
+        userId: userId,
       }
     })
   }
