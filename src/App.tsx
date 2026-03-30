@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
@@ -30,7 +30,6 @@ import {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [isAuthLoading] = useState(false);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -44,9 +43,7 @@ export default function App() {
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
-  const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
-    return localStorage.getItem('isTeamAuthorized') === 'true';
-  });
+  const [isTeamAuthorized, setIsTeamAuthorized] = useState(false);
   const savedView = localStorage.getItem('currentView') as 'dashboard' | 'members' | 'archive' | null;
   const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
     savedView || 'dashboard'
@@ -62,7 +59,7 @@ export default function App() {
     | 'updateNote'
     | 'deleteLinks'
     | null
-  >(null)
+  >(null);
 
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
@@ -159,17 +156,6 @@ export default function App() {
       setAuthError('비밀번호가 일치하지 않습니다.')
     }
   });
-
-  // 세션 유지 로직
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('currentView', view);
-      localStorage.setItem('isTeamAuthorized', String(isTeamAuthorized));
-      if (activeTeamId) {
-        localStorage.setItem('lastTeamId', String(activeTeamId));
-      }
-    }
-  }, [view, isTeamAuthorized, activeTeamId, currentUser]);
 
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
@@ -287,7 +273,6 @@ export default function App() {
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!activeTeamId || !isAuthPasswordComplete) return
-
     joinTeamMutation.mutate({
       teamId: activeTeamId,
       data: {
@@ -397,14 +382,6 @@ export default function App() {
   }
 
   // --- 조건부 렌더링 (Auth & Lobby) ---
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
-        <div className="text-blue-500 font-black animate-pulse">인증 정보 확인 중...</div>
-      </div>
-    );
-  }
-
   if (!currentUser) {
     return authPage === 'login' ? (
       <Login
