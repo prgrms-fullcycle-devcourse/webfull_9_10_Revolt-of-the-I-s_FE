@@ -4,18 +4,18 @@ import type { Member, Team, CurrentUser } from '../types';
 interface MembersProps {
   activeTeam: Team;
   currentUser: CurrentUser;
-  updatePosition: (open: Member) => void; // 포지션 변경 모달 함수
+  editPosition: (open: Member) => void; // 포지션 변경 모달 함수
 }
 
 export const Members = ({
   activeTeam,
   currentUser,
-  updatePosition,
+  editPosition,
 }: MembersProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {activeTeam.members.map((member) => {
-        const isMe = member.name === currentUser.name; // api연결시 name->uuid로 변경해야함
+        const isMe = member.email === currentUser.email; // uuid 대신 email로 비교
 
         return (
           <div
@@ -33,7 +33,7 @@ export const Members = ({
                       className="w-full h-full rounded-3xl object-cover"
                     />
                   ) : (
-                    <span>{member.avatar}</span>  // 이모지는 그냥 텍스트로 렌더링
+                    <span>{member.avatar}</span> // 이모지는 그냥 텍스트로 렌더링
                   )
                 ) : (
                   <span className="text-2xl font-black text-slate-400">
@@ -54,7 +54,7 @@ export const Members = ({
             </h3>
             {isMe ? (
               <button
-                onClick={() => updatePosition(member)}
+                onClick={() => editPosition(member)}
                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-full text-[11px] font-bold uppercase tracking-wider mb-2 cursor-pointer"
               >
                 {member.position || '팀원'}
@@ -84,7 +84,7 @@ export const Members = ({
               </div>
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl text-[13px] font-medium text-slate-700">
                 <Smartphone size={16} className="text-slate-400 shrink-0" />{' '}
-                전화번호가 노출
+                {member.phone || '연락처 정보 없음'}
               </div>
               {member.github && (
                 <a
