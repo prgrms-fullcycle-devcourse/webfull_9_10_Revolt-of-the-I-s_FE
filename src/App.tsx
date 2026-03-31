@@ -45,6 +45,7 @@ export default function App() {
     updateTicketStatus,
     handleAddComment,
     addLog,
+    handleEditPosition,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -414,6 +415,7 @@ export default function App() {
   };
 
   // 포지션 수정
+
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -421,22 +423,18 @@ export default function App() {
       const editPositionData: EditMemberPositionRequest = {
         position: myPosition,
       };
-      console.log('포지션 수정할 데이터 :' + JSON.stringify(editPositionData));
 
-      const editedPosition = await editMemberPositionApi(
-        Number(activeTeamId),
-        editPositionData,
-      );
-      console.log(
-        'API 호출 성공 ! 응답 데이터' + JSON.stringify(editedPosition),
-      );
+      // API 호출하여 포지션 변경
+      await editMemberPositionApi(Number(activeTeamId), editPositionData);
+
       // 요청이 성공하면 teams 상태 업데이트하기
+      handleEditPosition(myPosition);
+      setActiveModal(null);
     } catch (error) {
       console.log(error);
     }
 
     // 모달 닫기
-    // setActiveModal(null);
   };
 
   // 공통 로그아웃 처리
