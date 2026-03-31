@@ -186,6 +186,7 @@ export default function App() {
         if (user) {
           setCurrentUser({
             id: user.id || Date.now(),
+            uuid: user.uuid,
             name: user.name || 'Unknown',
             avatar: user.avatar || '',
             email: user.email || '',

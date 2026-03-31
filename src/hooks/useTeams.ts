@@ -3,10 +3,11 @@
  * @description 팀 데이터(Team), 티켓(Ticket), 활동 로그(Log)의 상태 관리 및 비즈니스 로직을 총괄합니다.
  * @param currentUser 현재 접속한 유저 정보 (로그 기록 및 권한 확인용)
  */
-import { useState, useMemo } from 'react';
+
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
-import { AVATARS } from '../utils/constants';
+import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
 
@@ -18,6 +19,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
   isMember: team.isMember,
   members: team.members.map((m) => ({
     id: m.id,
+    uuid: m.user.uuid,
     name: m.user.name,
     position: m.position,
     avatar:
@@ -70,21 +72,24 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   });
 
   // API 팀 목록과 로컬 팀 목록 합치기
-  const teams = useMemo(() => {
-    const apiTeams = data?.data?.map(convertTeam) ?? [];
+  // 서버에서 데이터를 받아와서 localTeams 동기화
+  useEffect(() => {
+    if (data?.data) {
+      const apiTeams = data.data.map(convertTeam);
+      setTeams(prev => {
+        // 이미 로컬에 있는 서버 팀들은 제외, 새로운 팀만 합치기
+        const filteredApiTeams = apiTeams.filter(at => !prev.some(pt => pt.id === at.id));
+        return [...prev, ...filteredApiTeams];
+      });
+    }
+  }, [data]);
 
-    // [변경] API 팀들을 돌면서, 로컬에 수정본이 있으면 그걸 쓰고 없으면 API 데이터를 씁니다.
-    return apiTeams.map((apiTeam) => {
-      const localModified = localTeams.find(
-        (lt) => String(lt.id) === String(apiTeam.id),
-      );
-      return localModified ? localModified : apiTeam;
-    });
-  }, [data, localTeams]);
+  const teams = localTeams;
 
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
-    return teams.find((t) => t.id === activeTeamId) ?? null;
+    const found = teams.find((t) => String(t.id) === String(activeTeamId));
+    return found || null;
   }, [teams, activeTeamId]);
 
   // 현재 유저가 참여 중인 팀 목록

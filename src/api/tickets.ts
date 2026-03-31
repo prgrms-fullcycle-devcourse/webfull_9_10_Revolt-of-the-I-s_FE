@@ -24,6 +24,5 @@ export interface TicketResponse {
 // 새 테스크 생성 api
 export const createTicketApi = async (teamId: number, data: CreateTicketRequest) => {
   const response = await api.post(`/teams/${teamId}/tasks`, data);
-  console.log(`teamid: ${teamId}, data: ${data}`);
   return response.data;
 };
