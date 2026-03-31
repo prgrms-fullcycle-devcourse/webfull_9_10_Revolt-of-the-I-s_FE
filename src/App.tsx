@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createTeamApi, joinTeamApi } from './api/team';
+import { type JoinTeamRequest } from './types';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { logoutApi, getMyInfoApi } from './api/auth';
 
@@ -23,35 +25,31 @@ import {
   type Member,
   type CurrentUser,
   type Note,
-  type Team,
   type TeamLink,
 } from './types';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true); // 로딩 상태 확인
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
-    teams,
     setTeams,
     activeTeamId,
     setActiveTeamId,
     activeTeam,
     updateTicketStatus,
-    // handleCreateTicket,
     handleAddComment,
     addLog,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
-
-  // 팀 인증 여부 (로비 통과 여부)
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
     return localStorage.getItem('isTeamAuthorized') === 'true';
   });
+  const savedView = localStorage.getItem('currentView') as 'dashboard' | 'members' | 'archive' | null;
   const [view, setView] = useState<'dashboard' | 'members' | 'archive'>(
-    (localStorage.getItem('currentView') as any) || 'dashboard'
+    savedView || 'dashboard'
   );
   const [activeModal, setActiveModal] = useState<
     | 'create'
@@ -65,7 +63,6 @@ export default function App() {
     | 'deleteLinks'
     | null
   >(null);
-
 
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
@@ -91,9 +88,7 @@ export default function App() {
     url: '',
   });
   const isLinkValid = linkData.title.length > 0 && linkData.url.length > 0;
-  const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
-    null,
-  );
+  const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(null);
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -118,47 +113,91 @@ export default function App() {
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
 
-  // 로그아웃 API 호출
-  const logoutMutation = useMutation({mutationFn: logoutApi,});
+  // 팀 목록 최신화를 위한 QueryClient
+  const queryClient = useQueryClient();
 
-  // --- 세션 복원 로직 ---
+  // 로그아웃 API 호출
+  const logoutMutation = useMutation({ mutationFn: logoutApi });
+
+  // 팀 생성 API 호출
+  const createTeamMutation = useMutation({
+    mutationFn: createTeamApi,
+    onSuccess: (data) => {
+      if (!data.success || !data.data) {
+        alert(data.error || '팀 생성에 실패했습니다.')
+        return
+      }
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
+      setActiveTeamId(String(data.data.id))
+      setIsTeamAuthorized(true)
+      setActiveModal(null)
+    },
+    onError: () => {
+      alert('팀 생성에 실패했습니다.')
+    }
+  });
+
+  // 팀 가입/입장 API 호출
+  const joinTeamMutation = useMutation({
+    mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
+      joinTeamApi(teamId, data),
+    onSuccess: (data) => {
+      if (!data.success) {
+        setAuthError(data.error || '비밀번호가 일치하지 않습니다.')
+        return
+      }
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
+      setIsTeamAuthorized(true)
+      setActiveModal(null)
+      setAuthPassword(Array(6).fill(''))
+      setAuthError('')
+      setAuthCursorIndex(0)
+      setShowAuthPassword(false)
+      addLog(0, currentUser!.name, '공간 입장', 'info')
+    },
+    onError: () => {
+      setAuthError('비밀번호가 일치하지 않습니다.')
+    }
+  });
+
+  // 세션 복원 로직
   useEffect(() => {
     const restoreSession = async () => {
-      console.log("로그인 한 유저 정보 복원 시도 ..");
+      console.log('로그인 한 유저 정보 복원 시도 ..');
       try {
         const user = await getMyInfoApi();
-        console.log("로그인 한 유저 정보 복원 성공:", user);
+        console.log('로그인 한 유저 정보 복원 성공:', user);
         if (user) {
           setCurrentUser({
-              id: user.id || Date.now(), 
-              name: user.name || "Unknown",
-              avatar: user.avatar || "",
-              email: user.email || "",
-              position: user.position || "팀원",
-              github: user.github || "",
-            });
-            const lastTeamId = localStorage.getItem('lastTeamId');
-          if (lastTeamId) setActiveTeamId(lastTeamId);
+            id: user.id || Date.now(),
+            name: user.name || 'Unknown',
+            avatar: user.avatar || '',
+            email: user.email || '',
+            position: user.position || '팀원',
+            github: user.github || '',
+          });
+          const lastTeamId = localStorage.getItem('lastTeamId');
+          const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+          if (lastTeamId && wasAuthorized) {
+            setActiveTeamId(lastTeamId);
+            setIsTeamAuthorized(true); // ← 이게 없어서 Sidebar가 렌더링되는데 activeTeam이 null인 거예요
+          }
         }
       } catch (error) {
-        console.log("로그인 한 유저 정보 복원 실패:", error);
+        console.log('로그인 한 유저 정보 복원 실패:', error);
       } finally {
-        console.log("로딩 해제");
+        console.log('로딩 해제');
         setIsAuthLoading(false);
       }
     };
-
-    restoreSession(); 
-  }, []);
+    restoreSession();
+  }, [setActiveTeamId]);
 
   // --- 세션 유지 로직 ---
   useEffect(() => {
-    // 로그인이 되어 있을 때만 저장
     if (currentUser) {
       localStorage.setItem('currentView', view);
       localStorage.setItem('isTeamAuthorized', String(isTeamAuthorized));
-      
-      // activeTeamId 저장
       if (activeTeamId) {
         localStorage.setItem('lastTeamId', String(activeTeamId));
       }
@@ -167,80 +206,15 @@ export default function App() {
 
   // --- 브릿지 핸들러 (UI + Data Logic) ---
 
-  // 공통 로그아웃 처리
-  const handleLogout = async () => {
-    try {
-      const data = await logoutMutation.mutateAsync()
-
-      // 로그아웃 성공이 아니면 실패 메시지 출력 후 종료
-      if (!data.success) {
-        alert(data.error || '로그아웃에 실패했습니다.')
-        return
-      }
-
-      // 서버에서 성공 메시지를 주면 한 번만 표시
-      if (data.data?.message) {
-        alert(data.data.message)
-      } else {
-        alert('로그아웃 되었습니다.')
-      }
-
-      // 로그아웃 성공했을 때만 프론트 상태 초기화
-      // localStorage.removeItem('accessToken')
-      setCurrentUser(null)
-      setActiveTeamId(null)
-      setIsTeamAuthorized(false)
-      setActiveModal(null)
-
-      // 보안 인증 관련 상태도 초기화
-      setAuthPassword(Array(6).fill(''))
-      setAuthError('')
-      setAuthCursorIndex(0)
-      setShowAuthPassword(false)
-
-      // 로그인 화면으로 돌리기
-      setAuthPage('login')
-    } catch (error) {
-      console.log(error)
-      alert('로그아웃에 실패했습니다.')
-    }
-  };
-
   // 새 팀 생성 (Lobby 전용)
   const handleCreateTeam = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser) return;
-
     const formData = new FormData(e.currentTarget);
-
-    const newTeam: Team = {
-      id: `team_${Date.now()}`,
+    createTeamMutation.mutate({
       name: formData.get('teamName') as string,
-      password: formData.get('teamPassword') as string,
-      members: [{ ...currentUser }],
-      tickets: [],
-      logs: [
-        {
-          id: Date.now(),
-          ticketId: 0,
-          user: currentUser.name,
-          action: '새 프로젝트 개설',
-          time: '현재',
-          type: 'info',
-        },
-      ],
-      notes: [],
-      links: [],
-      userStatuses: {
-        [currentUser.name]: { label: '활동 중', color: 'bg-green-500' },
-      },
-    };
-
-    setTeams((prev) => [...prev, newTeam]);
-    setActiveTeamId(newTeam.id);
-    setIsTeamAuthorized(true);
-    setActiveModal(null);
-    addLog(0, currentUser.name, '새 프로젝트 개설', 'info');
+      pin_password: formData.get('teamPassword') as string,
+    })
   };
 
   // 새 팀 개설 모달 닫기
@@ -259,24 +233,17 @@ export default function App() {
   };
 
   // 보안 인증 붙여넣기 처리
-  const handleAuthPasswordPaste = (
-    e: React.ClipboardEvent<HTMLInputElement>,
-  ) => {
+  const handleAuthPasswordPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-
     const onlyNumber = e.clipboardData
       .getData('text')
       .replace(/\D/g, '')
       .slice(0, 6);
-
     const nextPassword = Array(6).fill('');
     onlyNumber.split('').forEach((digit, index) => {
       nextPassword[index] = digit;
     });
-
     setAuthPassword(nextPassword);
-
-    // 마지막 입력 칸으로 커서 이동
     if (onlyNumber.length === 0) {
       setAuthCursorIndex(0);
     } else if (onlyNumber.length >= 6) {
@@ -284,10 +251,7 @@ export default function App() {
     } else {
       setAuthCursorIndex(onlyNumber.length);
     }
-
-    if (authError) {
-      setAuthError('');
-    }
+    if (authError) setAuthError('');
   };
 
   // 보안 인증 입력칸 포커스
@@ -308,133 +272,65 @@ export default function App() {
   // 보안 인증 숫자/백스페이스 입력 처리
   const handleAuthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Tab') return;
-
     if (e.key === 'Backspace') {
       e.preventDefault();
-
       const nextPassword = [...authPassword];
-
-      // 현재 칸에 값이 있으면 현재 칸만 지움
       if (nextPassword[authCursorIndex] !== '') {
         nextPassword[authCursorIndex] = '';
         setAuthPassword(nextPassword);
-      }
-      // 현재 칸이 비어있으면 앞 칸만 지움
-      else if (authCursorIndex > 0) {
+      } else if (authCursorIndex > 0) {
         nextPassword[authCursorIndex - 1] = '';
         setAuthPassword(nextPassword);
         setAuthCursorIndex(authCursorIndex - 1);
       }
-
-      if (authError) {
-        setAuthError('');
-      }
+      if (authError) setAuthError('');
       return;
     }
-
     if (e.key === 'Delete') {
       e.preventDefault();
-
       const nextPassword = [...authPassword];
       nextPassword[authCursorIndex] = '';
       setAuthPassword(nextPassword);
-
-      if (authError) {
-        setAuthError('');
-      }
+      if (authError) setAuthError('');
       return;
     }
-
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
       return;
     }
-
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
       return;
     }
-
     if (!/^\d$/.test(e.key)) {
       e.preventDefault();
       return;
     }
-
     e.preventDefault();
-
     const nextPassword = [...authPassword];
-
-    // 현재 커서 위치 숫자만 바꿈
     nextPassword[authCursorIndex] = e.key;
     setAuthPassword(nextPassword);
-
-    // 다음 칸으로 커서 이동
-    if (authCursorIndex < 5) {
-      setAuthCursorIndex(authCursorIndex + 1);
-    }
-
-    if (authError) {
-      setAuthError('');
-    }
+    if (authCursorIndex < 5) setAuthCursorIndex(authCursorIndex + 1);
+    if (authError) setAuthError('');
   };
 
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const team = teams.find((t) => t.id === activeTeamId);
-
-    const authPasswordValue = authPassword.join('');
-
-    if (
-      !team ||
-      !isAuthPasswordComplete ||
-      authPasswordValue !== team.password
-    ) {
-      setAuthError('비밀번호가 일치하지 않습니다.');
-
-      return;
-    }
-
-    const isAlreadyMember = team.members.some(
-      (m) => m.name === currentUser!.name,
-    );
-
-    if (!isAlreadyMember) {
-      setTeams((prev) =>
-        prev.map((t) =>
-          t.id === activeTeamId
-            ? {
-                ...t,
-                members: [...t.members, currentUser!],
-                userStatuses: {
-                  ...t.userStatuses,
-                  [currentUser!.name]: {
-                    label: '방금 입장',
-                    color: 'bg-green-500',
-                  },
-                },
-              }
-            : t,
-        ),
-      );
-    }
-
-    setIsTeamAuthorized(true);
-    setActiveModal(null);
-
-    setAuthPassword(Array(6).fill(''));
-    setAuthError('');
-    setAuthCursorIndex(0);
-    setShowAuthPassword(false);
-    addLog(0, currentUser!.name, '공간 입장', 'info');
-  };
+    e.preventDefault()
+    if (!activeTeamId || !isAuthPasswordComplete) return
+    joinTeamMutation.mutate({
+      teamId: activeTeamId,
+      data: {
+        password: authPassword.join(''),
+        userId: Number(currentUser!.id) || 0,
+      }
+    })
+  }
 
   const createNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     const formData = new FormData(e.currentTarget);
     const newNote: Note = {
       id: Date.now(),
@@ -443,7 +339,6 @@ export default function App() {
       author: currentUser!.name,
       date: new Date().toISOString().split('T')[0],
     };
-
     setTeams((prev) =>
       prev.map((t) =>
         t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t,
@@ -454,17 +349,12 @@ export default function App() {
 
   // 회의록 수정
   const updateNote = (e: React.FormEvent<HTMLFormElement>) => {
-    // 기능 개발 추후
     e.preventDefault();
     console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
-    // 회의록 수정 api 호출
-    // setSelectedNote 실행하여 selectedNote 상태값 반영
-    // 모달 닫기
   };
 
   const createLink = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     const formData = new FormData(e.currentTarget);
     const newLink = {
       id: Date.now(),
@@ -472,7 +362,6 @@ export default function App() {
       url: formData.get('url') as string,
       type: formData.get('type') as string,
     };
-
     setTeams((prev) =>
       prev.map((t) =>
         t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t,
@@ -484,42 +373,22 @@ export default function App() {
   const deleteLink = (e: React.MouseEvent) => {
     e.preventDefault();
     console.log(`${selectedLinkToDelete?.id}의 링크를 삭제합니다.`);
-    // 삭제 api 호출
-    // 성공, 실패 시 분기 처리
-    // 성공 시 filter로 ui 제거 후 상태값 변경
   };
 
   const handleLeaveTeam = (teamId: string | number | null) => {
     if (!teamId) return;
-
-    if (
-      !window.confirm(
-        '정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.',
-      )
-    )
-      return;
-
-    console.log('탈퇴 시작 - 팀 ID:', teamId); // 디버깅용 로그
-
-    // 전체 팀 목록에서 해당 팀의 '참여 상태'만 업데이트
-    // (참여 중인 팀 목록은 보통 t.isJoined === true 인 것들만 필터링해서 보여주고 계실 거예요)
+    if (!window.confirm('정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.')) return;
+    console.log('탈퇴 시작 - 팀 ID:', teamId);
     setTeams((prevTeams) =>
       prevTeams.map((t) =>
-        // t.id와 teamId의 타입을 강제로 맞춰서 비교합니다.
         String(t.id) === String(teamId) ? { ...t, isJoined: false } : t,
       ),
     );
-
-    // 현재 활성화된 팀일 경우 로비로 튕겨내기
     if (String(activeTeamId) === String(teamId)) {
-      console.log('로비로 이동 중...');
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
-      // 뷰를 대시보드나 로비로 전환 (필요시 추가)
       setView('dashboard');
     }
-
-    // 알림창은 모든 처리가 끝난 후 띄우기
     setTimeout(() => {
       alert('팀 탈퇴가 완료되었습니다.');
     }, 100);
@@ -531,8 +400,35 @@ export default function App() {
     console.log(`${selectedMember?.position}을 수정합니다.`);
   };
 
-  // --- 조건부 렌더링 (Auth & Lobby) --
-  // 로딩 처리 추가 - 인증 확인이 끝나기 전 로딩 스피너 표시
+  // 공통 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      const data = await logoutMutation.mutateAsync()
+      if (!data.success) {
+        alert(data.error || '로그아웃에 실패했습니다.')
+        return
+      }
+      if (data.data?.message) {
+        alert(data.data.message)
+      } else {
+        alert('로그아웃 되었습니다.')
+      }
+      setCurrentUser(null)
+      setActiveTeamId(null)
+      setIsTeamAuthorized(false)
+      setActiveModal(null)
+      setAuthPassword(Array(6).fill(''))
+      setAuthError('')
+      setAuthCursorIndex(0)
+      setShowAuthPassword(false)
+      setAuthPage('login')
+    } catch (error) {
+      console.log(error)
+      alert('로그아웃에 실패했습니다.')
+    }
+  }
+
+  // --- 조건부 렌더링 ---
   if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-[#0F172A] flex items-center justify-center">
@@ -541,7 +437,6 @@ export default function App() {
     );
   }
 
-  // 인증 확인이 끝났는데 유저 정보가 없는 경우
   if (!currentUser) {
     return authPage === 'login' ? (
       <Login
@@ -553,12 +448,10 @@ export default function App() {
     );
   }
 
-    return (
-      <>
-      {!activeTeamId || !isTeamAuthorized ? (
-        // case 1: 팀이 선택되지 않았거나 인증이 안 된 경우 -> 로비 화면
+  return (
+    <>
+      {!activeTeamId || !isTeamAuthorized || !activeTeam ? (
         <Lobby
-          teams={teams}
           currentUser={currentUser}
           onLogout={handleLogout}
           setActiveTeamId={setActiveTeamId}
@@ -567,7 +460,6 @@ export default function App() {
           setIsTeamAuthModalOpen={() => setActiveModal('auth')}
         />
       ) : (
-        // case 2: 팀 인증 완료 시 -> 대시보드 화면
         <div className="flex h-screen bg-slate-50 overflow-hidden">
           <Sidebar
             activeTeam={activeTeam!}
@@ -588,7 +480,6 @@ export default function App() {
               activeTeam={activeTeam!}
               setIsCreateModalOpen={() => setActiveModal('create')}
             />
-
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               {view === 'dashboard' && activeTeam && (
                 <Dashboard
@@ -599,11 +490,10 @@ export default function App() {
                   currentUser={currentUser}
                   setSelectedTicketId={setSelectedTicketId}
                   updateTicketStatus={updateTicketStatus}
-                  activeModal={activeModal} // 현재 모달 상태
-                  setActiveModal={setActiveModal} // 상태 변경 함수
+                  activeModal={activeModal}
+                  setActiveModal={setActiveModal}
                 />
               )}
-
               {view === 'members' && (
                 <Members
                   activeTeam={activeTeam!}
@@ -614,7 +504,6 @@ export default function App() {
                   }}
                 />
               )}
-
               {view === 'archive' && (
                 <Archive
                   activeTeam={activeTeam!}
@@ -630,181 +519,138 @@ export default function App() {
               )}
             </div>
           </main>
-          </div>
-        )}
+        </div>
+      )}
 
-        {/* --- 공통 모달 영역 --- */}
-        {/* 로비 전용 모달 시스템 */}
-        <Modal
-          isOpen={activeModal === 'createTeam'}
-          onClose={handleCloseCreateTeamModal}
-          title="새 팀 개설"
-          maxWidth="max-w-md"
-        >
-          <form onSubmit={handleCreateTeam} className="space-y-4">
-            {/* 팀 이름 입력 */}
-            <input
-              name="teamName"
-              required
-              minLength={2}
-              maxLength={30}
-              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
-              placeholder="팀 이름"
-            />
+      {/* 공통 모달 영역 */}
+      <Modal
+        isOpen={activeModal === 'createTeam'}
+        onClose={handleCloseCreateTeamModal}
+        title="새 팀 개설"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleCreateTeam} className="space-y-4">
+          <input
+            name="teamName"
+            required
+            minLength={2}
+            maxLength={30}
+            className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+            placeholder="팀 이름"
+          />
+          <input
+            name="teamPassword"
+            type="password"
+            required
+            className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+            placeholder="비밀번호"
+          />
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
+          >
+            팀 생성 및 입장
+          </button>
+          <button
+            type="button"
+            onClick={handleCloseCreateTeamModal}
+            className="w-full bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all"
+          >
+            취소
+          </button>
+        </form>
+      </Modal>
 
-            {/* 비밀번호 입력 */}
-            <input
-              name="teamPassword"
-              type="password"
-              required
-              className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
-              placeholder="비밀번호"
-            />
-
-            {/* 팀 생성 버튼 */}
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
-            >
-              팀 생성 및 입장
-            </button>
-
-            {/* 취소 버튼 */}
+      <Modal
+        isOpen={activeModal === 'auth'}
+        onClose={handleCloseAuthModal}
+        title="보안 인증"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-slate-900">비밀번호를 입력하세요</p>
+              <p className="mt-1 text-xs text-slate-400">6자리 숫자를 입력해주세요</p>
+            </div>
             <button
               type="button"
-              onClick={handleCloseCreateTeamModal}
-              className="w-full bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 transition-all"
+              onClick={() => setShowAuthPassword((prev) => !prev)}
+              className="text-slate-400 hover:text-slate-700 transition-colors"
             >
-              취소
+              {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
-          </form>
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'auth'}
-          onClose={handleCloseAuthModal}
-          title="보안 인증"
-          maxWidth="max-w-md"
-        >
-          <div className="space-y-5">
-            {/* 안내 문구 */}
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-slate-900">
-                  비밀번호를 입력하세요
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  6자리 숫자를 입력해주세요
-                </p>
-              </div>
-
-              {/* 비밀번호 보기/숨기기 버튼 */}
-              <button
-                type="button"
-                onClick={() => setShowAuthPassword((prev) => !prev)}
-                className="text-slate-400 hover:text-slate-700 transition-colors"
-              >
-                {showAuthPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <form onSubmit={handleTeamAuth} className="space-y-4">
-              {/* 실제 입력용 숨김 input */}
-              <input
-                ref={authInputRef}
-                name="password"
-                type="text"
-                inputMode="numeric"
-                autoFocus
-                onKeyDown={handleAuthKeyDown}
-                onPaste={handleAuthPasswordPaste}
-                onFocus={() => setIsAuthInputFocused(true)}
-                onBlur={() => setIsAuthInputFocused(false)}
-                className="absolute opacity-0 pointer-events-none"
-              />
-
-              {/* PIN 입력 UI */}
-              <div
-                onClick={handleFocusAuthInput}
-                className="grid grid-cols-6 gap-2 cursor-text"
-              >
-                {Array.from({ length: 6 }).map((_, index) => {
-                  // 현재 커서 위치 표시
-                  const isCurrentCursor =
-                    isAuthInputFocused && index === authCursorIndex;
-
-                  return (
-                    <div
-                      key={index}
-                      onMouseDown={(e) => handleAuthBoxMouseDown(e, index)}
-                      className="h-12 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center text-lg font-black text-slate-700"
-                    >
-                      {/* 입력된 값은 보기 상태에 따라 숫자/점으로 표시 */}
-                      {authPassword[index] ? (
-                        <div className="flex items-center gap-1">
-                          <span>
-                            {showAuthPassword ? authPassword[index] : '•'}
-                          </span>
-                          {isCurrentCursor && (
-                            <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
-                          )}
-                        </div>
-                      ) : isCurrentCursor ? (
-                        <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
-                      ) : (
-                        ''
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* 인증 버튼 */}
-              <button
-                type="submit"
-                disabled={!isAuthPasswordComplete}
-                className={`w-full font-black py-4 rounded-2xl shadow-lg transition-all ${
-                  isAuthPasswordComplete
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                }`}
-              >
-                인증 및 입장
-              </button>
-
-              {/* 에러 문구 */}
-              {authError && (
-                <p className="text-sm font-bold text-red-500 text-center">
-                  {authError}
-                </p>
-              )}
-            </form>
           </div>
-        </Modal>
+          <form onSubmit={handleTeamAuth} className="space-y-4">
+            <input
+              ref={authInputRef}
+              name="password"
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              onKeyDown={handleAuthKeyDown}
+              onPaste={handleAuthPasswordPaste}
+              onFocus={() => setIsAuthInputFocused(true)}
+              onBlur={() => setIsAuthInputFocused(false)}
+              className="absolute opacity-0 pointer-events-none"
+            />
+            <div onClick={handleFocusAuthInput} className="grid grid-cols-6 gap-2 cursor-text">
+              {Array.from({ length: 6 }).map((_, index) => {
+                const isCurrentCursor = isAuthInputFocused && index === authCursorIndex;
+                return (
+                  <div
+                    key={index}
+                    onMouseDown={(e) => handleAuthBoxMouseDown(e, index)}
+                    className="h-12 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center text-lg font-black text-slate-700"
+                  >
+                    {authPassword[index] ? (
+                      <div className="flex items-center gap-1">
+                        <span>{showAuthPassword ? authPassword[index] : '•'}</span>
+                        {isCurrentCursor && (
+                          <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
+                        )}
+                      </div>
+                    ) : isCurrentCursor ? (
+                      <span className="h-6 w-0.5 bg-blue-600 animate-pulse rounded-full" />
+                    ) : ''}
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              type="submit"
+              disabled={!isAuthPasswordComplete}
+              className={`w-full font-black py-4 rounded-2xl shadow-lg transition-all ${
+                isAuthPasswordComplete
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              인증 및 입장
+            </button>
+            {authError && (
+              <p className="text-sm font-bold text-red-500 text-center">{authError}</p>
+            )}
+          </form>
+        </div>
+      </Modal>
 
-        <Modal
+      <Modal
         isOpen={activeModal === 'note'}
-        onClose={() => {
-          setActiveModal(null);
-          setNote({ title: '', content: '' });
-        }}
+        onClose={() => { setActiveModal(null); setNote({ title: '', content: '' }); }}
         title="회의록 기록"
       >
         <form onSubmit={createNote} className="space-y-6">
           <input
             name="title"
-            onChange={(e) => {
-              setNote({ ...note, title: e.target.value });
-            }}
+            onChange={(e) => setNote({ ...note, title: e.target.value })}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
           />
           <textarea
             name="content"
-            onChange={(e) => {
-              setNote({ ...note, content: e.target.value });
-            }}
+            onChange={(e) => setNote({ ...note, content: e.target.value })}
             required
             rows={8}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
@@ -826,33 +672,25 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'link'}
-        onClose={() => {
-          setActiveModal(null);
-          setLinkData({ title: '', url: '' });
-        }}
+        onClose={() => { setActiveModal(null); setLinkData({ title: '', url: '' }); }}
         title="공유 링크 추가"
       >
         <form onSubmit={createLink} className="space-y-6">
           <input
             name="title"
-            onChange={(e) => {
-              setLinkData({ ...linkData, title: e.target.value });
-            }}
+            onChange={(e) => setLinkData({ ...linkData, title: e.target.value })}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="사이트 이름"
           />
           <input
             name="url"
-            onChange={(e) => {
-              setLinkData({ ...linkData, url: e.target.value });
-            }}
+            onChange={(e) => setLinkData({ ...linkData, url: e.target.value })}
             type="url"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
             placeholder="https://..."
           />
-
           <button
             type="submit"
             disabled={!isLinkValid}
@@ -880,10 +718,8 @@ export default function App() {
           <input
             name="title"
             required
-            onChange={(e) => {
-              setDocData({ ...docData, title: e.target.value });
-            }}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold "
+            onChange={(e) => setDocData({ ...docData, title: e.target.value })}
+            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="문서 이름"
           />
           <input
@@ -899,7 +735,6 @@ export default function App() {
             }}
             className="hidden"
           />
-          {/* input file 커스텀 ui */}
           {docData.file ? (
             <div className="flex justify-between w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold">
               <span>📄 {docData.file.name}</span>
@@ -911,7 +746,7 @@ export default function App() {
                 }}
                 className="group cursor-pointer rounded-md"
               >
-                <Trash2 className=" text-slate-500 group-hover:text-red-400" />
+                <Trash2 className="text-slate-500 group-hover:text-red-400" />
               </button>
             </div>
           ) : (
@@ -919,10 +754,9 @@ export default function App() {
               htmlFor="file-upload"
               className="block w-full px-6 py-4 bg-slate-50 font-bold rounded-2xl hover:bg-slate-200 outline-none cursor-pointer"
             >
-              <span className="">pdf 파일 첨부</span>
+              <span>pdf 파일 첨부</span>
             </label>
           )}
-
           <button
             type="submit"
             disabled={!isDocValid}
@@ -942,20 +776,13 @@ export default function App() {
         onClose={() => setActiveModal(null)}
         title="내 포지션 수정"
       >
-        <form
-          className="space-y-6"
-          onSubmit={(e) => {
-            updatePosition(e);
-          }}
-        >
+        <form className="space-y-6" onSubmit={updatePosition}>
           <input
             name="title"
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="팀원"
             defaultValue={selectedMember?.position}
-            onChange={(e) => {
-              setPosition({ ...position, title: e.target.value });
-            }}
+            onChange={(e) => setPosition({ ...position, title: e.target.value })}
           />
           <button
             type="submit"
@@ -978,13 +805,13 @@ export default function App() {
       >
         <div className="flex justify-between items-center gap-2">
           <button
-            className=" bg-red-100 w-full hover:bg-red-200 text-red-500 px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
+            className="bg-red-100 w-full hover:bg-red-200 text-red-500 px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
             onClick={(e) => deleteLink(e)}
           >
             삭제하기
           </button>
           <button
-            className=" bg-slate-600 w-full hover:bg-slate-700 text-white py-3 rounded-2xl font-black shadow-lg cursor-pointer "
+            className="bg-slate-600 w-full hover:bg-slate-700 text-white py-3 rounded-2xl font-black shadow-lg cursor-pointer"
             onClick={() => setActiveModal(null)}
           >
             취소
@@ -992,7 +819,6 @@ export default function App() {
         </div>
       </Modal>
 
-      {/* 상세 페이지/모달 */}
       {selectedTicket && currentUser && (
         <TicketDetail
           ticket={selectedTicket}
@@ -1029,13 +855,13 @@ export default function App() {
           <div className="flex justify-between">
             <button
               onClick={() => setActiveModal('updateNote')}
-              className=" px-4 py-4  bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer "
+              className="px-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer"
             >
               회의록 수정
             </button>
             <button
               onClick={() => setSelectedNote(null)}
-              className=" px-4 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold cursor-pointer "
+              className="px-4 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold cursor-pointer"
             >
               확인 완료
             </button>
@@ -1048,12 +874,7 @@ export default function App() {
         onClose={() => setActiveModal(null)}
         title="회의록 수정"
       >
-        <form
-          onSubmit={(e) => {
-            updateNote(e);
-          }}
-          className="space-y-6"
-        >
+        <form onSubmit={updateNote} className="space-y-6">
           <input
             name="title"
             required
@@ -1074,6 +895,6 @@ export default function App() {
           </button>
         </form>
       </Modal>
-      </>
-    );
-  }
+    </>
+  );
+}

@@ -71,6 +71,7 @@ export interface Team {
   id: string;
   name: string;
   password: string;
+  isMember?: boolean;
   members: Member[];
   tickets: Ticket[];
   logs: Log[];
@@ -96,4 +97,70 @@ export interface StatusType {
   nextLabel: string | null; // 다음 단계 버튼 문구
   back?: string;            // 이전 단계 상태 ID (반려용)
   backLabel?: string;       // 이전 단계 버튼 문구
+}
+
+// GET /teams API 응답 내 개별 팀원 정보
+export interface TeamMemberFromApi {
+  id: number;
+  position: string;
+  status: string;
+  user: {
+    uuid: string;
+    email: string;
+    name: string;
+    phone: string;
+    github_url: string;
+    profile_image: string | null;
+  };
+}
+
+// GET /teams API 응답 내 개별 팀 정보
+export interface TeamFromApi {
+  id: number;
+  name: string;
+  owner_id: string;
+  isMember: boolean;
+  members: TeamMemberFromApi[];
+}
+
+// GET /teams API 전체 응답 타입
+export interface GetTeamsResponse {
+  success: boolean;
+  data: TeamFromApi[] | null;
+  meta: null;
+  error: string | null;
+}
+
+// POST /teams 요청 body 타입
+export interface CreateTeamRequest {
+  name: string;
+  pin_password: string;
+}
+
+// POST /teams 응답 타입
+export interface CreateTeamResponse {
+  success: boolean;
+  data: {
+    id: number;
+    name: string;
+    owner_id: string;
+  } | null;
+  meta: null;
+  error: string | null;
+}
+
+// POST /teams/{teamId}/members 요청 body 타입
+export interface JoinTeamRequest {
+  password: string;
+  userId: number;
+}
+
+// POST /teams/{teamId}/members 응답 타입
+export interface JoinTeamResponse {
+  success: boolean;
+  data: {
+    message: string;
+  } | null;
+  meta: null;
+  error: string | null;
 }
