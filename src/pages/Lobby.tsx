@@ -3,9 +3,10 @@
  * @description 가입된 팀과 가입 가능한 팀을 구분하여 보여주며, 실시간 검색 및 새 팀 개설 기능을 제공합니다.
  */
 import { useState } from "react";
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import { Search, PlusCircle, LogOut, Users, X, DoorOpen } from "lucide-react";
-import { getTeamsApi } from '../api/team'
+import { getTeamsApi, leaveTeamApi } from '../api/team'
 import { AVATARS } from '../utils/constants'
 import type { Team, TeamFromApi, CurrentUser } from "../types";
 
@@ -30,6 +31,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
     position: m.position,
     avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
     email: m.user.email,
+    phone: m.user.phone,
     github: m.user.github_url || '',
   })),
   tickets: [],
@@ -53,6 +55,24 @@ export const Lobby = ({
 }: LobbyProps) => {
   // 로비 내 팀 검색을 위한 지역 상태
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
+
+  // React Query 캐시 제어용
+  const queryClient = useQueryClient();
+
+  // DELETE /teams/{teamId}/members/me 팀 탈퇴 API 호출
+  const leaveTeamMutation = useMutation({
+    mutationFn: (teamId: number) => leaveTeamApi(teamId),
+
+    // 탈퇴 성공 시 팀 목록 다시 조회
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] })
+    },
+
+    // 탈퇴 실패 시 에러 메시지 출력
+    onError: (error: AxiosError<{ error?: string }>) => {
+      alert(error.response?.data?.error || '팀 탈퇴에 실패했습니다.')
+    },
+  })
 
   // GET /teams API 호출
   const { data, isLoading, isError } = useQuery({
@@ -83,13 +103,9 @@ export const Lobby = ({
   const myTeams = filteredTeams.filter((t) => isMember(t));
   const otherTeams = filteredTeams.filter((t) => !isMember(t));
 
-  // 팀 탈퇴 콘솔 확인용
+  // 팀 탈퇴 버튼 클릭 시 해당 팀 탈퇴 API 호출
   const handleLeaveTeam = (team: Team) => {
-    console.log("팀 탈퇴 클릭", {
-      teamId: team.id,
-      teamName: team.name,
-      userName: currentUser.name,
-    });
+    leaveTeamMutation.mutate(Number(team.id));
   };
 
   // 로딩 중 화면

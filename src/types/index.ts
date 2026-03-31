@@ -13,6 +13,7 @@ export interface Member {
   position: string;
   avatar?: string;
   email: string;
+  phone: string;
   github: string;
 }
 
@@ -157,6 +158,16 @@ export interface JoinTeamRequest {
 
 // POST /teams/{teamId}/members 응답 타입
 export interface JoinTeamResponse {
+  success: boolean;
+  data: {
+    message: string;
+  } | null;
+  meta: null;
+  error: string | null;
+}
+
+// DELETE /teams/{teamId}/members/me 응답 타입
+export interface LeaveTeamResponse {
   success: boolean;
   data: {
     message: string;

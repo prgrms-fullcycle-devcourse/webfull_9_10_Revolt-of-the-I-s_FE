@@ -22,6 +22,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
     position: m.position,
     avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
     email: m.user.email,
+    phone: m.user.phone,
     github: m.user.github_url || '',
   })),
   tickets: [],

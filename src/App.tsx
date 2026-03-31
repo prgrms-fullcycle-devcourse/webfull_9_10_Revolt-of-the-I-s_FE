@@ -173,6 +173,7 @@ export default function App() {
             name: user.name || 'Unknown',
             avatar: user.avatar || '',
             email: user.email || '',
+            phone: user.phone || '',
             position: user.position || '팀원',
             github: user.github || '',
           });
@@ -180,7 +181,7 @@ export default function App() {
           const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
           if (lastTeamId && wasAuthorized) {
             setActiveTeamId(lastTeamId);
-            setIsTeamAuthorized(true); // ← 이게 없어서 Sidebar가 렌더링되는데 activeTeam이 null인 거예요
+            setIsTeamAuthorized(true); 
           }
         }
       } catch (error) {
