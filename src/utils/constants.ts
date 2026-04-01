@@ -13,7 +13,7 @@ export const AVATARS = ['👩‍💻', '👨‍💻', '🎨', '⚙️', '🚀', 
 
 export const TEST_CONFIG = {
   // 팀 아이디 임의 설정
-  TEMPORARY_TEAM_ID: 1, 
+  TEMPORARY_TEAM_ID: 1,
 };
 
 export const STATUS_TYPES: StatusType[] = [
@@ -87,6 +87,7 @@ export const INITIAL_TEAM: Team = {
       name: '영아',
       position: 'Backend Lead',
       avatar: '👩‍💻',
+      phone: '010-1234-5678',
       email: 'younga@istation.dev',
       github: 'https://github.com/younga',
     },
@@ -95,6 +96,7 @@ export const INITIAL_TEAM: Team = {
       name: '민수',
       position: 'Frontend Dev',
       avatar: '👨‍💻',
+      phone: '010-9876-5432',
       email: 'minsu@istation.dev',
       github: '',
     },
@@ -103,6 +105,7 @@ export const INITIAL_TEAM: Team = {
       name: '지수',
       position: 'UI/UX Designer',
       avatar: '🎨',
+      phone: '010-5555-6666',
       email: 'jisu@istation.dev',
       github: '',
     },
