@@ -1,25 +1,25 @@
-import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import { AtSign, Lock, LogIn, ChevronRight } from 'lucide-react'
-import { loginApi } from '../api/auth'
-import { AVATARS } from '../utils/constants'
-import type { CurrentUser } from '../types'
-import axios from 'axios'
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { AtSign, Lock, LogIn, ChevronRight } from 'lucide-react';
+import { loginApi } from '../api/auth';
+import { AVATARS } from '../utils/constants';
+import type { CurrentUser } from '../types';
+import axios from 'axios';
 
 // Props 타입 정의: 로그인 성공 시 유저 정보를 저장할 함수와 회원가입 이동 함수
 interface LoginProps {
-  setCurrentUser: (user: CurrentUser) => void
-  goSignup: () => void
+  setCurrentUser: (user: CurrentUser) => void;
+  goSignup: () => void;
 }
 
 export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
   // --- [1] 상태 관리 (Form State) ---
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   // --- [2] 유효성 검사 (Simple Validation) ---
   // 이메일과 비밀번호가 비어있지 않은지 확인 (공백 제거 후 체크)
-  const isValid = email.trim() !== '' && password.trim() !== ''
+  const isValid = email.trim() !== '' && password.trim() !== '';
 
   // --- [3] 데이터 통신 (API Mutation) ---
   const loginMutation = useMutation({
@@ -28,58 +28,59 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     // 로그인 성공
     onSuccess: (data) => {
       if (!data.success || !data.data) {
-        alert(data.error || '로그인에 실패했습니다.')
-        return
+        alert(data.error || '로그인에 실패했습니다.');
+        return;
       }
-      
+
       // 성공했을 때만 randomAvatar 할당
-      const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
+      const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
 
       // App.tsx에서 쓰는 CurrentUser 구조로 맞춰서 저장
       setCurrentUser({
         name: data.data.user.name,
         email,
+        phone: '',
         position: '',
         github: '',
-        avatar: data.data.user.profile_image || randomAvatar, 
-      }) // 기본 이미지 경로
+        avatar: data.data.user.profile_image || randomAvatar,
+      }); // 기본 이미지 경로
     },
     // 로그인 실패
     onError: (error) => {
-
       // axios 에러인지 먼저 확인
       if (axios.isAxiosError(error)) {
-        alert(error.response?.data?.error || '로그인에 실패했습니다.')
-        return
+        alert(error.response?.data?.error || '로그인에 실패했습니다.');
+        return;
       }
       // 로그인 실패 시 에러 알림
-      alert('로그인에 실패했습니다.')
+      alert('로그인에 실패했습니다.');
     },
-  })
+  });
 
   // --- [4] 이벤트 핸들러 ---
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault() // 폼 제출 시 페이지 새로고침 방지
-    if (!isValid) return // 유효하지 않으면 뮤테이션 실행 안 함
+    e.preventDefault(); // 폼 제출 시 페이지 새로고침 방지
+    if (!isValid) return; // 유효하지 않으면 뮤테이션 실행 안 함
 
     // API 서버로 이메일과 비밀번호 전송
     loginMutation.mutate({
       email,
       password,
-    })
-  }
+    });
+  };
 
   return (
     // 배경색 및 중앙 정렬 레이아웃
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        
         {/* 상단 헤더: 아이콘 및 서비스 이름 */}
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/20">
             <LogIn size={40} className="text-white" />
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tighter italic">i-Station</h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter italic">
+            i-Station
+          </h1>
           <p className="text-slate-400 text-sm font-semibold uppercase tracking-widest opacity-80 mt-1">
             개인 계정 로그인
           </p>
@@ -88,7 +89,6 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         {/* 로그인 카드 폼 (Glassmorphism 스타일) */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             {/* 이메일 입력 영역 */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 flex items-center gap-2">
@@ -144,5 +144,5 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

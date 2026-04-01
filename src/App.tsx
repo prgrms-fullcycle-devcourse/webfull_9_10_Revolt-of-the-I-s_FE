@@ -1,8 +1,8 @@
-import { useRef, useState, useEffect, use } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
-import { Edit, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { logoutApi, getMyInfoApi } from './api/auth';
 import {
   type EditMemberPositionRequest,
@@ -89,7 +89,12 @@ export default function App() {
   // 포지션 수정 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [myPosition, setMyPosition] = useState<string>('');
-  const isPositionValid = myPosition.length > 0;
+  const isPositionValid =
+    myPosition.trim().length > 0 &&
+    myPosition !==
+      (activeTeam?.members.find((m) => m.email === currentUser?.email)
+        ?.position || '');
+  const [isPending, setIsPending] = useState<boolean>(false);
 
   // 링크, 문서 관련 상태
   const [linkData, setLinkData] = useState<{ title: string; url: string }>({
@@ -193,7 +198,7 @@ export default function App() {
             localStorage.getItem('isTeamAuthorized') === 'true';
           if (lastTeamId && wasAuthorized) {
             setActiveTeamId(lastTeamId);
-            setIsTeamAuthorized(true); 
+            setIsTeamAuthorized(true);
           }
         }
       } catch (error) {
@@ -418,6 +423,8 @@ export default function App() {
 
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isPending) return;
+    setIsPending(true);
 
     try {
       const editPositionData: EditMemberPositionRequest = {
@@ -425,13 +432,25 @@ export default function App() {
       };
 
       // API 호출하여 포지션 변경
-      await editMemberPositionApi(Number(activeTeamId), editPositionData);
+      const { success } = await editMemberPositionApi(
+        Number(activeTeamId),
+        editPositionData,
+      );
 
       // 요청이 성공하면 teams 상태 업데이트하기
       handleEditPosition(myPosition);
+      console.log('포지션 수정 성공 결과', success);
+
+      // 모달 닫기
+      alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
       setActiveModal(null);
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      console.log('API 호출 실패 :', error);
+
+      const serverMessage = error.response?.data?.error;
+      alert(serverMessage);
+    } finally {
+      setIsPending(false);
     }
 
     // 모달 닫기
@@ -854,9 +873,9 @@ export default function App() {
           />
           <button
             type="submit"
-            disabled={!isPositionValid}
+            disabled={!isPositionValid || isPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isPositionValid
+              isPositionValid && !isPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}

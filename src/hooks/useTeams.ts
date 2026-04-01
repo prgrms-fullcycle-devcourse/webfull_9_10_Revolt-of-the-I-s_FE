@@ -6,7 +6,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
-import { INITIAL_TEAM, AVATARS } from '../utils/constants';
+import { AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
 
@@ -38,6 +38,22 @@ const convertTeam = (team: TeamFromApi): Team => ({
     ]),
   ),
 });
+
+/**
+ * 특정 팀의 데이터를 최신 상태로 갈아끼워주는 헬퍼 함수
+ * @param prev 기존 로컬 팀 리스트
+ * @param targetId 수정하려는 팀 ID(activeTeamId)
+ * @param updatedData 수정이 반영된 새로운 팀 객체
+ */
+
+const getUpdatedTeams = (
+  prev: Team[],
+  targetId: string,
+  updatedTeam: Team,
+): Team[] => {
+  const filtered = prev.filter((t) => String(t.id) !== String(targetId));
+  return [...filtered, updatedTeam];
+};
 
 // 상태 관리 - 팀 리스트 및 참여중인 팀 ID
 export const useTeams = (currentUser: CurrentUser | null) => {
@@ -403,26 +419,16 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   const handleEditPosition = (newPosition: string) => {
     if (!currentUser || !activeTeamId || !activeTeam) return;
 
-    setTeams((prev) => {
-      // 1. 수정하려는 팀이 로컬 주머니(prev)에 있는지 확인
-      const isExist = prev.some((t) => String(t.id) === String(activeTeamId));
-
-      // 2. 없다면 현재 화면의 activeTeam을 리스트에 추가 (수혈)
-      const baseTeams = isExist ? prev : [...prev, activeTeam];
-
-      return baseTeams.map((team) =>
-        String(team.id) === String(activeTeamId)
-          ? {
-              ...team,
-              members: team.members.map((member) =>
-                member.email === currentUser.email
-                  ? { ...member, position: newPosition }
-                  : member,
-              ),
-            }
-          : team,
-      );
-    });
+    // 새로운 정보가 반영된 팀 객체 생성
+    const updatedActiveTeam = {
+      ...activeTeam,
+      members: activeTeam.members.map((member) =>
+        member.email === currentUser.email
+          ? { ...member, position: newPosition }
+          : member,
+      ),
+    };
+    setTeams((prev) => getUpdatedTeams(prev, activeTeamId, updatedActiveTeam));
   };
 
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
