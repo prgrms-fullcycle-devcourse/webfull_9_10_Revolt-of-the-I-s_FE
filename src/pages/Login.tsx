@@ -38,6 +38,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
       // App.tsx에서 쓰는 CurrentUser 구조로 맞춰서 저장
       setCurrentUser({
         name: data.data.user.name,
+        uuid: "",
         email,
         phone: '',
         position: '',
