@@ -11,9 +11,10 @@ interface TicketDetailProps {
   setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
   activeTeamId: string | number | null;
   addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void;
+  handleDeleteTicketApi: (ticketId: number) => Promise<{ ok: boolean; message?: string }>;
 }
 
-export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComment, setTeams, activeTeamId, addLog }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi }: TicketDetailProps) => {
   // 스크롤 위치를 잡기 위한 Ref 생성
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -22,46 +23,60 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-const handleDeleteTicket = (ticketId: number | string) => {
-  if (!window.confirm("정말 이 요청을 거부하시겠습니까? 거부 시 해당 테스크는 영구적으로 삭제됩니다.")) return;
-
-  console.log("--- 삭제될 티켓 정보 ---");
-  console.log(`번호: #${ticketId}`);
-  console.log(`제목: ${ticket.title}`);
-  console.log(`상태: ${ticket.status}`);
-  console.log("-----------------------");
-
-  // 로그에 추가
-  addLog(
-    Number(ticketId), 
-    currentUser.name, 
-    `요청 거부: ${ticket.title}`, 
-    'error'
-  );
-
-  // 테스크 상태 업데이트
-  // -- 나중에 테스크 삭제 api 추가 구현 예정 --
-  setTeams((prevTeams) =>
-    prevTeams.map((team) => {
-      if (String(team.id) === String(activeTeamId)) {
-        return {
-          ...team,
-          tickets: team.tickets.filter((t) => String(t.id) !== String(ticketId)),
-        };
-      }
-      return team;
-    })
-  );
-
-  // 삭제 완료 후 처리
-  alert("요청이 성공적으로 거부되어 삭제되었습니다.");
-  onClose(); 
-};
-
-  // 댓글 데이터(ticket.comments)가 변경될 때마다 함수 실행
+  // 댓글 데이터가 변경될 때마다 하단 스크롤
   useEffect(() => {
     scrollToBottom();
   }, [ticket.comments]);
+
+  // 권한 체크
+  const isWorker = currentUser.name === ticket.worker;
+
+  // 삭제(요청 거부) 핸들러
+  const onClickDelete = async () => {
+    if (!isWorker) {
+      alert("담당자만 요청을 거부할 수 있습니다.");
+      return;
+    }
+
+    if (!window.confirm("정말 이 요청을 거부하시겠습니까? 거부 시 해당 테스크는 영구적으로 삭제됩니다.")) return;
+
+    try {
+      // 1. API 호출
+      const result = await handleDeleteTicketApi(Number(ticket.id));
+      
+      if (result.ok) {
+        // 2. 로그 추가
+        addLog(
+          Number(ticket.id), 
+          currentUser.name, 
+          `요청 거부: ${ticket.title}`, 
+          'error'
+        );
+        
+        // 3. UI 업데이트 (상태 변경)
+        setTeams((prevTeams) =>
+          prevTeams.map((team) => {
+            if (String(team.id) === String(activeTeamId)) {
+              return {
+                ...team,
+                tickets: team.tickets.filter((t) => String(t.id) !== String(ticket.id)),
+              };
+            }
+            return team;
+          })
+        );
+
+        alert("요청이 성공적으로 거부되어 삭제되었습니다.");
+        onClose();
+      } else {
+        alert(result.message || "삭제에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("삭제 중 에러:", error);
+      alert("서버 통신 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
     // 고정된 전체 화면 오버레이 (Backdrop)
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
@@ -71,7 +86,7 @@ const handleDeleteTicket = (ticketId: number | string) => {
         <header className="p-8 flex justify-between items-start shrink-0">
           <div className="flex items-center gap-4 min-w-0">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 shrink-0">
-              #{activeTeam.tickets.indexOf(ticket) + 1}
+              #{ticket.id || activeTeam.tickets.indexOf(ticket) + 1}
             </div>
             <div className="min-w-0">
               <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">
@@ -121,12 +136,22 @@ const handleDeleteTicket = (ticketId: number | string) => {
                 <p className="font-black text-blue-600">{ticket.worker}</p>
               </div>
               {/* 요청 취소(삭제) 버튼 */}
+              {/* 💡 담당자일 때만 버튼 활성화, 아닐 때는 비활성화 스타일 적용 */}
+              {isWorker ? (
                 <button
-                  onClick={() => handleDeleteTicket(ticket.id)}
-                  className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl text-[11px] font-black hover:bg-slate-200 transition-all cursor-pointer"
+                  onClick={onClickDelete}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-black hover:bg-red-100 transition-all cursor-pointer shrink-0"
                 >
                   요청 거부
                 </button>
+              ) : (
+                <button
+                  disabled
+                  className="px-4 py-2 bg-slate-100 text-slate-300 rounded-xl text-[11px] font-black cursor-not-allowed shrink-0"
+                >
+                  권한 없음
+                </button>
+              )}
             </div>
           </div>
 
@@ -148,7 +173,7 @@ const handleDeleteTicket = (ticketId: number | string) => {
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
                     isMe ? 'bg-blue-600 shadow-md shadow-blue-100' : 'bg-slate-200'
                   }`}>
-                    {c.user[0]}
+                    {c.user ? c.user[0] : '?'}
                   </div>
 
                   {/* 메시지 div 설정 */}

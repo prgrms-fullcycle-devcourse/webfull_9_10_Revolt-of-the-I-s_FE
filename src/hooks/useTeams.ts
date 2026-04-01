@@ -10,6 +10,7 @@ import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
+import { deleteTicketApi, getTicketDetailApi, getTicketsApi } from "../api/tickets";
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
@@ -59,11 +60,30 @@ const getUpdatedTeams = (
 
 // 상태 관리 - 팀 리스트 및 참여중인 팀 ID
 export const useTeams = (currentUser: CurrentUser | null) => {
-  const [localTeams, setTeams] = useState<Team[]>([]);
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM])
+
+  // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(() => {
+    return localStorage.getItem('lastActiveTeamId');
+  });
+
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+
+  const { data: detailData } = useQuery({
+    queryKey: ['ticketDetail', selectedTicketId],
+    queryFn: () => getTicketDetailApi(selectedTicketId!),
+    enabled: !!selectedTicketId,
+  });
+
+  // activeTeamId가 바뀔 때마다 localStorage에 저장
+  useEffect(() => {
+    if (activeTeamId) {
+      localStorage.setItem('lastActiveTeamId', activeTeamId);
+    }
+  }, [activeTeamId]);
 
   // GET /teams API 호출로 팀 목록 가져오기
-  const { data } = useQuery({
+  const { data: teamListData } = useQuery({
     queryKey: ['teams'],
     queryFn: getTeamsApi,
     enabled: !!currentUser,
@@ -71,26 +91,110 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     gcTime: 0,
   });
 
+  // 활성화된 팀의 테스크 목록 조회
+  const { data: ticketData } = useQuery({
+    queryKey: ['tickets', activeTeamId],
+    queryFn: () => getTicketsApi(Number(activeTeamId)),
+    enabled: !!activeTeamId,
+  });
+
+  // 상세 데이터가 오면 해당 티켓 업데이트
+  useEffect(() => {
+    if (detailData?.success && activeTeamId) {
+      const d = detailData.data;
+      setTeams(prev => prev.map(team => {
+        if (String(team.id) === String(activeTeamId)) {
+          return {
+            ...team,
+            tickets: team.tickets.map(t => 
+              t.id === d.id ? {
+                ...t,
+                content: d.content,
+                // 서버 응답의 comments 구조를 UI 규격에 맞게 매핑
+                comments: d.comments.map((c: any) => ({
+                  id: c.id,
+                  user: c.user.name,
+                  text: c.content,
+                  time: new Date(c.created_at).toLocaleTimeString()
+                })),
+                // 상세 데이터에서 온 실제 이름들로 교체
+                requester: d.requester.name,
+                worker: d.worker.name
+              } : t
+            )
+          };
+        }
+        return team;
+      }));
+    }
+  }, [detailData, activeTeamId]);
+  
   // API 팀 목록과 로컬 팀 목록 합치기
   // 서버에서 데이터를 받아와서 localTeams 동기화
   useEffect(() => {
-    if (data?.data) {
-      const apiTeams = data.data.map(convertTeam);
+    if (teamListData?.data) {
+      const apiTeams = teamListData.data.map(convertTeam);
       setTeams(prev => {
-        // 이미 로컬에 있는 서버 팀들은 제외, 새로운 팀만 합치기
-        const filteredApiTeams = apiTeams.filter(at => !prev.some(pt => pt.id === at.id));
-        return [...prev, ...filteredApiTeams];
+        // 기존 INITIAL_TEAM이나 로컬 전용 팀을 유지하면서 서버 팀 정보로 교체/합치기
+        const otherTeams = prev.filter(p => !apiTeams.some(a => a.id === p.id));
+        return [...apiTeams, ...otherTeams];
       });
     }
-  }, [data]);
+  }, [teamListData]);
 
   const teams = localTeams;
 
+  // 선택된 팀의 티켓 데이터를 localTeams에 추가
+  useEffect(() => {
+    if (ticketData?.success && activeTeamId && localTeams.length > 1) {
+      // 현재 활성화된 팀 '멤버 리스트' 가져오기
+      const currentTeam = localTeams.find(t => String(t.id) === String(activeTeamId));
+      const currentMembers = currentTeam?.members || [];
+
+      const serverTasks = ticketData.data.tasks.map((task: any) => {
+        // worker_id(UUID)와 일치하는 담당자 찾기
+        const matchedMember = currentMembers.find(m => String(m.uuid) === String(task.worker_id));
+
+        // 요청자 ID로 요청자 찾기
+        const requesterMember = currentMembers.find(m => String(m.uuid) === String(task.requester_id));
+        
+        return {
+          id: task.id,
+          title: task.title,
+          content: task.content,
+          status: task.status || 'Todo',
+          requester: requesterMember ? requesterMember.name : "요청자", 
+          // 찾은 맴버가 있다면 이름 추가, 없으면 id 및 '담당자'로 표시
+          worker: matchedMember ? matchedMember.name : "담당자",
+          createdAt: task.created_at?.split('T')[0] || "",
+          comments: [] 
+        };
+      });
+
+      setTeams(prev => {
+        // 현재 팀 리스트에 해당 팀이 있는지 확인
+        const teamExists = prev.some(t => String(t.id) === String(activeTeamId));
+        
+        if (!teamExists) return prev;
+
+        return prev.map(team => 
+          String(team.id) === String(activeTeamId) 
+            ? { ...team, tickets: serverTasks } 
+            : team
+        );
+      });
+      
+      console.log(`✅ ID ${activeTeamId} 팀 티켓 동기화 완료: ${serverTasks.length}개`);
+    }
+  }, [ticketData, activeTeamId, localTeams.length]);
+
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
-    const found = teams.find((t) => String(t.id) === String(activeTeamId));
+    if (!activeTeamId) return null;
+    // localTeams에서 찾되, 만약 아직 로드 전이라면 빈 객체라도 반환하여 팅기지 않게 설정
+    const found = localTeams.find((t) => String(t.id) === String(activeTeamId));
     return found || null;
-  }, [teams, activeTeamId]);
+  }, [localTeams, activeTeamId]);
 
   // 현재 유저가 참여 중인 팀 목록
   const joinedTeams = useMemo(() => {
@@ -121,6 +225,30 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   const isValidTeamPassword = (password: string) => {
     return /^\d{6}$/.test(password);
   };
+
+  const handleDeleteTicketApi = async (ticketId: number) => {
+  try {
+    const response = await deleteTicketApi(ticketId);
+    if (response.success) {
+      setTeams((prevTeams) =>
+        prevTeams.map((team) => {
+          if (String(team.id) === String(activeTeamId)) {
+            return {
+              ...team,
+              tickets: team.tickets.filter((t) => t.id !== ticketId),
+            };
+          }
+          return team;
+        })
+      );
+      return { ok: true };
+    }
+    return { ok: false, message: "삭제에 실패했습니다." };
+  } catch (error) {
+    console.error("삭제 중 오류 발생:", error);
+    return { ok: false, message: "서버 통신 오류가 발생했습니다." };
+  }
+};
 
   /**
    * [핵심 함수] addLog: 활동 로그 생성
@@ -455,6 +583,10 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     handleCreateTicket,
     handleAddComment,
     leaveTeam,
+    setSelectedTicketId,
+    selectedTicketId,
+    handleDeleteTicketApi,
     handleEditPosition,
   };
 };
+

@@ -150,7 +150,7 @@ export const Dashboard = ({
         </div>
         <div className="flex gap-3 mt-4">
           <button type="button" onClick={closeCreateModal} className="flex-1 bg-slate-100 py-4 rounded-2xl font-bold">취소</button>
-          <button type="submit" className="flex-2 bg-blue-600 text-white py-4 rounded-2xl font-black">요청 발행 (Todo)</button>
+          <button type="submit" className="flex-2 bg-blue-600 text-white py-4 rounded-2xl font-black cursor-pointer">요청 발행 (Todo)</button>
         </div>
       </form>
     </Modal>
