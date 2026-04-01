@@ -8,7 +8,8 @@ export interface UserStatus {
 
 // 개별 팀원 정보 (로그인 시 입력받는 데이터 규격)
 export interface Member {
-  id?: number | string; // uuid 형식이므로 string 추가
+  id?: number;
+  uuid: string;
   name: string;
   position: string;
   avatar?: string;

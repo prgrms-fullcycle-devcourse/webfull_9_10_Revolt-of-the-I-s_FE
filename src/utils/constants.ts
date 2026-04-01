@@ -90,6 +90,7 @@ export const INITIAL_TEAM: Team = {
       phone: '010-1234-5678',
       email: 'younga@istation.dev',
       github: 'https://github.com/younga',
+      uuid: "08183920"
     },
     {
       id: 2,
@@ -99,6 +100,7 @@ export const INITIAL_TEAM: Team = {
       phone: '010-9876-5432',
       email: 'minsu@istation.dev',
       github: '',
+      uuid: "9283928"
     },
     {
       id: 3,
@@ -108,6 +110,7 @@ export const INITIAL_TEAM: Team = {
       phone: '010-5555-6666',
       email: 'jisu@istation.dev',
       github: '',
+      uuid: "72839192"
     },
   ],
   tickets: [

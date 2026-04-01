@@ -45,7 +45,9 @@ export default function App() {
     updateTicketStatus,
     handleAddComment,
     addLog,
+    handleDeleteTicketApi,
     handleEditPosition,
+
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -186,6 +188,7 @@ export default function App() {
         if (user) {
           setCurrentUser({
             id: user.id || Date.now(),
+            uuid: user.uuid,
             name: user.name || 'Unknown',
             avatar: user.avatar || '',
             email: user.email || '',
@@ -924,6 +927,7 @@ export default function App() {
           setTeams={setTeams}
           activeTeamId={activeTeamId}
           addLog={addLog}
+          handleDeleteTicketApi={handleDeleteTicketApi}
         />
       )}
 

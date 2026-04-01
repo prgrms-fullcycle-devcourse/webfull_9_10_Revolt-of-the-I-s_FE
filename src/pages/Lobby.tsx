@@ -27,6 +27,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
   isMember: team.isMember,
   members: team.members.map((m) => ({
     id: m.id,
+    uuid: m.user.uuid,
     name: m.user.name,
     position: m.position,
     avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
