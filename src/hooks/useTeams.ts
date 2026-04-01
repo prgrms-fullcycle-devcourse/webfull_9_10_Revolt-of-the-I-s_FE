@@ -10,7 +10,12 @@ import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
-import { deleteTicketApi, getTicketDetailApi, getTicketsApi } from "../api/tickets";
+import {
+  deleteTicketApi,
+  getTicketDetailApi,
+  getTicketsApi,
+} from '../api/tickets';
+import { getQuickLinksApi } from '../api/archive';
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
@@ -60,7 +65,7 @@ const getUpdatedTeams = (
 
 // 상태 관리 - 팀 리스트 및 참여중인 팀 ID
 export const useTeams = (currentUser: CurrentUser | null) => {
-  const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM])
+  const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM]);
 
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
@@ -96,41 +101,47 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   useEffect(() => {
     if (detailData?.success && activeTeamId) {
       const d = detailData.data;
-      setTeams(prev => prev.map(team => {
-        if (String(team.id) === String(activeTeamId)) {
-          return {
-            ...team,
-            tickets: team.tickets.map(t => 
-              t.id === d.id ? {
-                ...t,
-                content: d.content,
-                // 서버 응답의 comments 구조를 UI 규격에 맞게 매핑
-                comments: d.comments.map((c: any) => ({
-                  task_number: d.task_number,
-                  user: c.user.name,
-                  text: c.content,
-                  time: new Date(c.created_at).toLocaleTimeString()
-                })),
-                // 상세 데이터에서 온 실제 이름들로 교체
-                requester: d.requester.name,
-                worker: d.worker.name
-              } : t
-            )
-          };
-        }
-        return team;
-      }));
+      setTeams((prev) =>
+        prev.map((team) => {
+          if (String(team.id) === String(activeTeamId)) {
+            return {
+              ...team,
+              tickets: team.tickets.map((t) =>
+                t.id === d.id
+                  ? {
+                      ...t,
+                      content: d.content,
+                      // 서버 응답의 comments 구조를 UI 규격에 맞게 매핑
+                      comments: d.comments.map((c: any) => ({
+                        task_number: d.task_number,
+                        user: c.user.name,
+                        text: c.content,
+                        time: new Date(c.created_at).toLocaleTimeString(),
+                      })),
+                      // 상세 데이터에서 온 실제 이름들로 교체
+                      requester: d.requester.name,
+                      worker: d.worker.name,
+                    }
+                  : t,
+              ),
+            };
+          }
+          return team;
+        }),
+      );
     }
   }, [detailData, activeTeamId]);
-  
+
   // API 팀 목록과 로컬 팀 목록 합치기
   // 서버에서 데이터를 받아와서 localTeams 동기화
   useEffect(() => {
     if (teamListData?.data) {
       const apiTeams = teamListData.data.map(convertTeam);
-      setTeams(prev => {
+      setTeams((prev) => {
         // 기존 INITIAL_TEAM이나 로컬 전용 팀을 유지하면서 서버 팀 정보로 교체/합치기
-        const otherTeams = prev.filter(p => !apiTeams.some(a => a.id === p.id));
+        const otherTeams = prev.filter(
+          (p) => !apiTeams.some((a) => a.id === p.id),
+        );
         return [...apiTeams, ...otherTeams];
       });
     }
@@ -142,39 +153,50 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   useEffect(() => {
     if (ticketData?.success && activeTeamId) {
       // 현재 활성화된 팀 '멤버 리스트' 가져오기
-      const currentTeam = localTeams.find(t => String(t.id) === String(activeTeamId));
+      const currentTeam = localTeams.find(
+        (t) => String(t.id) === String(activeTeamId),
+      );
       if (!currentTeam) return;
 
       const currentMembers = currentTeam?.members || [];
       const serverTasks = ticketData.data.tasks.map((task: any) => {
         // worker_id(UUID)와 일치하는 담당자 찾기
-        const matchedMember = currentMembers.find(m => String(m.uuid) === String(task.worker_id));
+        const matchedMember = currentMembers.find(
+          (m) => String(m.uuid) === String(task.worker_id),
+        );
 
         // 요청자 ID로 요청자 찾기
-        const requesterMember = currentMembers.find(m => String(m.uuid) === String(task.requester_id));
-        
+        const requesterMember = currentMembers.find(
+          (m) => String(m.uuid) === String(task.requester_id),
+        );
+
         return {
           id: task.id,
           task_number: task.task_number,
           title: task.title,
           content: task.content,
           status: task.status || 'Todo',
-          requester: requesterMember ? requesterMember.name : "요청자", 
+          requester: requesterMember ? requesterMember.name : '요청자',
           // 찾은 맴버가 있다면 이름 추가, 없으면 id 및 '담당자'로 표시
-          worker: matchedMember ? matchedMember.name : "담당자",
-          createdAt: task.created_at?.split('T')[0] || "",
-          comments: [] 
+          worker: matchedMember ? matchedMember.name : '담당자',
+          createdAt: task.created_at?.split('T')[0] || '',
+          comments: [],
         };
       });
 
-      setTeams(prev => {
-        const targetTeam = prev.find(t => String(t.id) === String(activeTeamId));
-        const isSame = JSON.stringify(targetTeam?.tickets) === JSON.stringify(serverTasks);
-      
-        if (isSame) return prev; 
+      setTeams((prev) => {
+        const targetTeam = prev.find(
+          (t) => String(t.id) === String(activeTeamId),
+        );
+        const isSame =
+          JSON.stringify(targetTeam?.tickets) === JSON.stringify(serverTasks);
 
-        return prev.map(team => 
-          String(team.id) === String(activeTeamId) ? { ...team, tickets: serverTasks } : team
+        if (isSame) return prev;
+
+        return prev.map((team) =>
+          String(team.id) === String(activeTeamId)
+            ? { ...team, tickets: serverTasks }
+            : team,
         );
       });
     }
@@ -221,29 +243,31 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   const queryClient = useQueryClient();
 
   const handleDeleteTicketApi = async (ticketId: number) => {
-  try {
-    const response = await deleteTicketApi(ticketId);
-    if (response.success) {
-      await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      setTeams((prevTeams) =>
-        prevTeams.map((team) => {
-          if (String(team.id) === String(activeTeamId)) {
-            return {
-              ...team,
-              tickets: team.tickets.filter((t) => t.id !== ticketId),
-            };
-          }
-          return team;
-        })
-      );
-      return { ok: true };
+    try {
+      const response = await deleteTicketApi(ticketId);
+      if (response.success) {
+        await queryClient.invalidateQueries({
+          queryKey: ['tickets', activeTeamId],
+        });
+        setTeams((prevTeams) =>
+          prevTeams.map((team) => {
+            if (String(team.id) === String(activeTeamId)) {
+              return {
+                ...team,
+                tickets: team.tickets.filter((t) => t.id !== ticketId),
+              };
+            }
+            return team;
+          }),
+        );
+        return { ok: true };
+      }
+      return { ok: false, message: '삭제에 실패했습니다.' };
+    } catch (error) {
+      console.error('삭제 중 오류 발생:', error);
+      return { ok: false, message: '서버 통신 오류가 발생했습니다.' };
     }
-    return { ok: false, message: "삭제에 실패했습니다." };
-  } catch (error) {
-    console.error("삭제 중 오류 발생:", error);
-    return { ok: false, message: "서버 통신 오류가 발생했습니다." };
-  }
-};
+  };
 
   /**
    * [핵심 함수] addLog: 활동 로그 생성
@@ -257,7 +281,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     userName: string,
     action: string,
     type: 'default' | 'info' | 'success' | 'error' = 'default',
-    overrideTeamId?: string
+    overrideTeamId?: string,
   ) => {
     // activeTeamId가 없는데 overrideTeamId도 없다면 그때만 리턴
     const targetTeamId = overrideTeamId || activeTeamId;
@@ -378,9 +402,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     );
 
     if (!isAlreadyMember) {
-      setTeams(prev => 
-        prev.map(team => 
-        String(team.id) === String(teamId)
+      setTeams((prev) =>
+        prev.map((team) =>
+          String(team.id) === String(teamId)
             ? {
                 ...team,
                 members: [...team.members, currentUser],
@@ -562,6 +586,63 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     setTeams((prev) => getUpdatedTeams(prev, activeTeamId, updatedActiveTeam));
   };
 
+  // 활성화된 팀의 아카이브 목록 조회
+  const { data: archiveData } = useQuery({
+    queryKey: ['archiveData', activeTeamId],
+    queryFn: () => getQuickLinksApi(Number(activeTeamId)),
+    enabled: !!activeTeamId,
+  });
+
+  // 아카이브 데이터가 오면 activeTeam의 links에 추가
+  useEffect(() => {
+    if (archiveData?.success && activeTeamId && localTeams.length > 1) {
+      const serverLinks = archiveData.data.map((link: any) => ({
+        id: link.id,
+        type: link.type,
+        title: link.title,
+        content: link.content,
+        createdAt: new Date(link.created_at)
+          .toLocaleString('ko-KR', { hour12: false })
+          .slice(0, -3),
+      }));
+
+      setTeams((prev) =>
+        prev.map((team) =>
+          String(team.id) === String(activeTeamId)
+            ? { ...team, links: serverLinks }
+            : team,
+        ),
+      );
+
+      console.log(
+        `✅ ID ${activeTeamId} 팀 아카이브 동기화 완료: ${serverLinks.length}개`,
+      );
+    }
+  }, [archiveData, activeTeamId]);
+
+  // 아카이브 > 퀵 링크 생성
+  const handleCreateQuickLink = (title: string, content: string) => {
+    if (!currentUser || !activeTeamId || !activeTeam) return;
+    console.log('새 링크 생성 시도:', title, content);
+    console.log(activeTeam);
+
+    const newLink: TeamLink = {
+      id: Date.now(),
+      type: 'LINK',
+      title: title,
+      content: content,
+      createdAt: new Date()
+        .toLocaleString('ko-KR', { hour12: false })
+        .slice(0, -3),
+    };
+
+    const updatedActiveTeam = {
+      ...activeTeam,
+      links: [newLink, ...activeTeam.links],
+    };
+    setTeams((prev) => getUpdatedTeams(prev, activeTeamId, updatedActiveTeam));
+  };
+
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
   return {
     currentUser,
@@ -586,7 +667,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     handleDeleteTicketApi,
     handleEditPosition,
     pendingTeamId,
-    setPendingTeamId
+    setPendingTeamId,
   };
 };
-

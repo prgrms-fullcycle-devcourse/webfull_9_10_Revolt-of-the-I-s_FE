@@ -8,6 +8,7 @@ import {
   type EditMemberPositionRequest,
   editMemberPositionApi,
 } from './api/member';
+import { createQuickLinkApi } from './api/archive';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -49,7 +50,7 @@ export default function App() {
     addLog,
     handleDeleteTicketApi,
     handleEditPosition,
-
+    handleCreateQuickLink,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -101,11 +102,11 @@ export default function App() {
   const [isPending, setIsPending] = useState<boolean>(false);
 
   // 링크, 문서 관련 상태
-  const [linkData, setLinkData] = useState<{ title: string; url: string }>({
+  const [linkData, setLinkData] = useState<{ title: string; content: string }>({
     title: '',
-    url: '',
+    content: '',
   });
-  const isLinkValid = linkData.title.length > 0 && linkData.url.length > 0;
+  const isLinkValid = linkData.title.length > 0 && linkData.content.length > 0;
   const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
     null,
   );
@@ -388,21 +389,43 @@ export default function App() {
     console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
   };
 
-  const createLink = (e: React.FormEvent<HTMLFormElement>) => {
+  // 새로운 링크 생성
+  const createLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newLink = {
-      id: Date.now(),
-      title: formData.get('title') as string,
-      url: formData.get('url') as string,
-      type: formData.get('type') as string,
-    };
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t,
-      ),
-    );
-    setActiveModal(null);
+    // if (!activeTeamId) return;
+    if (isPending) return;
+    setIsPending(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      console.log(
+        '추가할 링크 내용 :',
+        formData.get('title'),
+        formData.get('content'),
+      );
+
+      const newLinkData = {
+        title: formData.get('title') as string,
+        content: (formData.get('content') as string).trim(),
+      };
+
+      const result = await createQuickLinkApi(
+        Number(activeTeamId),
+        newLinkData,
+      );
+      console.log('링크 추가 성공 : ', result);
+
+      handleCreateQuickLink(newLinkData.title, newLinkData.content);
+      alert(`링크가 성공적으로 추가되었습니다.`);
+      setActiveModal(null);
+    } catch (error: any) {
+      console.log('API 호출 실패 :', error);
+
+      const serverMessage = error.response?.data?.error;
+      alert(serverMessage);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const deleteLink = (e: React.MouseEvent) => {
@@ -764,7 +787,7 @@ export default function App() {
         isOpen={activeModal === 'link'}
         onClose={() => {
           setActiveModal(null);
-          setLinkData({ title: '', url: '' });
+          setLinkData({ title: '', content: '' });
         }}
         title="공유 링크 추가"
       >
@@ -779,18 +802,21 @@ export default function App() {
             placeholder="사이트 이름"
           />
           <input
-            name="url"
-            onChange={(e) => setLinkData({ ...linkData, url: e.target.value })}
+            name="content"
+            onChange={(e) =>
+              setLinkData({ ...linkData, content: e.target.value })
+            }
             type="url"
+            defaultValue={'https://'}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
             placeholder="https://..."
           />
           <button
             type="submit"
-            disabled={!isLinkValid}
+            disabled={!isLinkValid || isPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isLinkValid
+              isLinkValid && !isPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}

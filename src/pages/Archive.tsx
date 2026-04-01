@@ -65,19 +65,19 @@ export const Archive = ({
               <div
                 key={link.id}
                 onClick={() =>
-                  window.open(link.url, '_blank', 'noopener,noreferrer')
+                  window.open(link.content, '_blank', 'noopener,noreferrer')
                 }
-                className={`flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white ${link.type === 'documents' ? 'hover:border-orange-200' : link.type === 'links' ? 'hover:border-purple-200' : 'hover:border-slate-200'} hover:shadow-md transition-all group text-slate-700 min-w-0 cursor-pointer`}
+                className={`flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white ${link.type === 'PDF' ? 'hover:border-orange-200' : link.type === 'LINK' ? 'hover:border-purple-200' : 'hover:border-slate-200'} hover:shadow-md transition-all group text-slate-700 min-w-0 cursor-pointer`}
               >
                 <div className="flex justify-between gap-3 min-w-0 w-full">
                   {/* 타입별 아이콘 배경색 조건부 렌더링 (문서: 주황, 링크 : 보라, 그 외 : 회색) */}
                   <div className="flex items-center gap-3 truncate">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ${link.type === 'documents' ? 'bg-orange-400' : link.type === 'links' ? 'bg-purple-400' : 'bg-slate-400'}`}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ${link.type === 'PDF' ? 'bg-orange-400' : link.type === 'LINK' ? 'bg-purple-400' : 'bg-slate-400'}`}
                     >
-                      {link.type === 'links' ? (
+                      {link.type === 'LINK' ? (
                         <LinkIcon size={18} />
-                      ) : link.type === 'documents' ? (
+                      ) : link.type === 'PDF' ? (
                         <File size={18} />
                       ) : (
                         <LinkIcon size={18} />
@@ -85,13 +85,13 @@ export const Archive = ({
                     </div>
                     <div className="overflow-hidden">
                       <span
-                        className={`text-sm font-bold block truncate ${link.type === 'documents' ? 'group-hover:text-orange-600' : link.type === 'links' ? 'group-hover:text-purple-600' : 'group-hover:text-slate-600'}`}
+                        className={`text-sm font-bold block truncate ${link.type === 'PDF' ? 'group-hover:text-orange-600' : link.type === 'LINK' ? 'group-hover:text-purple-600' : 'group-hover:text-slate-600'}`}
                       >
                         {link.title}
                       </span>
                       {/* URL에서 도메인 주소만 추출하여 표시 */}
                       <span className="text-[10px] text-slate-400 font-mono truncate block">
-                        {new URL(link.url).hostname}
+                        {new URL(link.content).hostname}
                       </span>
                     </div>
                   </div>
