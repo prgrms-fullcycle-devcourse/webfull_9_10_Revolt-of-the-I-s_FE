@@ -4,6 +4,7 @@ import { KanbanColumn } from '../components/task/KanbanBoard';
 import { createTicketApi, type CreateTicketRequest } from '../api/tickets';
 import { Modal } from '../components/ui/Modal';
 import { useEffect } from 'react';
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardProps {
   activeTeam: Team; 
@@ -28,6 +29,8 @@ export const Dashboard = ({
   activeModal,
   setActiveModal
 }: DashboardProps) => {
+
+  const queryClient = useQueryClient();
   
   const closeCreateModal = () => setActiveModal(null);
 
@@ -63,6 +66,7 @@ export const Dashboard = ({
       };
 
       const result = await createTicketApi(Number(activeTeamId), ticketData);
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
       const rawTicket = result.data || result;
       const serverTeamId = String(rawTicket.team_id || activeTeamId);
 

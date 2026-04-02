@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
@@ -42,6 +42,8 @@ export default function App() {
     activeTeamId,
     setActiveTeamId,
     activeTeam,
+    pendingTeamId, 
+    setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
     addLog,
@@ -164,13 +166,24 @@ export default function App() {
         setAuthError(data.error || '비밀번호가 일치하지 않습니다.');
         return;
       }
+
+      // 인증 성공 시, 대기 중이던 ID를 활성 ID로 설정
+      // useTeams의 useQuery가 작동하여 테스크 목록 호출
+      if (pendingTeamId) {
+        setActiveTeamId(pendingTeamId);
+
+        addLog(0, currentUser!.name, '공간 입장', 'info', pendingTeamId);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       setIsTeamAuthorized(true);
+      localStorage.setItem('isTeamAuthorized', 'true');
       setActiveModal(null);
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
       setShowAuthPassword(false);
+      setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
       addLog(0, currentUser!.name, '공간 입장', 'info');
     },
     onError: () => {
@@ -179,23 +192,27 @@ export default function App() {
   });
 
   // 세션 복원 로직
+  const { data: userData, isLoading: isUserLoading } = useQuery({
+    queryKey: ['myInfo'],
+    queryFn: getMyInfoApi,
+    staleTime: Infinity, // 앱이 켜져 있는 동안은 다시 부르지 않음 (중복 호출 방지)
+    gcTime: Infinity,
+    retry: false,        // 로그인 안 되어 있을 때 반복 호출 방지
+  });
+
   useEffect(() => {
-    const restoreSession = async () => {
-      console.log('로그인 한 유저 정보 복원 시도 ..');
-      try {
-        const user = await getMyInfoApi();
-        console.log('로그인 한 유저 정보 복원 성공:', user);
-        if (user) {
+        if (userData) {
           setCurrentUser({
-            id: user.id || Date.now(),
-            uuid: user.uuid,
-            name: user.name || 'Unknown',
-            avatar: user.avatar || '',
-            email: user.email || '',
-            phone: user.phone || '',
-            position: user.position || '팀원',
-            github: user.github || '',
+            id: userData.id || Date.now(),
+            uuid: userData.uuid,
+            name: userData.name || 'Unknown',
+            avatar: userData.avatar || '',
+            email: userData.email || '',
+            phone: userData.phone || '',
+            position: userData.position || '팀원',
+            github: userData.github || '',
           });
+
           const lastTeamId = localStorage.getItem('lastTeamId');
           const wasAuthorized =
             localStorage.getItem('isTeamAuthorized') === 'true';
@@ -204,15 +221,10 @@ export default function App() {
             setIsTeamAuthorized(true);
           }
         }
-      } catch (error) {
-        console.log('로그인 한 유저 정보 복원 실패:', error);
-      } finally {
-        console.log('로딩 해제');
-        setIsAuthLoading(false);
-      }
-    };
-    restoreSession();
-  }, [setActiveTeamId]);
+    if (!isUserLoading) {
+      setIsAuthLoading(false);
+    }
+  }, [userData, isUserLoading, setActiveTeamId]);
 
   // --- 세션 유지 로직 ---
   useEffect(() => {
@@ -342,9 +354,9 @@ export default function App() {
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!activeTeamId || !isAuthPasswordComplete) return;
+    if (!pendingTeamId || !isAuthPasswordComplete) return;
     joinTeamMutation.mutate({
-      teamId: activeTeamId,
+      teamId: pendingTeamId,
       data: {
         password: authPassword.join(''),
         userId: Number(currentUser!.id) || 0,
@@ -515,7 +527,7 @@ export default function App() {
         <Lobby
           currentUser={currentUser}
           onLogout={handleLogout}
-          setActiveTeamId={setActiveTeamId}
+          setPendingTeamId={setPendingTeamId}
           setIsTeamAuthorized={setIsTeamAuthorized}
           setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
           setIsTeamAuthModalOpen={() => setActiveModal('auth')}
