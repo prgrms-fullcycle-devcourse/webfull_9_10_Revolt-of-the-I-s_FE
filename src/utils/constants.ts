@@ -117,8 +117,7 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content:
-        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -143,6 +142,7 @@ export const INITIAL_TEAM: Team = {
           time: '2026.03.11 10:15',
         },
       ],
+      task_number: 0
     },
     {
       id: 2,
@@ -153,6 +153,7 @@ export const INITIAL_TEAM: Team = {
       status: 'Todo',
       createdAt: '2026.03.11 11:30',
       comments: [],
+      task_number: 1
     },
   ],
   logs: [

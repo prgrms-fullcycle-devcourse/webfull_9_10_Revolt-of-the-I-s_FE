@@ -29,6 +29,7 @@ export interface Comment {
 // 업무 티켓(Task) 정보
 export interface Ticket {
   id: number;
+  task_number: number;
   title: string;
   content: string;
   requester: string;

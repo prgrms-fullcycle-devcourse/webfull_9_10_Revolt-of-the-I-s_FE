@@ -14,7 +14,7 @@ interface TicketDetailProps {
   handleDeleteTicketApi: (ticketId: number) => Promise<{ ok: boolean; message?: string }>;
 }
 
-export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi }: TicketDetailProps) => {
   // 스크롤 위치를 잡기 위한 Ref 생성
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +86,7 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
         <header className="p-8 flex justify-between items-start shrink-0">
           <div className="flex items-center gap-4 min-w-0">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-blue-200 shrink-0">
-              #{ticket.id || activeTeam.tickets.indexOf(ticket) + 1}
+              #{ticket.task_number}
             </div>
             <div className="min-w-0">
               <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">

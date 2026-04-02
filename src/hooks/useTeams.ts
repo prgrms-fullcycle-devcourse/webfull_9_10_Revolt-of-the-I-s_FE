@@ -63,9 +63,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM])
 
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(() => {
-    return localStorage.getItem('lastActiveTeamId');
-  });
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
@@ -74,13 +72,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     queryFn: () => getTicketDetailApi(selectedTicketId!),
     enabled: !!selectedTicketId,
   });
-
-  // activeTeamId가 바뀔 때마다 localStorage에 저장
-  useEffect(() => {
-    if (activeTeamId) {
-      localStorage.setItem('lastActiveTeamId', activeTeamId);
-    }
-  }, [activeTeamId]);
 
   // GET /teams API 호출로 팀 목록 가져오기
   const { data: teamListData } = useQuery({
@@ -112,7 +103,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
                 content: d.content,
                 // 서버 응답의 comments 구조를 UI 규격에 맞게 매핑
                 comments: d.comments.map((c: any) => ({
-                  id: c.id,
+                  task_number: d.task_number,
                   user: c.user.name,
                   text: c.content,
                   time: new Date(c.created_at).toLocaleTimeString()
@@ -146,11 +137,12 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
   // 선택된 팀의 티켓 데이터를 localTeams에 추가
   useEffect(() => {
-    if (ticketData?.success && activeTeamId && localTeams.length > 1) {
+    if (ticketData?.success && activeTeamId) {
       // 현재 활성화된 팀 '멤버 리스트' 가져오기
       const currentTeam = localTeams.find(t => String(t.id) === String(activeTeamId));
-      const currentMembers = currentTeam?.members || [];
+      if (!currentTeam) return;
 
+      const currentMembers = currentTeam?.members || [];
       const serverTasks = ticketData.data.tasks.map((task: any) => {
         // worker_id(UUID)와 일치하는 담당자 찾기
         const matchedMember = currentMembers.find(m => String(m.uuid) === String(task.worker_id));
@@ -160,6 +152,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         
         return {
           id: task.id,
+          task_number: task.task_number,
           title: task.title,
           content: task.content,
           status: task.status || 'Todo',
@@ -172,21 +165,17 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       });
 
       setTeams(prev => {
-        // 현재 팀 리스트에 해당 팀이 있는지 확인
-        const teamExists = prev.some(t => String(t.id) === String(activeTeamId));
-        
-        if (!teamExists) return prev;
+        const targetTeam = prev.find(t => String(t.id) === String(activeTeamId));
+        const isSame = JSON.stringify(targetTeam?.tickets) === JSON.stringify(serverTasks);
+      
+        if (isSame) return prev; 
 
         return prev.map(team => 
-          String(team.id) === String(activeTeamId) 
-            ? { ...team, tickets: serverTasks } 
-            : team
+          String(team.id) === String(activeTeamId) ? { ...team, tickets: serverTasks } : team
         );
       });
-      
-      console.log(`✅ ID ${activeTeamId} 팀 티켓 동기화 완료: ${serverTasks.length}개`);
     }
-  }, [ticketData, activeTeamId, localTeams.length]);
+  }, [ticketData, activeTeamId, localTeams]);
 
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
@@ -397,6 +386,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
             : team,
         ),
       );
+      return { ok: true, message: '인증 성공' };
     }
 
     setActiveTeamId(teamId);
@@ -458,6 +448,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
     const newTicket: Ticket = {
       id: Date.now(),
+      task_number: 0,
       title,
       content,
       requester: currentUser.name,
