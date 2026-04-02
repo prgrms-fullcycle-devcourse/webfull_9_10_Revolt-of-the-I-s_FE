@@ -13,8 +13,9 @@ interface ArchiveProps {
   setIsLinkModalOpen: (open: boolean) => void; // 링크 추가 모달 제어 함수
   setIsDocModalOpen: (open: boolean) => void; // 문서 추가 모달 제어 함수
   setIsNoteModalOpen: (open: boolean) => void; // 회의록 추가 모달 제어 함수
-  setIsDeleteLinkModalOpen: (open: TeamLink) => void; // 링크 삭제 모달 호출 함수
+  setIsDeleteLinkModalOpen: (open: boolean) => void; // 링크 삭제 모달 호출 함수
   setSelectedNote: (note: Note) => void; // 특정 회의록 클릭 시 상세보기 모달 호출 함수
+  setSelectedLinkItem: (link: TeamLink) => void; // 특정 링크 클릭 시 삭제 모달 호출 함수
 }
 
 export const Archive = ({
@@ -24,6 +25,7 @@ export const Archive = ({
   setIsNoteModalOpen,
   setIsDeleteLinkModalOpen,
   setSelectedNote,
+  setSelectedLinkItem,
 }: ArchiveProps) => {
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto py-4">
@@ -98,7 +100,8 @@ export const Archive = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsDeleteLinkModalOpen(link);
+                      setIsDeleteLinkModalOpen(true);
+                      setSelectedLinkItem(link);
                     }}
                     className=" bg-white hover:bg-slate-50 text-slate-400 flex items-center gap-2 px-2 py-2.5 rounded-xl font-bold  text-sm shrink-0 cursor-pointer"
                   >

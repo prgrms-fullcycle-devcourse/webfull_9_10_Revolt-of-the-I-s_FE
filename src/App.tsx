@@ -51,6 +51,7 @@ export default function App() {
     handleDeleteTicketApi,
     handleEditPosition,
     handleCreateQuickLink,
+    handleDeleteQuickLink,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -74,7 +75,7 @@ export default function App() {
     | 'position'
     | 'document'
     | 'updateNote'
-    | 'deleteLinks'
+    | 'deleteLink'
     | null
   >(null);
 
@@ -107,9 +108,7 @@ export default function App() {
     content: '',
   });
   const isLinkValid = linkData.title.length > 0 && linkData.content.length > 0;
-  const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
-    null,
-  );
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>(null);
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -392,7 +391,7 @@ export default function App() {
   // 새로운 링크 생성
   const createLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // if (!activeTeamId) return;
+
     if (isPending) return;
     setIsPending(true);
 
@@ -416,13 +415,13 @@ export default function App() {
       console.log('링크 추가 성공 : ', result);
 
       handleCreateQuickLink(newLinkData.title, newLinkData.content);
-      alert(`링크가 성공적으로 추가되었습니다.`);
+
       setActiveModal(null);
+      alert(`링크가 성공적으로 추가되었습니다.`);
     } catch (error: any) {
       console.log('API 호출 실패 :', error);
-
-      const serverMessage = error.response?.data?.error;
-      alert(serverMessage);
+      setActiveModal(null);
+      alert(error.message || '링크 생성에 실패했습니다.');
     } finally {
       setIsPending(false);
     }
@@ -430,7 +429,18 @@ export default function App() {
 
   const deleteLink = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log(`${selectedLinkToDelete?.id}의 링크를 삭제합니다.`);
+
+    const linkId = selectedLinkItem?.id;
+    if (!linkId) return;
+    try {
+      handleDeleteQuickLink(linkId);
+
+      console.log(`퀵 링크 id : ${linkId}의 링크를 삭제 성공했습니다.`);
+      setActiveModal(null);
+    } catch (error: any) {
+      setActiveModal(null);
+      alert(error.message || '링크 삭제에 실패했습니다.');
+    }
   };
 
   const handleLeaveTeam = (teamId: string | number | null) => {
@@ -480,18 +490,15 @@ export default function App() {
       console.log('포지션 수정 성공 결과', success);
 
       // 모달 닫기
-      alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
       setActiveModal(null);
+      alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
     } catch (error: any) {
       console.log('API 호출 실패 :', error);
 
-      const serverMessage = error.response?.data?.error;
-      alert(serverMessage);
+      alert(error.message || '포지션 수정에 실패했습니다.');
     } finally {
       setIsPending(false);
     }
-
-    // 모달 닫기
   };
 
   // 공통 로그아웃 처리
@@ -606,11 +613,11 @@ export default function App() {
                   setIsLinkModalOpen={() => setActiveModal('link')}
                   setIsDocModalOpen={() => setActiveModal('document')}
                   setIsNoteModalOpen={() => setActiveModal('note')}
-                  setIsDeleteLinkModalOpen={(link: TeamLink) => {
-                    setActiveModal('deleteLinks');
-                    setLinkToDelete(link);
+                  setIsDeleteLinkModalOpen={() => {
+                    setActiveModal('deleteLink');
                   }}
                   setSelectedNote={(note) => setSelectedNote(note)}
+                  setSelectedLinkItem={(link) => setSelectedLinkItem(link)}
                 />
               )}
             </div>
@@ -927,9 +934,9 @@ export default function App() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === 'deleteLinks'}
+        isOpen={activeModal === 'deleteLink'}
         onClose={() => setActiveModal(null)}
-        title={`${selectedLinkToDelete?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
+        title={`${selectedLinkItem?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
       >
         <div className="flex justify-between items-center gap-2">
           <button

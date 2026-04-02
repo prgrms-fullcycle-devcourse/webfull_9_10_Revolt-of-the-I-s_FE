@@ -137,11 +137,13 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   useEffect(() => {
     if (teamListData?.data) {
       const apiTeams = teamListData.data.map(convertTeam);
+
       setTeams((prev) => {
         // 기존 INITIAL_TEAM이나 로컬 전용 팀을 유지하면서 서버 팀 정보로 교체/합치기
         const otherTeams = prev.filter(
           (p) => !apiTeams.some((a) => a.id === p.id),
         );
+
         return [...apiTeams, ...otherTeams];
       });
     }
@@ -572,36 +574,43 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
   // 내 포지션 수정
   const handleEditPosition = (newPosition: string) => {
-    if (!currentUser || !activeTeamId || !activeTeam) return;
+    try {
+      if (!currentUser || !activeTeamId || !activeTeam) return;
 
-    // 새로운 정보가 반영된 팀 객체 생성
-    const updatedActiveTeam = {
-      ...activeTeam,
-      members: activeTeam.members.map((member) =>
-        member.email === currentUser.email
-          ? { ...member, position: newPosition }
-          : member,
-      ),
-    };
-    setTeams((prev) => getUpdatedTeams(prev, activeTeamId, updatedActiveTeam));
+      // 새로운 정보가 반영된 팀 객체 생성
+      const updatedActiveTeam = {
+        ...activeTeam,
+        members: activeTeam.members.map((member) =>
+          member.uuid === currentUser.uuid
+            ? { ...member, position: newPosition }
+            : member,
+        ),
+      };
+      setTeams((prev) =>
+        getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
+      );
+    } catch (error) {
+      console.log('포지션 수정 실패 :', error);
+      throw error;
+    }
   };
 
   // 활성화된 팀의 아카이브 목록 조회
   const { data: archiveData } = useQuery({
     queryKey: ['archiveData', activeTeamId],
     queryFn: () => getQuickLinksApi(Number(activeTeamId)),
-    enabled: !!activeTeamId,
+    enabled: !!activeTeamId && !!currentUser,
   });
 
   // 아카이브 데이터가 오면 activeTeam의 links에 추가
   useEffect(() => {
-    if (archiveData?.success && activeTeamId && localTeams.length > 1) {
-      const serverLinks = archiveData.data.map((link: any) => ({
+    if (archiveData?.success && activeTeamId) {
+      const serverLinks = archiveData.data.map((link: TeamLink) => ({
         id: link.id,
         type: link.type,
         title: link.title,
         content: link.content,
-        createdAt: new Date(link.created_at)
+        createdAt: new Date(link.createdAt)
           .toLocaleString('ko-KR', { hour12: false })
           .slice(0, -3),
       }));
@@ -613,34 +622,55 @@ export const useTeams = (currentUser: CurrentUser | null) => {
             : team,
         ),
       );
-
-      console.log(
-        `✅ ID ${activeTeamId} 팀 아카이브 동기화 완료: ${serverLinks.length}개`,
-      );
     }
   }, [archiveData, activeTeamId]);
 
   // 아카이브 > 퀵 링크 생성
   const handleCreateQuickLink = (title: string, content: string) => {
-    if (!currentUser || !activeTeamId || !activeTeam) return;
-    console.log('새 링크 생성 시도:', title, content);
-    console.log(activeTeam);
+    try {
+      if (!currentUser || !activeTeamId || !activeTeam) return;
+      console.log('새 링크 생성 시도:', title, content);
 
-    const newLink: TeamLink = {
-      id: Date.now(),
-      type: 'LINK',
-      title: title,
-      content: content,
-      createdAt: new Date()
-        .toLocaleString('ko-KR', { hour12: false })
-        .slice(0, -3),
-    };
+      const newLink: TeamLink = {
+        id: Date.now(),
+        type: 'LINK',
+        title: title,
+        content: content,
+        createdAt: new Date()
+          .toLocaleString('ko-KR', { hour12: false })
+          .slice(0, -3),
+      };
 
-    const updatedActiveTeam = {
-      ...activeTeam,
-      links: [newLink, ...activeTeam.links],
-    };
-    setTeams((prev) => getUpdatedTeams(prev, activeTeamId, updatedActiveTeam));
+      const updatedActiveTeam = {
+        ...activeTeam,
+        links: [newLink, ...activeTeam.links],
+      };
+      setTeams((prev) =>
+        getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
+      );
+    } catch (error) {
+      console.log('링크 생성 실패 :', error);
+      throw error;
+    }
+  };
+
+  // 아카이브 > 퀵 링크 삭제
+  const handleDeleteQuickLink = (linkId: number) => {
+    try {
+      if (!currentUser || !activeTeamId || !activeTeam) return;
+      if (linkId === 0) return;
+
+      const updatedActiveTeam = {
+        ...activeTeam,
+        links: activeTeam.links.filter((link) => link.id !== linkId),
+      };
+      setTeams((prev) =>
+        getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
+      );
+    } catch (error: any) {
+      console.log('삭제 실패 :', error);
+      throw error;
+    }
   };
 
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
@@ -668,5 +698,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     handleEditPosition,
     pendingTeamId,
     setPendingTeamId,
+    handleCreateQuickLink,
+    handleDeleteQuickLink,
   };
 };

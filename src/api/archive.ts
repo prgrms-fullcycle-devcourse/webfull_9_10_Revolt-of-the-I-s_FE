@@ -43,3 +43,9 @@ export const createQuickLinkApi = async (
   );
   return response.data;
 };
+
+// 퀵 링크 삭제 API 호출 함수
+export const deleteQuickLinkApi = async (linkId: number) => {
+  const response = await api.delete(`/archives/${linkId}/links`);
+  return response.data;
+};

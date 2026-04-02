@@ -8,8 +8,11 @@ interface HeaderProps {
   setIsCreateModalOpen: (open: boolean) => void; // 새 업무 요청 모달 열기 함수
 }
 
-export const Header = ({ view, activeTeam, setIsCreateModalOpen }: HeaderProps) => {
-  
+export const Header = ({
+  view,
+  activeTeam,
+  setIsCreateModalOpen,
+}: HeaderProps) => {
   // '자리 비움'이 아닌 팀원들만 필터링하여 상단에 노출
   const onlineUsers = activeTeam.members.filter((m: Member) => {
     const status = activeTeam.userStatuses[m.name];
@@ -34,16 +37,13 @@ export const Header = ({ view, activeTeam, setIsCreateModalOpen }: HeaderProps) 
 
             return (
               <div
-                key={member.name}
+                key={member.id}
                 className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-xs font-bold shadow-sm relative group"
               >
                 {member.avatar}
                 {/* 유저별 현재 상태 배지 (StatusBadge 재사용) */}
                 <div className="absolute -bottom-0.5 -right-0.5 z-10">
-                  <StatusBadge 
-                    color={userStatus?.color} 
-                    size="sm" 
-                  />                  
+                  <StatusBadge color={userStatus?.color} size="sm" />
                 </div>
 
                 {/* 툴팁: 마우스 호버 시 유저명과 상세 상태 표시 */}
@@ -54,14 +54,14 @@ export const Header = ({ view, activeTeam, setIsCreateModalOpen }: HeaderProps) 
             );
           })}
         </div>
-        
+
         {/* 오른쪽: 액션 버튼 섹션 (대시보드에서만 새 업무 발행 가능) */}
         {view === 'dashboard' && (
           <button
             onClick={() => {
-                console.log("새 요청 버튼 클릭됨"); 
-                setIsCreateModalOpen(true);
-              }}
+              console.log('새 요청 버튼 클릭됨');
+              setIsCreateModalOpen(true);
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-black flex items-center gap-2 shadow-md active:scale-95 transition-all"
           >
             <Plus size={18} /> 새 요청
