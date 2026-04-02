@@ -42,6 +42,8 @@ export default function App() {
     activeTeamId,
     setActiveTeamId,
     activeTeam,
+    pendingTeamId, 
+    setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
     addLog,
@@ -164,13 +166,24 @@ export default function App() {
         setAuthError(data.error || '비밀번호가 일치하지 않습니다.');
         return;
       }
+
+      // 인증 성공 시, 대기 중이던 ID를 활성 ID로 설정
+      // useTeams의 useQuery가 작동하여 테스크 목록 호출
+      if (pendingTeamId) {
+        setActiveTeamId(pendingTeamId);
+
+        addLog(0, currentUser!.name, '공간 입장', 'info', pendingTeamId);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       setIsTeamAuthorized(true);
+      localStorage.setItem('isTeamAuthorized', 'true');
       setActiveModal(null);
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
       setShowAuthPassword(false);
+      setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
       addLog(0, currentUser!.name, '공간 입장', 'info');
     },
     onError: () => {
@@ -342,9 +355,9 @@ export default function App() {
   // 팀 인증 (Lobby 전용)
   const handleTeamAuth = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!activeTeamId || !isAuthPasswordComplete) return;
+    if (!pendingTeamId || !isAuthPasswordComplete) return;
     joinTeamMutation.mutate({
-      teamId: activeTeamId,
+      teamId: pendingTeamId,
       data: {
         password: authPassword.join(''),
         userId: Number(currentUser!.id) || 0,
@@ -515,7 +528,7 @@ export default function App() {
         <Lobby
           currentUser={currentUser}
           onLogout={handleLogout}
-          setActiveTeamId={setActiveTeamId}
+          setPendingTeamId={setPendingTeamId}
           setIsTeamAuthorized={setIsTeamAuthorized}
           setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
           setIsTeamAuthModalOpen={() => setActiveModal('auth')}

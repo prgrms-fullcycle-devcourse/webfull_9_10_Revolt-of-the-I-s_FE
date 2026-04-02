@@ -65,6 +65,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
+  // 인증 대기 중인 팀 ID (비밀번호 입력 후 인증이 완료되면 activeTeamId로 이동)
+  const [pendingTeamId, setPendingTeamId] = useState<string | null>(null);
+
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   const { data: detailData } = useQuery({
@@ -251,14 +254,17 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     userName: string,
     action: string,
     type: 'default' | 'info' | 'success' | 'error' = 'default',
+    overrideTeamId?: string
   ) => {
-    if (!activeTeamId) return;
+    // activeTeamId가 없는데 overrideTeamId도 없다면 그때만 리턴
+    const targetTeamId = overrideTeamId || activeTeamId;
+    if (!targetTeamId) return;
 
     const time = formatLogTime();
 
     setTeams((prev) =>
       prev.map((t) =>
-        t.id === activeTeamId
+        t.id === targetTeamId
           ? {
               ...t,
               logs: [
@@ -369,9 +375,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     );
 
     if (!isAlreadyMember) {
-      setTeams((prev) =>
-        prev.map((team) =>
-          team.id === teamId
+      setTeams(prev => 
+        prev.map(team => 
+        String(team.id) === String(teamId)
             ? {
                 ...team,
                 members: [...team.members, currentUser],
@@ -386,11 +392,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
             : team,
         ),
       );
-      return { ok: true, message: '인증 성공' };
     }
 
-    setActiveTeamId(teamId);
-
+    // 여기서 setActiveTeamId를 하지 않고, 성공 여부만 반환
     return {
       ok: true,
       message: '팀 입장 완료',
@@ -578,6 +582,8 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     selectedTicketId,
     handleDeleteTicketApi,
     handleEditPosition,
+    pendingTeamId,
+    setPendingTeamId
   };
 };
 
