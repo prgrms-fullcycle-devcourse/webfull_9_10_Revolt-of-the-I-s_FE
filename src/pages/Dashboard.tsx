@@ -4,6 +4,7 @@ import { KanbanColumn } from '../components/task/KanbanBoard';
 import { createTicketApi, type CreateTicketRequest } from '../api/tickets';
 import { Modal } from '../components/ui/Modal';
 import { useEffect } from 'react';
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardProps {
   activeTeam: Team; 
@@ -28,6 +29,8 @@ export const Dashboard = ({
   activeModal,
   setActiveModal
 }: DashboardProps) => {
+
+  const queryClient = useQueryClient();
   
   const closeCreateModal = () => setActiveModal(null);
 
@@ -63,6 +66,7 @@ export const Dashboard = ({
       };
 
       const result = await createTicketApi(Number(activeTeamId), ticketData);
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
       const rawTicket = result.data || result;
       const serverTeamId = String(rawTicket.team_id || activeTeamId);
 
@@ -96,6 +100,9 @@ export const Dashboard = ({
       addLog(finalTicket.id, currentUser.name, `새 업무 요청: ${finalTicket.title}`, 'success');
       setActiveModal(null);
       form.reset();
+
+    // 💡 참고: 이제 여기서 수동으로 setTeams를 통해 tickets 배열에 
+    // 직접 push 할 필요가 없습니다. React Query가 데이터를 새로 가져오기 때문입니다.
 
     } catch (error) {
       console.error("티켓 생성 실패:", error);

@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
@@ -218,10 +218,13 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     return /^\d{6}$/.test(password);
   };
 
+  const queryClient = useQueryClient();
+
   const handleDeleteTicketApi = async (ticketId: number) => {
   try {
     const response = await deleteTicketApi(ticketId);
     if (response.success) {
+      await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
       setTeams((prevTeams) =>
         prevTeams.map((team) => {
           if (String(team.id) === String(activeTeamId)) {
