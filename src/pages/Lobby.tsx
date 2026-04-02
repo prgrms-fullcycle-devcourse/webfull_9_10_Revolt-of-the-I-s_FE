@@ -13,7 +13,6 @@ import type { Team, TeamFromApi, CurrentUser } from "../types";
 interface LobbyProps {
   currentUser: CurrentUser; // 현재 접속한 사용자 정보
   onLogout: () => void; // App.tsx에서 내려준 공통 로그아웃 함수
-  // setActiveTeamId: (id: string) => void; // 클릭한 팀을 활성화하는 함수
   setPendingTeamId: (id: string) => void; // 클릭한 팀 ID를 임시로 저장하는 함수 (인증을 시작할 팀)
   setIsTeamAuthorized: (auth: boolean) => void;
   setIsCreateTeamModalOpen: () => void; // 새 팀 만들기 모달 열기

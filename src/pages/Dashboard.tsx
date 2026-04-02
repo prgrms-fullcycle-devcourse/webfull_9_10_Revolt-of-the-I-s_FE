@@ -101,9 +101,6 @@ export const Dashboard = ({
       setActiveModal(null);
       form.reset();
 
-    // 💡 참고: 이제 여기서 수동으로 setTeams를 통해 tickets 배열에 
-    // 직접 push 할 필요가 없습니다. React Query가 데이터를 새로 가져오기 때문입니다.
-
     } catch (error) {
       console.error("티켓 생성 실패:", error);
       alert("업무 요청 중 오류가 발생했습니다.");
