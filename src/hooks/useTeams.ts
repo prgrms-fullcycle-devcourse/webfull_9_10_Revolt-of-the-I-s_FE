@@ -407,37 +407,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   /**
    * [기능] updateTicketStatus: 티켓의 진행 상태 변경
    */
-  // const updateTicketStatus = (
-  //   id: number,
-  //   newStatus: string,
-  //   isReject = false,
-  // ) => {
-  //   if (!activeTeamId || !currentUser) return;
-
-  //   setTeams((prev) =>
-  //     prev.map((t) =>
-  //       t.id === activeTeamId
-  //         ? {
-  //             ...t,
-  //             tickets: t.tickets.map((tk) =>
-  //               tk.id === id ? { ...tk, status: newStatus } : tk,
-  //             ),
-  //           }
-  //         : t,
-  //     ),
-  //   );
-
-  //   let logType: 'info' | 'success' | 'error' = 'info';
-  //   if (isReject) logType = 'error';
-  //   else if (newStatus === 'done') logType = 'success';
-
-  //   addLog(
-  //     id,
-  //     currentUser.name,
-  //     isReject ? '반려 및 재요청' : `상태 변경: ${newStatus}`,
-  //     logType,
-  //   );
-  // };
   const updateTicketStatus = async (
     taskId: number, 
     actionType: 'accept' | 'submit' | 'confirm' | 'reject'
