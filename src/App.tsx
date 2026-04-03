@@ -32,6 +32,7 @@ import {
   type Note,
   type TeamLink,
 } from './types';
+import { validateUrl } from './utils/validation';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -43,7 +44,7 @@ export default function App() {
     activeTeamId,
     setActiveTeamId,
     activeTeam,
-    pendingTeamId, 
+    pendingTeamId,
     setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
@@ -100,14 +101,17 @@ export default function App() {
     myPosition !==
       (activeTeam?.members.find((m) => m.email === currentUser?.email)
         ?.position || '');
-  const [isPending, setIsPending] = useState<boolean>(false);
+  const [isPositionPending, setIsPositionPending] = useState<boolean>(false);
 
   // 링크, 문서 관련 상태
   const [linkData, setLinkData] = useState<{ title: string; content: string }>({
     title: '',
     content: '',
   });
-  const isLinkValid = linkData.title.length > 0 && linkData.content.length > 0;
+
+  const isLinkValid =
+    linkData.title.length > 0 && validateUrl(linkData.content);
+  const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
   const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>(null);
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
@@ -197,30 +201,29 @@ export default function App() {
     queryFn: getMyInfoApi,
     staleTime: Infinity, // 앱이 켜져 있는 동안은 다시 부르지 않음 (중복 호출 방지)
     gcTime: Infinity,
-    retry: false,        // 로그인 안 되어 있을 때 반복 호출 방지
+    retry: false, // 로그인 안 되어 있을 때 반복 호출 방지
   });
 
   useEffect(() => {
-        if (userData) {
-          setCurrentUser({
-            id: userData.id || Date.now(),
-            uuid: userData.uuid,
-            name: userData.name || 'Unknown',
-            avatar: userData.avatar || '',
-            email: userData.email || '',
-            phone: userData.phone || '',
-            position: userData.position || '팀원',
-            github: userData.github || '',
-          });
+    if (userData) {
+      setCurrentUser({
+        id: userData.id || Date.now(),
+        uuid: userData.uuid,
+        name: userData.name || 'Unknown',
+        avatar: userData.avatar || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        position: userData.position || '팀원',
+        github: userData.github || '',
+      });
 
-          const lastTeamId = localStorage.getItem('lastTeamId');
-          const wasAuthorized =
-            localStorage.getItem('isTeamAuthorized') === 'true';
-          if (lastTeamId && wasAuthorized) {
-            setActiveTeamId(lastTeamId);
-            setIsTeamAuthorized(true);
-          }
-        }
+      const lastTeamId = localStorage.getItem('lastTeamId');
+      const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+      if (lastTeamId && wasAuthorized) {
+        setActiveTeamId(lastTeamId);
+        setIsTeamAuthorized(true);
+      }
+    }
     if (!isUserLoading) {
       setIsAuthLoading(false);
     }
@@ -392,16 +395,11 @@ export default function App() {
   const createLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (isPending) return;
-    setIsPending(true);
+    if (isLinkPending) return;
+    setIsLinkPending(true);
 
     try {
       const formData = new FormData(e.currentTarget);
-      console.log(
-        '추가할 링크 내용 :',
-        formData.get('title'),
-        formData.get('content'),
-      );
 
       const newLinkData = {
         title: formData.get('title') as string,
@@ -417,13 +415,14 @@ export default function App() {
       handleCreateQuickLink(newLinkData.title, newLinkData.content);
 
       setActiveModal(null);
+      setLinkData({ title: '', content: '' });
       alert(`링크가 성공적으로 추가되었습니다.`);
     } catch (error: any) {
       console.log('API 호출 실패 :', error);
       setActiveModal(null);
       alert(error.message || '링크 생성에 실패했습니다.');
     } finally {
-      setIsPending(false);
+      setIsLinkPending(false);
     }
   };
 
@@ -471,8 +470,8 @@ export default function App() {
 
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isPending) return;
-    setIsPending(true);
+    if (isPositionPending) return;
+    setIsPositionPending(true);
 
     try {
       const editPositionData: EditMemberPositionRequest = {
@@ -497,7 +496,7 @@ export default function App() {
 
       alert(error.message || '포지션 수정에 실패했습니다.');
     } finally {
-      setIsPending(false);
+      setIsPositionPending(false);
     }
   };
 
@@ -821,9 +820,9 @@ export default function App() {
           />
           <button
             type="submit"
-            disabled={!isLinkValid || isPending}
+            disabled={!isLinkValid || isLinkPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isLinkValid && !isPending
+              isLinkValid && !isLinkPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -921,9 +920,9 @@ export default function App() {
           />
           <button
             type="submit"
-            disabled={!isPositionValid || isPending}
+            disabled={!isPositionValid || isPositionPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isPositionValid && !isPending
+              isPositionValid && !isPositionPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}

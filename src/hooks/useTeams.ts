@@ -6,7 +6,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
+import type {
+  Team,
+  Ticket,
+  CurrentUser,
+  TeamFromApi,
+  TeamLink,
+} from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
@@ -615,13 +621,20 @@ export const useTeams = (currentUser: CurrentUser | null) => {
           .slice(0, -3),
       }));
 
-      setTeams((prev) =>
-        prev.map((team) =>
+      setTeams((prev) => {
+        const targetTeam = prev.find(
+          (t) => String(t.id) === String(activeTeamId),
+        );
+        const isSame =
+          JSON.stringify(targetTeam?.links) === JSON.stringify(serverLinks);
+
+        if (isSame) return prev;
+        return prev.map((team) =>
           String(team.id) === String(activeTeamId)
             ? { ...team, links: serverLinks }
             : team,
-        ),
-      );
+        );
+      });
     }
   }, [archiveData, activeTeamId]);
 
@@ -629,6 +642,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   const handleCreateQuickLink = (title: string, content: string) => {
     try {
       if (!currentUser || !activeTeamId || !activeTeam) return;
+      if (!title || !content) return;
       console.log('새 링크 생성 시도:', title, content);
 
       const newLink: TeamLink = {
@@ -645,9 +659,13 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         ...activeTeam,
         links: [newLink, ...activeTeam.links],
       };
+
       setTeams((prev) =>
         getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
       );
+      queryClient.invalidateQueries({
+        queryKey: ['archiveData', activeTeamId],
+      });
     } catch (error) {
       console.log('링크 생성 실패 :', error);
       throw error;
@@ -667,6 +685,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       setTeams((prev) =>
         getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
       );
+      queryClient.invalidateQueries({
+        queryKey: ['archiveData', activeTeamId],
+      });
     } catch (error: any) {
       console.log('삭제 실패 :', error);
       throw error;
