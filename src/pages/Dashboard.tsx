@@ -12,13 +12,12 @@ interface DashboardProps {
   addLog: (ticketId: number, user: string, action: string, type?: any) => void;
   activeTeamId: string | number | null;
   currentUser: CurrentUser;
-  setSelectedTicketId: (id: number) => void;
+  setSelectedTicketId: (id: number) => void; 
   updateTicketStatus: (
-    id: number,
-    newStatus: string,
-    isReject?: boolean,
-  ) => void;
-  activeModal: string | null;
+    taskId: number, 
+    actionType: 'accept' | 'submit' | 'confirm' | 'reject'
+  ) => Promise<{ ok: boolean } | undefined>;
+  activeModal: string | null; 
   setActiveModal: React.Dispatch<React.SetStateAction<any>>;
 }
 

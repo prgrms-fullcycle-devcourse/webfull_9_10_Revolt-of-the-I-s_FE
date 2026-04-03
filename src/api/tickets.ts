@@ -44,3 +44,9 @@ export const deleteTicketApi = async (taskId: number) => {
   const response = await api.delete(`/tasks/${taskId}`);
   return response.data;
 };
+
+// 테스크 상태 변경 api
+export const acceptTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/accept`);
+export const submitTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/submit`);
+export const confirmTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/confirm`);
+export const rejectTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/reject`);

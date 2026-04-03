@@ -31,14 +31,14 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
   // 권한 체크
   const isWorker = currentUser.name === ticket.worker;
 
-  // 삭제(요청 거부) 핸들러
+  // 삭제(요청 취소) 핸들러
   const onClickDelete = async () => {
     if (!isWorker) {
-      alert("담당자만 요청을 거부할 수 있습니다.");
+      alert("담당자만 요청을 취소할 수 있습니다.");
       return;
     }
 
-    if (!window.confirm("정말 이 요청을 거부하시겠습니까? 거부 시 해당 테스크는 영구적으로 삭제됩니다.")) return;
+    if (!window.confirm("정말 이 요청을 취소하시겠습니까? 취소 시 해당 테스크는 영구적으로 삭제됩니다.")) return;
 
     try {
       // 1. API 호출
@@ -49,7 +49,7 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
         addLog(
           Number(ticket.id), 
           currentUser.name, 
-          `요청 거부: ${ticket.title}`, 
+          `요청 취소: ${ticket.title}`, 
           'error'
         );
         
@@ -66,7 +66,7 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
           })
         );
 
-        alert("요청이 성공적으로 거부되어 삭제되었습니다.");
+        alert("요청이 성공적으로 취소되어 삭제되었습니다.");
         onClose();
       } else {
         alert(result.message || "삭제에 실패했습니다.");
@@ -136,21 +136,25 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
                 <p className="font-black text-blue-600">{ticket.worker}</p>
               </div>
               {/* 요청 취소(삭제) 버튼 */}
-              {/* 💡 담당자일 때만 버튼 활성화, 아닐 때는 비활성화 스타일 적용 */}
-              {isWorker ? (
-                <button
-                  onClick={onClickDelete}
-                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-black hover:bg-red-100 transition-all cursor-pointer shrink-0"
-                >
-                  요청 거부
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="px-4 py-2 bg-slate-100 text-slate-300 rounded-xl text-[11px] font-black cursor-not-allowed shrink-0"
-                >
-                  권한 없음
-                </button>
+              {/* 담당자일 때만 버튼 활성화, 아닐 때는 비활성화 스타일 적용 */}
+              {ticket.status !== 'Done' && ticket.status !== 'Checked' && (
+                <div>
+                  {isWorker ? (
+                    <button
+                      onClick={onClickDelete}
+                      className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-black hover:bg-red-100 transition-all cursor-pointer shrink-0"
+                    >
+                      요청 취소
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="px-4 py-2 bg-slate-100 text-slate-300 rounded-xl text-[11px] font-black cursor-not-allowed shrink-0"
+                    >
+                      권한 없음
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
