@@ -935,7 +935,7 @@ export default function App() {
       <Modal
         isOpen={activeModal === 'deleteLink'}
         onClose={() => setActiveModal(null)}
-        title={`${selectedLinkItem?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
+        title={`${selectedLinkItem?.type === 'LINK' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
       >
         <div className="flex justify-between items-center gap-2">
           <button
