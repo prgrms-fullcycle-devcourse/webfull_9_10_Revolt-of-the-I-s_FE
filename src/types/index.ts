@@ -46,7 +46,7 @@ export interface Log {
   user: string;
   action: string;
   time: string;
-  type: 'default' | 'info' | 'success' | 'error'; 
+  type: 'default' | 'info' | 'success' | 'error';
 }
 
 // 팀 아카이브: 회의록 데이터
@@ -61,9 +61,10 @@ export interface Note {
 // 팀 아카이브: 공유 링크 데이터
 export interface TeamLink {
   id: number;
-  title: string;
-  url: string;
   type: string;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
 /**
@@ -83,7 +84,7 @@ export interface Team {
   userStatuses: Record<string, UserStatus>;
 }
 
-export type CurrentUser = Member
+export type CurrentUser = Member;
 
 /**
  * 9. 칸반 상태 설정 타입
@@ -93,13 +94,13 @@ export interface StatusType {
   id: string;
   label: string;
   icon: typeof Circle; // Lucide 아이콘 컴포넌트 타입
-  color: string;      // 아이콘 및 텍스트 색상 (Tailwind)
-  border: string;     // 컬럼/카드 테두리 색상
-  bg: string;         // 배경색
-  next: string | null;      // 다음 단계 상태 ID
+  color: string; // 아이콘 및 텍스트 색상 (Tailwind)
+  border: string; // 컬럼/카드 테두리 색상
+  bg: string; // 배경색
+  next: string | null; // 다음 단계 상태 ID
   nextLabel: string | null; // 다음 단계 버튼 문구
-  back?: string;            // 이전 단계 상태 ID (반려용)
-  backLabel?: string;       // 이전 단계 버튼 문구
+  back?: string; // 이전 단계 상태 ID (반려용)
+  backLabel?: string; // 이전 단계 버튼 문구
 }
 
 // GET /teams API 응답 내 개별 팀원 정보

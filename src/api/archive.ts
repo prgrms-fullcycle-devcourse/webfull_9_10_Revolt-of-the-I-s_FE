@@ -1,0 +1,51 @@
+/**
+ 아카이브 관련 API 모음
+ */
+
+import { api } from './client';
+
+// 퀵 링크 API
+// 퀵 링크 생성 요청 데이터 타입 정의
+export interface CreateQuickLinkRequest {
+  title: string;
+  content: string;
+}
+
+// 퀵 링크 생성 응답 데이터 타입 정의
+export interface CreateQuickLinkResponse {
+  success: boolean;
+  data: {
+    id: number;
+    team_id: number;
+    type: string;
+    title: string;
+    content: string;
+    created_at: string;
+  };
+  meta: null;
+  error: string | null;
+}
+
+// 퀵 링크 목록 조회 api
+export const getQuickLinksApi = async (teamId: number) => {
+  const response = await api.get(`/teams/${teamId}/archives/links`);
+  return response.data;
+};
+
+// 퀵 링크 생성 API 호출 함수
+export const createQuickLinkApi = async (
+  teamId: number,
+  data: CreateQuickLinkRequest,
+) => {
+  const response = await api.post<CreateQuickLinkResponse>(
+    `/teams/${teamId}/archives/links`,
+    data,
+  );
+  return response.data;
+};
+
+// 퀵 링크 삭제 API 호출 함수
+export const deleteQuickLinkApi = async (linkId: number) => {
+  const response = await api.delete(`/archives/${linkId}/links`);
+  return response.data;
+};

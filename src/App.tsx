@@ -8,6 +8,7 @@ import {
   type EditMemberPositionRequest,
   editMemberPositionApi,
 } from './api/member';
+import { createQuickLinkApi } from './api/archive';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -31,6 +32,7 @@ import {
   type Note,
   type TeamLink,
 } from './types';
+import { validateUrl } from './utils/validation';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -42,14 +44,15 @@ export default function App() {
     activeTeamId,
     setActiveTeamId,
     activeTeam,
-    pendingTeamId, 
+    pendingTeamId,
     setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
     addLog,
     handleDeleteTicketApi,
     handleEditPosition,
-
+    handleCreateQuickLink,
+    handleDeleteQuickLink,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -73,7 +76,7 @@ export default function App() {
     | 'position'
     | 'document'
     | 'updateNote'
-    | 'deleteLinks'
+    | 'deleteLink'
     | null
   >(null);
 
@@ -98,17 +101,18 @@ export default function App() {
     myPosition !==
       (activeTeam?.members.find((m) => m.email === currentUser?.email)
         ?.position || '');
-  const [isPending, setIsPending] = useState<boolean>(false);
+  const [isPositionPending, setIsPositionPending] = useState<boolean>(false);
 
   // 링크, 문서 관련 상태
-  const [linkData, setLinkData] = useState<{ title: string; url: string }>({
+  const [linkData, setLinkData] = useState<{ title: string; content: string }>({
     title: '',
-    url: '',
+    content: '',
   });
-  const isLinkValid = linkData.title.length > 0 && linkData.url.length > 0;
-  const [selectedLinkToDelete, setLinkToDelete] = useState<TeamLink | null>(
-    null,
-  );
+
+  const isLinkValid =
+    linkData.title.length > 0 && validateUrl(linkData.content);
+  const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>(null);
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -197,30 +201,29 @@ export default function App() {
     queryFn: getMyInfoApi,
     staleTime: Infinity, // 앱이 켜져 있는 동안은 다시 부르지 않음 (중복 호출 방지)
     gcTime: Infinity,
-    retry: false,        // 로그인 안 되어 있을 때 반복 호출 방지
+    retry: false, // 로그인 안 되어 있을 때 반복 호출 방지
   });
 
   useEffect(() => {
-        if (userData) {
-          setCurrentUser({
-            id: userData.id || Date.now(),
-            uuid: userData.uuid,
-            name: userData.name || 'Unknown',
-            avatar: userData.avatar || '',
-            email: userData.email || '',
-            phone: userData.phone || '',
-            position: userData.position || '팀원',
-            github: userData.github || '',
-          });
+    if (userData) {
+      setCurrentUser({
+        id: userData.id || Date.now(),
+        uuid: userData.uuid,
+        name: userData.name || 'Unknown',
+        avatar: userData.avatar || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        position: userData.position || '팀원',
+        github: userData.github || '',
+      });
 
-          const lastTeamId = localStorage.getItem('lastTeamId');
-          const wasAuthorized =
-            localStorage.getItem('isTeamAuthorized') === 'true';
-          if (lastTeamId && wasAuthorized) {
-            setActiveTeamId(lastTeamId);
-            setIsTeamAuthorized(true);
-          }
-        }
+      const lastTeamId = localStorage.getItem('lastTeamId');
+      const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+      if (lastTeamId && wasAuthorized) {
+        setActiveTeamId(lastTeamId);
+        setIsTeamAuthorized(true);
+      }
+    }
     if (!isUserLoading) {
       setIsAuthLoading(false);
     }
@@ -388,26 +391,55 @@ export default function App() {
     console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
   };
 
-  const createLink = (e: React.FormEvent<HTMLFormElement>) => {
+  // 새로운 링크 생성
+  const createLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newLink = {
-      id: Date.now(),
-      title: formData.get('title') as string,
-      url: formData.get('url') as string,
-      type: formData.get('type') as string,
-    };
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId ? { ...t, links: [newLink, ...t.links] } : t,
-      ),
-    );
-    setActiveModal(null);
+
+    if (isLinkPending) return;
+    setIsLinkPending(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+
+      const newLinkData = {
+        title: formData.get('title') as string,
+        content: (formData.get('content') as string).trim(),
+      };
+
+      const result = await createQuickLinkApi(
+        Number(activeTeamId),
+        newLinkData,
+      );
+      console.log('링크 추가 성공 : ', result);
+
+      handleCreateQuickLink(newLinkData.title, newLinkData.content);
+
+      setActiveModal(null);
+      setLinkData({ title: '', content: '' });
+      alert(`링크가 성공적으로 추가되었습니다.`);
+    } catch (error: any) {
+      console.log('API 호출 실패 :', error);
+      setActiveModal(null);
+      alert(error.message || '링크 생성에 실패했습니다.');
+    } finally {
+      setIsLinkPending(false);
+    }
   };
 
   const deleteLink = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log(`${selectedLinkToDelete?.id}의 링크를 삭제합니다.`);
+
+    const linkId = selectedLinkItem?.id;
+    if (!linkId) return;
+    try {
+      handleDeleteQuickLink(linkId);
+
+      console.log(`퀵 링크 id : ${linkId}의 링크를 삭제 성공했습니다.`);
+      setActiveModal(null);
+    } catch (error: any) {
+      setActiveModal(null);
+      alert(error.message || '링크 삭제에 실패했습니다.');
+    }
   };
 
   const handleLeaveTeam = (teamId: string | number | null) => {
@@ -438,8 +470,8 @@ export default function App() {
 
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isPending) return;
-    setIsPending(true);
+    if (isPositionPending) return;
+    setIsPositionPending(true);
 
     try {
       const editPositionData: EditMemberPositionRequest = {
@@ -457,18 +489,15 @@ export default function App() {
       console.log('포지션 수정 성공 결과', success);
 
       // 모달 닫기
-      alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
       setActiveModal(null);
+      alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
     } catch (error: any) {
       console.log('API 호출 실패 :', error);
 
-      const serverMessage = error.response?.data?.error;
-      alert(serverMessage);
+      alert(error.message || '포지션 수정에 실패했습니다.');
     } finally {
-      setIsPending(false);
+      setIsPositionPending(false);
     }
-
-    // 모달 닫기
   };
 
   // 공통 로그아웃 처리
@@ -583,11 +612,11 @@ export default function App() {
                   setIsLinkModalOpen={() => setActiveModal('link')}
                   setIsDocModalOpen={() => setActiveModal('document')}
                   setIsNoteModalOpen={() => setActiveModal('note')}
-                  setIsDeleteLinkModalOpen={(link: TeamLink) => {
-                    setActiveModal('deleteLinks');
-                    setLinkToDelete(link);
+                  setIsDeleteLinkModalOpen={() => {
+                    setActiveModal('deleteLink');
                   }}
                   setSelectedNote={(note) => setSelectedNote(note)}
+                  setSelectedLinkItem={(link) => setSelectedLinkItem(link)}
                 />
               )}
             </div>
@@ -764,7 +793,7 @@ export default function App() {
         isOpen={activeModal === 'link'}
         onClose={() => {
           setActiveModal(null);
-          setLinkData({ title: '', url: '' });
+          setLinkData({ title: '', content: '' });
         }}
         title="공유 링크 추가"
       >
@@ -779,18 +808,21 @@ export default function App() {
             placeholder="사이트 이름"
           />
           <input
-            name="url"
-            onChange={(e) => setLinkData({ ...linkData, url: e.target.value })}
+            name="content"
+            onChange={(e) =>
+              setLinkData({ ...linkData, content: e.target.value })
+            }
             type="url"
+            defaultValue={'https://'}
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-mono"
             placeholder="https://..."
           />
           <button
             type="submit"
-            disabled={!isLinkValid}
+            disabled={!isLinkValid || isLinkPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isLinkValid
+              isLinkValid && !isLinkPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -888,9 +920,9 @@ export default function App() {
           />
           <button
             type="submit"
-            disabled={!isPositionValid || isPending}
+            disabled={!isPositionValid || isPositionPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isPositionValid && !isPending
+              isPositionValid && !isPositionPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -901,9 +933,9 @@ export default function App() {
       </Modal>
 
       <Modal
-        isOpen={activeModal === 'deleteLinks'}
+        isOpen={activeModal === 'deleteLink'}
         onClose={() => setActiveModal(null)}
-        title={`${selectedLinkToDelete?.type === 'links' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
+        title={`${selectedLinkItem?.type === 'LINK' ? '퀵 링크' : '문서'}를 삭제하시겠어요?`}
       >
         <div className="flex justify-between items-center gap-2">
           <button
