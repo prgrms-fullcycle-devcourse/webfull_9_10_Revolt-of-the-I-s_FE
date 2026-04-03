@@ -5,7 +5,10 @@ interface TicketCardProps {
   ticket: Ticket;
   status: StatusType;
   onClick: (id: number) => void;
-  updateTicketStatus: (id: number, newStatus: string, isReject?: boolean) => void;
+  updateTicketStatus: (
+    taskId: number, 
+    actionType: 'accept' | 'submit' | 'confirm' | 'reject'
+  ) => Promise<{ ok: boolean } | undefined>;
 }
 
 export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: TicketCardProps) => {
@@ -32,21 +35,31 @@ export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: Tick
 
         {status.next && (
           <div className="flex gap-1 shrink-0">
+            {/* 반려 버튼 */}
             {status.back && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  updateTicketStatus(ticket.id, status.back!, true);
+                  updateTicketStatus(ticket.id, 'reject');
                 }}
                 className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-black rounded-xl hover:bg-red-100 transition-all"
               >
                 반려
               </button>
             )}
+            {/* 단계 별 버튼 (수락/제출/승인) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                updateTicketStatus(ticket.id, status.next!);
+
+                let action: 'accept' | 'submit' | 'confirm' | 'reject' = 'accept';
+
+                // status별 api 분기
+                if (ticket.status === 'Todo') action = 'accept';    // Todo -> 수락하기 -> Doing
+                else if (ticket.status === 'Doing') action = 'submit'; // Doing -> 제출하기 -> Done
+                else if (ticket.status === 'Done') action = 'confirm'; // Done -> 최종 확인 -> Checked
+
+                updateTicketStatus(ticket.id, action);
               }}
               className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 flex items-center gap-1 active:scale-95 transition-all"
             >

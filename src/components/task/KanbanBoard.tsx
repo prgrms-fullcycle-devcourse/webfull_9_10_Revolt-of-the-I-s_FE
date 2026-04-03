@@ -5,7 +5,10 @@ interface KanbanColumnProps {
   status: StatusType; // 컬럼의 상태 정보 (ID, 라벨, 아이콘, 색상 등 포함)
   tickets: Ticket[]; // 이 컬럼의 상태와 일치하도록 부모(Dashboard)에서 필터링되어 넘어온 티켓들
   onTicketClick: (id: number) => void; // 티켓 클릭 시 상세 모달을 띄우기 위한 핸들러
-  updateTicketStatus: (id: number, newStatus: string, isReject?: boolean) => void; // 티켓 상태 변경(반려 포함) 로직
+  updateTicketStatus: (
+    taskId: number, 
+    actionType: 'accept' | 'submit' | 'confirm' | 'reject'
+  ) => Promise<{ ok: boolean } | undefined>; // 티켓 상태 변경(반려 포함) 로직
 }
 
 export const KanbanColumn = ({ status, tickets, onTicketClick, updateTicketStatus }: KanbanColumnProps) => {

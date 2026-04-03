@@ -10,7 +10,7 @@ import type { Team, Ticket, CurrentUser, TeamFromApi } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
 import { formatLogTime } from '../utils/format';
-import { deleteTicketApi, getTicketDetailApi, getTicketsApi } from "../api/tickets";
+import { deleteTicketApi, getTicketDetailApi, getTicketsApi, acceptTicketApi, submitTicketApi, confirmTicketApi, rejectTicketApi } from "../api/tickets";
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
@@ -407,36 +407,75 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   /**
    * [기능] updateTicketStatus: 티켓의 진행 상태 변경
    */
-  const updateTicketStatus = (
-    id: number,
-    newStatus: string,
-    isReject = false,
+  // const updateTicketStatus = (
+  //   id: number,
+  //   newStatus: string,
+  //   isReject = false,
+  // ) => {
+  //   if (!activeTeamId || !currentUser) return;
+
+  //   setTeams((prev) =>
+  //     prev.map((t) =>
+  //       t.id === activeTeamId
+  //         ? {
+  //             ...t,
+  //             tickets: t.tickets.map((tk) =>
+  //               tk.id === id ? { ...tk, status: newStatus } : tk,
+  //             ),
+  //           }
+  //         : t,
+  //     ),
+  //   );
+
+  //   let logType: 'info' | 'success' | 'error' = 'info';
+  //   if (isReject) logType = 'error';
+  //   else if (newStatus === 'done') logType = 'success';
+
+  //   addLog(
+  //     id,
+  //     currentUser.name,
+  //     isReject ? '반려 및 재요청' : `상태 변경: ${newStatus}`,
+  //     logType,
+  //   );
+  // };
+  const updateTicketStatus = async (
+    taskId: number, 
+    actionType: 'accept' | 'submit' | 'confirm' | 'reject'
   ) => {
     if (!activeTeamId || !currentUser) return;
 
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId
-          ? {
-              ...t,
-              tickets: t.tickets.map((tk) =>
-                tk.id === id ? { ...tk, status: newStatus } : tk,
-              ),
-            }
-          : t,
-      ),
-    );
+    const apiMap = {
+      accept: acceptTicketApi,
+      submit: submitTicketApi,
+      confirm: confirmTicketApi,
+      reject: rejectTicketApi,
+    };
 
-    let logType: 'info' | 'success' | 'error' = 'info';
-    if (isReject) logType = 'error';
-    else if (newStatus === 'done') logType = 'success';
+    try {
+      // 선택된 액션에 맞는 API 호출
+      const response = await apiMap[actionType](taskId);
 
-    addLog(
-      id,
-      currentUser.name,
-      isReject ? '반려 및 재요청' : `상태 변경: ${newStatus}`,
-      logType,
-    );
+      if (response.data.success) {
+        // 쿼리 무효화 (서버에서 최신 리스트를 가져와서 칸반보드 위치 이동)
+        await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+
+        // 로그 기록 (액션에 따른 메시지 분기)
+        const actionMessages = {
+          accept: '업무 수락 (Doing)',
+          submit: '업무 제출 (Review)',
+          confirm: '업무 승인 (Done)',
+          reject: '업무 반려 (Todo)',
+        };
+        
+        addLog(taskId, currentUser.name, actionMessages[actionType], 'info');
+        
+        return { ok: true };
+      }
+    } catch (error) {
+      console.error(`${actionType} 처리 중 오류:`, error);
+      alert("상태 변경에 실패했습니다.");
+      return { ok: false };
+    }
   };
 
   /**
