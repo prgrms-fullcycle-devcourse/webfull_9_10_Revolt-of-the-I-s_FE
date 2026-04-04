@@ -169,7 +169,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
   // 선택된 팀의 티켓 데이터를 localTeams에 추가
   useEffect(() => {
-    if (ticketData?.success && activeTeamId) {
+    if (ticketData?.success && activeTeamId && localTeams.length > 1) {
       // 현재 활성화된 팀 '멤버 리스트' 가져오기
       const currentTeam = localTeams.find(
         (t) => String(t.id) === String(activeTeamId),
@@ -202,23 +202,20 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         };
       });
 
-      setTeams((prev) => {
-        const targetTeam = prev.find(
-          (t) => String(t.id) === String(activeTeamId),
-        );
-        const isSame =
-          JSON.stringify(targetTeam?.tickets) === JSON.stringify(serverTasks);
-
-        if (isSame) return prev;
-
-        return prev.map((team) =>
-          String(team.id) === String(activeTeamId)
-            ? { ...team, tickets: serverTasks }
-            : team,
-        );
+      setTeams(prev => {
+        return prev.map(team => {
+          if (String(team.id) === String(activeTeamId)) {
+            // 현재 티켓과 서버 티켓이 같으면 업데이트하지 않도록 함 (무한루프/중복방지)
+            if (JSON.stringify(team.tickets) === JSON.stringify(serverTasks)) {
+              return team;
+            }
+            return { ...team, tickets: serverTasks };
+          }
+          return team;
+        });
       });
     }
-  }, [ticketData, activeTeamId, localTeams]);
+  }, [ticketData, activeTeamId]);
 
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
@@ -421,23 +418,27 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
     if (!isAlreadyMember) {
       setTeams((prev) =>
-        prev.map((team) =>
-          String(team.id) === String(teamId)
-            ? {
-                ...team,
-                members: [...team.members, currentUser],
-                userStatuses: {
-                  ...team.userStatuses,
-                  [currentUser.name]: {
-                    label: '방금 입장',
-                    color: 'bg-green-500',
-                  },
+        prev.map((team) => {
+          if (String(team.id) === String(teamId)) {
+            // 기존 멤버 중 본인 uuid가 있는지 확인
+            const exists = team.members.some(m => m.uuid === currentUser.uuid);
+            
+            return {
+              ...team,
+              members: exists ? team.members : [...team.members, currentUser],
+              userStatuses: {
+                ...team.userStatuses,
+                [currentUser.name]: {
+                  label: '방금 입장',
+                  color: 'bg-green-500',
                 },
-              }
-            : team,
-        ),
+              },
+            };
+          }
+          return team;
+        })
       );
-    }
+}
 
     // 여기서 setActiveTeamId를 하지 않고, 성공 여부만 반환
     return {
