@@ -8,7 +8,7 @@ import {
   type EditMemberPositionRequest,
   editMemberPositionApi,
 } from './api/member';
-import { createQuickLinkApi } from './api/archive';
+import { createDocApi, createQuickLinkApi } from './api/archive';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -53,6 +53,9 @@ export default function App() {
     handleEditPosition,
     handleCreateQuickLink,
     handleDeleteQuickLink,
+    handleCreateDoc,
+    handleDeleteDoc,
+    isArchiveLoading,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -108,17 +111,18 @@ export default function App() {
     title: '',
     content: '',
   });
-
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
   const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>(null);
+
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
   });
   const isDocValid = docData.title.length > 0 && docData.file !== null;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDocPending, setIsDocPending] = useState<boolean>(false);
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -426,6 +430,18 @@ export default function App() {
     }
   };
 
+  // 링크, 문서 삭제 핸들링
+  const handleDeleteLinkOrDoc = (e: React.MouseEvent) => {
+    const linkType = selectedLinkItem?.type;
+
+    if (linkType === 'LINK') {
+      deleteLink(e);
+    } else {
+      deleteDocument(e);
+    }
+  };
+
+  // 링크 삭제
   const deleteLink = (e: React.MouseEvent) => {
     e.preventDefault();
 
@@ -439,6 +455,54 @@ export default function App() {
     } catch (error: any) {
       setActiveModal(null);
       alert(error.message || '링크 삭제에 실패했습니다.');
+    }
+  };
+
+  // 문서 생성
+  const createDocument = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (isDocPending) return;
+    setIsDocPending(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+
+      const newDocData = {
+        title: formData.get('title') as string,
+        file: formData.get('file') as File,
+      };
+
+      const result = await createDocApi(Number(activeTeamId), newDocData);
+      console.log('문서 추가 성공 : ', result);
+
+      handleCreateDoc(newDocData.title, newDocData.file);
+
+      setActiveModal(null);
+      console.log(docData);
+      setDocData({ title: '', file: null });
+    } catch (error: any) {
+      console.log('문서 생성 API 호출 실패 :', error);
+      setActiveModal(null);
+      alert(error.message || '문서 생성에 실패했습니다.');
+    } finally {
+      setIsDocPending(false);
+    }
+  };
+
+  // 문서 삭제
+  const deleteDocument = (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    try {
+      const docId = selectedLinkItem?.id;
+      if (!docId) return;
+
+      handleDeleteDoc(docId);
+      setActiveModal(null);
+    } catch (error: any) {
+      setActiveModal(null);
+      alert(error.message || '문서 삭제에 실패했습니다.');
     }
   };
 
@@ -617,6 +681,7 @@ export default function App() {
                   }}
                   setSelectedNote={(note) => setSelectedNote(note)}
                   setSelectedLinkItem={(link) => setSelectedLinkItem(link)}
+                  isAchiveLoading={isArchiveLoading}
                 />
               )}
             </div>
@@ -841,7 +906,7 @@ export default function App() {
         }}
         title="문서 링크 추가"
       >
-        <form onSubmit={createLink} className="space-y-6">
+        <form onSubmit={createDocument} className="space-y-6">
           <input
             name="title"
             required
@@ -886,9 +951,9 @@ export default function App() {
           )}
           <button
             type="submit"
-            disabled={!isDocValid}
+            disabled={!isDocValid || isDocPending}
             className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
-              isDocValid
+              isDocValid && !isDocPending
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -940,7 +1005,7 @@ export default function App() {
         <div className="flex justify-between items-center gap-2">
           <button
             className="bg-red-100 w-full hover:bg-red-200 text-red-500 px py-3 rounded-2xl font-black shadow-lg cursor-pointer"
-            onClick={(e) => deleteLink(e)}
+            onClick={(e) => handleDeleteLinkOrDoc(e)}
           >
             삭제하기
           </button>

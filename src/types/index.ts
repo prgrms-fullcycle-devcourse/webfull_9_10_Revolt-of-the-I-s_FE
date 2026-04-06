@@ -67,6 +67,15 @@ export interface TeamLink {
   createdAt: string;
 }
 
+// 팀 아카이브: 문서 데이터
+export interface TeamDocument {
+  id: number;
+  type: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
 /**
  * 8. 팀(Project) 최상위 객체
  * @description 서비스의 가장 큰 단위로, 해당 프로젝트에 귀속된 모든 데이터를 포함합니다.

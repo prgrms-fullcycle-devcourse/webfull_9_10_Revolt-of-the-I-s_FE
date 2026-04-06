@@ -12,6 +12,7 @@ import type {
   CurrentUser,
   TeamFromApi,
   TeamLink,
+  TeamDocument,
 } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi } from '../api/team';
@@ -23,9 +24,14 @@ import {
   acceptTicketApi,
   submitTicketApi,
   confirmTicketApi,
-  rejectTicketApi
+  rejectTicketApi,
 } from '../api/tickets';
-import { getQuickLinksApi } from '../api/archive';
+import {
+  deleteDocApi,
+  deleteQuickLinkApi,
+  getDocApi,
+  getQuickLinksApi,
+} from '../api/archive';
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
@@ -444,8 +450,8 @@ export const useTeams = (currentUser: CurrentUser | null) => {
    * [기능] updateTicketStatus: 티켓의 진행 상태 변경
    */
   const updateTicketStatus = async (
-    taskId: number, 
-    actionType: 'accept' | 'submit' | 'confirm' | 'reject'
+    taskId: number,
+    actionType: 'accept' | 'submit' | 'confirm' | 'reject',
   ) => {
     if (!activeTeamId || !currentUser) return;
 
@@ -462,7 +468,9 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
       if (response.data.success) {
         // 쿼리 무효화 (서버에서 최신 리스트를 가져와서 칸반보드 위치 이동)
-        await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+        await queryClient.invalidateQueries({
+          queryKey: ['tickets', activeTeamId],
+        });
 
         // 로그 기록 (액션에 따른 메시지 분기)
         const actionMessages = {
@@ -471,14 +479,14 @@ export const useTeams = (currentUser: CurrentUser | null) => {
           confirm: '업무 승인 (Done)',
           reject: '업무 반려 (Todo)',
         };
-        
+
         addLog(taskId, currentUser.name, actionMessages[actionType], 'info');
-        
+
         return { ok: true };
       }
     } catch (error) {
       console.error(`${actionType} 처리 중 오류:`, error);
-      alert("상태 변경에 실패했습니다.");
+      alert('상태 변경에 실패했습니다.');
       return { ok: false };
     }
   };
@@ -613,24 +621,36 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     }
   };
 
-  // 활성화된 팀의 아카이브 목록 조회
-  const { data: archiveData } = useQuery({
-    queryKey: ['archiveData', activeTeamId],
+  // 활성화된 팀의 퀵 링크 목록 조회
+  const { data: linkData } = useQuery({
+    queryKey: ['linkData', activeTeamId],
     queryFn: () => getQuickLinksApi(Number(activeTeamId)),
+    enabled: !!activeTeamId && !!currentUser,
+  });
+  // 활성화된 팀의 문서 목록 조회
+  const { data: docData } = useQuery({
+    queryKey: ['docData', activeTeamId],
+    queryFn: () => getDocApi(Number(activeTeamId)),
     enabled: !!activeTeamId && !!currentUser,
   });
 
   // 아카이브 데이터가 오면 activeTeam의 links에 추가
   useEffect(() => {
-    if (archiveData?.success && activeTeamId) {
-      const serverLinks = archiveData.data.map((link: TeamLink) => ({
+    if (activeTeamId && (linkData || docData)) {
+      const rawLinks = linkData?.data || [];
+      const rawDocs = docData?.data || [];
+      const combinedData = [...rawLinks, ...rawDocs];
+
+      combinedData.sort((a, b) =>
+        (b.created_at || '').localeCompare(a.created_at || ''),
+      );
+
+      const serverLinks = combinedData.map((link: TeamLink) => ({
         id: link.id,
         type: link.type,
         title: link.title,
         content: link.content,
-        createdAt: new Date(link.createdAt)
-          .toLocaleString('ko-KR', { hour12: false })
-          .slice(0, -3),
+        createdAt: link.createdAt,
       }));
 
       setTeams((prev) => {
@@ -639,8 +659,8 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         );
         const isSame =
           JSON.stringify(targetTeam?.links) === JSON.stringify(serverLinks);
-
         if (isSame) return prev;
+
         return prev.map((team) =>
           String(team.id) === String(activeTeamId)
             ? { ...team, links: serverLinks }
@@ -648,7 +668,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         );
       });
     }
-  }, [archiveData, activeTeamId]);
+  }, [linkData, docData, activeTeamId]);
 
   // 아카이브 > 퀵 링크 생성
   const handleCreateQuickLink = (title: string, content: string) => {
@@ -685,15 +705,76 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   };
 
   // 아카이브 > 퀵 링크 삭제
-  const handleDeleteQuickLink = (linkId: number) => {
+  const handleDeleteQuickLink = async (linkId: number) => {
     try {
       if (!currentUser || !activeTeamId || !activeTeam) return;
       if (linkId === 0) return;
+
+      await deleteQuickLinkApi(linkId);
 
       const updatedActiveTeam = {
         ...activeTeam,
         links: activeTeam.links.filter((link) => link.id !== linkId),
       };
+      setTeams((prev) =>
+        getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
+      );
+      queryClient.invalidateQueries({
+        queryKey: ['archiveData', activeTeamId],
+      });
+    } catch (error: any) {
+      console.log('삭제 실패 :', error);
+      throw error;
+    }
+  };
+
+  // 아카이브 > 문서 생성
+  const handleCreateDoc = (title: string, file: File | null) => {
+    try {
+      if (!currentUser || !activeTeamId || !activeTeam) return;
+      if (!title || !file) return;
+
+      const newDoc: TeamDocument = {
+        id: Date.now(),
+        type: 'PDF',
+        title: title,
+        content: URL.createObjectURL(file),
+        createdAt: new Date()
+          .toLocaleString('ko-KR', { hour12: false })
+          .slice(0, -3),
+      };
+
+      const updatedActiveTeam = {
+        ...activeTeam,
+        links: [newDoc, ...activeTeam.links],
+      };
+
+      setTeams((prev) =>
+        getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
+      );
+      queryClient.invalidateQueries({
+        queryKey: ['archiveData', activeTeamId],
+      });
+    } catch (error) {
+      console.log('문서 생성 실패 :', error);
+      throw error;
+    }
+  };
+
+  // 아카이브 > 문서 삭제 (링크 삭제와 동일하게 처리)
+  // handleDeleteDoc 함수는 handleDeleteQuickLink와 동일한 로직으로 구현이나 api가 달라 분리
+  const handleDeleteDoc = async (docId: number) => {
+    try {
+      if (!currentUser || !activeTeamId || !activeTeam) return;
+      if (docId === 0) return;
+
+      await deleteDocApi(docId);
+
+      const updatedActiveTeam = {
+        ...activeTeam,
+        links: activeTeam.links.filter((link) => link.id !== docId),
+      };
+
       setTeams((prev) =>
         getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
       );
@@ -733,5 +814,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     setPendingTeamId,
     handleCreateQuickLink,
     handleDeleteQuickLink,
+    handleCreateDoc,
+    handleDeleteDoc,
   };
 };
