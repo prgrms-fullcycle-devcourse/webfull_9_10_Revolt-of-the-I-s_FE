@@ -45,6 +45,7 @@ export default function App() {
     setActiveTeamId,
     activeTeam,
     pendingTeamId,
+    updateMyStatus,
     setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
@@ -55,6 +56,8 @@ export default function App() {
     handleDeleteQuickLink,
     handleCreateDoc,
     handleDeleteDoc,
+    activeLogTab,
+    setActiveLogTab
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -113,10 +116,7 @@ export default function App() {
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
-  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink | null>(
-    null,
-  );
-
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>();
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -181,7 +181,7 @@ export default function App() {
       if (pendingTeamId) {
         setActiveTeamId(pendingTeamId);
 
-        addLog(0, currentUser!.name, '공간 입장', 'info', pendingTeamId);
+        addLog(0, currentUser!.name, '공간 입장', 'info');
       }
 
       queryClient.invalidateQueries({ queryKey: ['teams'] });
@@ -633,6 +633,7 @@ export default function App() {
             activeTeam={activeTeam!}
             activeTeamId={activeTeamId}
             currentUser={currentUser}
+            updateMyStatus={updateMyStatus}
             view={view}
             setView={setView}
             setIsTeamAuthorized={setIsTeamAuthorized}
@@ -641,6 +642,8 @@ export default function App() {
             setTeams={setTeams}
             addLog={addLog}
             onLeaveTeam={handleLeaveTeam}
+            activeLogTab={activeLogTab}
+            setActiveLogTab={setActiveLogTab}
           />
           <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
             <Header
