@@ -720,7 +720,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
       );
       queryClient.invalidateQueries({
-        queryKey: ['archiveData', activeTeamId],
+        queryKey: ['linkData', activeTeamId],
       });
     } catch (error: any) {
       console.log('삭제 실패 :', error);
@@ -753,7 +753,7 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         getUpdatedTeams(prev, activeTeamId, updatedActiveTeam),
       );
       queryClient.invalidateQueries({
-        queryKey: ['archiveData', activeTeamId],
+        queryKey: ['docData', activeTeamId],
       });
     } catch (error) {
       console.log('문서 생성 실패 :', error);

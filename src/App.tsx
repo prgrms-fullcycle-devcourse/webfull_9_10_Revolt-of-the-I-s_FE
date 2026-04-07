@@ -481,6 +481,7 @@ export default function App() {
       setActiveModal(null);
       console.log(docData);
       setDocData({ title: '', file: null });
+      alert(`문서가 성공적으로 추가되었습니다.`);
     } catch (error: any) {
       console.log('문서 생성 API 호출 실패 :', error);
       setActiveModal(null);
