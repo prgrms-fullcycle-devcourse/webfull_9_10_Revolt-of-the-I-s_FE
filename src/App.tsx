@@ -55,7 +55,6 @@ export default function App() {
     handleDeleteQuickLink,
     handleCreateDoc,
     handleDeleteDoc,
-    isArchiveLoading,
   } = useTeams(currentUser);
 
   // --- UI 상태 관리 ---
@@ -114,7 +113,9 @@ export default function App() {
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
-  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>(null);
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink | null>(
+    null,
+  );
 
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
@@ -682,7 +683,6 @@ export default function App() {
                   }}
                   setSelectedNote={(note) => setSelectedNote(note)}
                   setSelectedLinkItem={(link) => setSelectedLinkItem(link)}
-                  isAchiveLoading={isArchiveLoading}
                 />
               )}
             </div>
