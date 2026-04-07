@@ -37,7 +37,7 @@ export const Sidebar = ({
   // Sidebar 컴포넌트 내부 상단에 추가
   const [activeLogTab, setActiveLogTab] = useState<'all' | 'mine'>('all');
   // 내 현재 상태 정보 가져오기 (기본값: 활동 중)
-  const myStatus = activeTeam.userStatuses[currentUser.name] || { 
+  const myStatus = activeTeam.userStatuses[currentUser.name || ''] || { 
     label: '활동 중', 
     color: 'bg-green-500' 
   };
@@ -148,7 +148,7 @@ export const Sidebar = ({
         >
           {/* MemberStatusItem으로 내 정보 표시 */}
           <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
-            {currentUser.name[0]}
+            {currentUser.name?.[0] || '?'}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>

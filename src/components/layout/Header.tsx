@@ -37,7 +37,8 @@ export const Header = ({
 
             return (
               <div
-                key={member.id}
+                // id가 없을 수 있어서 fallback key 사용
+                key={member.id ?? `${member.email}-${member.name}`}
                 className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-xs font-bold shadow-sm relative group"
               >
                 {member.avatar}

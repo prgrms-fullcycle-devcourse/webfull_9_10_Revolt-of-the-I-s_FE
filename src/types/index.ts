@@ -187,3 +187,26 @@ export interface LeaveTeamResponse {
   meta: null;
   error: string | null;
 }
+
+// 구글 OAuth 요청 body 타입
+export interface GoogleAuthRequest {
+  googleToken: string;
+}
+
+// 구글 OAuth 응답 유저 타입
+export interface AuthUser {
+  uuid: string;
+  name: string;
+  profile_image: string | null;
+}
+
+// 구글 OAuth 응답 타입
+export interface GoogleAuthResponse {
+  success: boolean;
+  data: {
+    token: string;
+    user: AuthUser;
+  } | null;
+  meta: null;
+  error: string | null;
+}

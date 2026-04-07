@@ -1,4 +1,4 @@
-import { Mail, Github, SquarePen, Smartphone, ArrowRight } from 'lucide-react';
+import { Mail, Github, SquarePen, Smartphone } from 'lucide-react';
 import type { Member, Team, CurrentUser } from '../types';
 
 interface MembersProps {
@@ -19,8 +19,8 @@ export const Members = ({
 
         return (
           <div
-            key={member.id!}
-            className="bg-white w-full  p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-center"
+            key={member.id ?? `${member.email}-${member.name}`}
+            className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-center"
           >
             {/* 아바타 섹션 */}
             <div className="relative mb-6">
@@ -42,9 +42,9 @@ export const Members = ({
                 )}
               </div>
               <span
-                className={`absolute bottom-[-5px] right-[-5px] w-5 h-5 border-4 border-white rounded-full ${
-                  activeTeam.userStatuses[member.id!]?.color ?? 'bg-green-500'
-                }`}
+                className={`absolute -bottom-1.25 -right-1.25 w-5 h-5 border-4 border-white rounded-full ${
+                activeTeam.userStatuses[member.id!]?.color ?? 'bg-green-500'
+              }`}
               />
             </div>
 
