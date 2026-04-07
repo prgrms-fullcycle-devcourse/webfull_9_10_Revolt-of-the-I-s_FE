@@ -7,6 +7,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { Team, Note, TeamLink } from '../types';
+import { getHostname } from '../utils/format';
 
 interface ArchiveProps {
   activeTeam: Team; // 현재 활성화된 팀의 모든 데이터 (links, notes 포함)
@@ -93,7 +94,7 @@ export const Archive = ({
                       </span>
                       {/* URL에서 도메인 주소만 추출하여 표시 */}
                       <span className="text-[10px] text-slate-400 font-mono truncate block">
-                        {new URL(link.content).hostname}
+                        {getHostname(link.content)}
                       </span>
                     </div>
                   </div>
