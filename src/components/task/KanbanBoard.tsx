@@ -35,7 +35,7 @@ export const KanbanColumn = ({ status, tickets, onTicketClick, updateTicketStatu
             key={ticket.id}
             ticket={ticket}
             status={status}
-            onClick={onTicketClick}
+            onClick={() => onTicketClick(ticket.id)}
             updateTicketStatus={updateTicketStatus}
           />
         ))}

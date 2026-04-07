@@ -35,6 +35,7 @@ import {
 import { updateMyStatusApi } from '../api/status';
 import { pusher } from "../utils/pusher";
 import { getTeamLogsApi } from "../api/log";
+import { createCommentApi } from "../api/comments";
 
 // 상태별 색 매핑
 const STATUS_COLORS: Record<string, string> = {
@@ -110,7 +111,10 @@ const getUpdatedTeams = (
 };
 
 // 상태 관리 - 팀 리스트 및 참여중인 팀 ID
-export const useTeams = (currentUser: CurrentUser | null) => {
+export const useTeams = (
+  currentUser: CurrentUser | null,
+  selectedTicketId: number | null,
+) => {
   const [localTeams, setTeams] = useState<Team[]>([INITIAL_TEAM]);
 
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
@@ -119,12 +123,11 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   // 인증 대기 중인 팀 ID (비밀번호 입력 후 인증이 완료되면 activeTeamId로 이동)
   const [pendingTeamId, setPendingTeamId] = useState<string | null>(null);
 
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-
   const { data: detailData } = useQuery({
     queryKey: ['ticketDetail', selectedTicketId],
     queryFn: () => getTicketDetailApi(selectedTicketId!),
     enabled: !!selectedTicketId,
+    staleTime: 0
   });
 
   // GET /teams API 호출로 팀 목록 가져오기
@@ -184,27 +187,8 @@ export const useTeams = (currentUser: CurrentUser | null) => {
       const response = await updateMyStatusApi(Number(activeTeamId), newStatus);
       
       if (response.success) {
-
-        // 2. 내 화면 즉시 반영 (낙관적 업데이트)
-        // Pusher 리스너에서도 업데이트를 하겠지만, 내가 바꾼 건 내가 가장 먼저 보는 게 좋으니까요!
-        setTeams(prev => prev.map(team => {
-          if (String(team.id) === String(activeTeamId)) {
-            return {
-              ...team,
-              userStatuses: {
-                ...team.userStatuses,
-                [currentUser.name]: { 
-                  label: newStatus, 
-                  color: STATUS_COLORS[newStatus] || 'bg-green-500'
-                }
-              },
-              members: team.members.map(m => 
-                m.email === currentUser.email ? { ...m, status: newStatus } : m
-              )
-            };
-          }
-          return team;
-        }));
+        // 💡 내 화면을 가장 빠르게 바꾸고 싶다면 아래 코드를 추가하세요.
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
       }
     } catch (error) {
       console.error("내 상태 변경 실패:", error);
@@ -225,26 +209,11 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     teamChannel.bind('status-updated', (data: { email: string; status: string; name: string }) => {
     console.log("👤 [실시간] 팀원 상태 변경 수신:", data);
 
-    setTeams(prev => prev.map(team => {
-      if (String(team.id) === String(activeTeamId)) {
-        return {
-          ...team,
-          // 1. userStatuses 객체 업데이트 (사이드바 점 색상 및 텍스트)
-          userStatuses: {
-            ...team.userStatuses,
-            [data.name]: { 
-              label: data.status,
-              color: STATUS_COLORS[data.status] || 'bg-green-500'
-            }
-          },
-          // 2. members 배열 내 status 필드 업데이트 (팀원 목록 UI 등)
-          members: team.members.map(m => 
-            m.email === data.email ? { ...m, status: data.status } : m
-          )
-        };
-      }
-      return team;
-    }));
+    // 서버의 팀 목록 데이터를 무효화
+    // => teamListData가 새로 호출되면서 바뀐 status가 들어옴
+    queryClient.invalidateQueries({ queryKey: ['teams'] });
+
+    // 로그 목록도 함께 갱신
     queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
   });
 
@@ -273,6 +242,25 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     userChannel.unbind_all();
   };
 }, [activeTeamId, currentUser, queryClient]);
+
+useEffect(() => {
+  // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
+  if (!selectedTicketId) return;
+
+  console.log(`🔌 [Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
+  const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
+
+  taskChannel.bind('new-comment', (data: any) => {
+    console.log("💬 [Pusher] 실시간 댓글 이벤트 발생!", data);
+    // 💡 여기서 invalidateQueries를 호출해야 위 useMemo가 다시 작동합니다.
+    queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
+  });
+
+  return () => {
+    pusher.unsubscribe(`task-${selectedTicketId}`);
+    taskChannel.unbind_all();
+  };
+}, [selectedTicketId, queryClient]);
 
   // API 팀 목록과 로컬 팀 목록 합치기
   // 서버에서 데이터를 받아와서 localTeams 동기화
@@ -360,7 +348,39 @@ export const useTeams = (currentUser: CurrentUser | null) => {
 
     // 3. 서버에서 온 티켓 데이터가 있다면 합치기
     if (ticketData?.success && ticketData.data.tasks) {
-      baseTeam.tickets = ticketData.data.tasks.map((task: any) => ({
+      baseTeam.tickets = ticketData.data.tasks.map((task: any) => {
+        // 💡 [수정] Number로 강제 변환하여 비교 (가장 확실한 방법)
+      const isSelected = selectedTicketId !== null && Number(task.id) === Number(selectedTicketId);
+
+// 💡 상세 데이터의 id(136)가 현재 루프를 도는 테스크의 id(136)와 같은지 확인
+// const hasDetail = !!detailData?.data;
+const detailIdMatch = detailData?.success && String(detailData.data.id) === String(task.id);
+
+// ✅ 이 로그가 찍히는지 확인하는 것이 핵심입니다!
+if (isSelected) {
+  console.log(`--------------------------------------`);
+  console.log(`🔍 [조립] 현재 검사 중인 업무 번호: #${task.task_number}`);
+  console.log(`   - 테스크 진짜 ID: ${task.id}`);
+  console.log(`   - 선택된 모달 ID: ${selectedTicketId}`);
+  console.log(`   - 서버 상세 정보 ID: ${detailData?.data?.id}`);
+  console.log(`   - 매칭 결과: ${detailIdMatch}`); // 👈 이게 드디어 true가 되어야 합니다.
+  console.log(`--------------------------------------`);
+}
+
+      // 댓글 매핑
+      let serverComments = [];
+      if (isSelected && detailIdMatch) {
+        serverComments = detailData.data.comments.map((c: any) => ({
+          id: c.id,
+          user: c.user?.name || '알 수 없음',
+          text: c.content,
+          time: new Date(c.created_at).toLocaleTimeString('ko-KR', { hour12: false }),
+        }));
+      } else {
+        serverComments = task.comments || [];
+      }
+
+      return {
         id: task.id,
         task_number: task.task_number,
         title: task.title,
@@ -369,9 +389,10 @@ export const useTeams = (currentUser: CurrentUser | null) => {
         requester: baseTeam.members.find(m => String(m.uuid) === String(task.requester_id))?.name || '요청자',
         worker: baseTeam.members.find(m => String(m.uuid) === String(task.worker_id))?.name || '담당자',
         createdAt: task.created_at?.split('T')[0] || '',
-        comments: [],
-      }));
-    }
+        comments: serverComments,
+      };
+    });
+  }
 
     // 4. 서버에서 온 로그 데이터가 있다면 합치기
     if (logData?.success && Array.isArray(logData.data)) {
@@ -386,7 +407,13 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     }
 
     return baseTeam;
-  }, [activeTeamId, teamListData, ticketData, logData]);
+  }, [
+    activeTeamId, 
+    teamListData, 
+    ticketData, 
+    logData, 
+    detailData?.data,
+    selectedTicketId]);
 
   // 현재 유저가 참여 중인 팀 목록
   const joinedTeams = useMemo(() => {
@@ -683,41 +710,31 @@ export const useTeams = (currentUser: CurrentUser | null) => {
   /**
    * [기능] handleAddComment: 티켓 내 댓글 추가
    */
-  const handleAddComment = (ticketId: number, text: string) => {
-    if (!text || !currentUser || !activeTeamId) return;
+  const handleAddComment = async (ticketId: number, text: string) => {
+    if (!text || !currentUser || !activeTeamId) return false;
 
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId
-          ? {
-              ...t,
-              tickets: t.tickets.map((tk) =>
-                tk.id === ticketId
-                  ? {
-                      ...tk,
-                      comments: [
-                        ...tk.comments,
-                        {
-                          id: Date.now(),
-                          user: currentUser.name,
-                          text,
-                          time: new Date().toLocaleTimeString('ko-KR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                          }),
-                        },
-                      ],
-                    }
-                  : tk,
-              ),
-            }
-          : t,
-      ),
-    );
+  console.log(`🚀 [댓글전송] ${ticketId}번 테스크에 댓글 작성 시도: "${text}"`);
 
-    addLog(ticketId, currentUser.name, '댓글 작성', 'info');
-  };
+  try {
+    const response = await createCommentApi(ticketId, text); 
+
+    if (response.success) {
+      console.log("✅ [서버응답] 댓글 저장 완료. 데이터를 새로고침합니다.");
+      
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['ticketDetail', ticketId] }),
+        queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] }),
+        queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] })
+      ]);
+      
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("❌ [에러] 댓글 작성 실패:", error);
+    return false;
+  }
+};
 
   /**
    * [기능] leaveTeam: 현재 유저를 팀 멤버 목록에서 제거
@@ -957,8 +974,6 @@ export const useTeams = (currentUser: CurrentUser | null) => {
     handleCreateTicket,
     handleAddComment,
     leaveTeam,
-    setSelectedTicketId,
-    selectedTicketId,
     activeLogTab,
     setActiveLogTab,
     handleDeleteTicketApi,

@@ -37,6 +37,7 @@ import { validateUrl } from './utils/validation';
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -58,7 +59,7 @@ export default function App() {
     handleDeleteDoc,
     activeLogTab,
     setActiveLogTab
-  } = useTeams(currentUser);
+  } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
@@ -86,7 +87,7 @@ export default function App() {
   >(null);
 
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
