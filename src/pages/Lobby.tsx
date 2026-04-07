@@ -13,7 +13,7 @@ import type { Team, TeamFromApi, CurrentUser } from "../types";
 interface LobbyProps {
   currentUser: CurrentUser; // 현재 접속한 사용자 정보
   onLogout: () => void; // App.tsx에서 내려준 공통 로그아웃 함수
-  setActiveTeamId: (id: string) => void; // 클릭한 팀을 활성화하는 함수
+  setPendingTeamId: (id: string) => void; // 클릭한 팀 ID를 임시로 저장하는 함수 (인증을 시작할 팀)
   setIsTeamAuthorized: (auth: boolean) => void;
   setIsCreateTeamModalOpen: () => void; // 새 팀 만들기 모달 열기
   setIsTeamAuthModalOpen: () => void; // 비밀번호 인증 모달 열기
@@ -27,6 +27,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
   isMember: team.isMember,
   members: team.members.map((m) => ({
     id: m.id,
+    uuid: m.user.uuid,
     name: m.user.name,
     position: m.position,
     avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
@@ -49,7 +50,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
 export const Lobby = ({
   currentUser,
   onLogout,
-  setActiveTeamId,
+  setPendingTeamId,
   setIsCreateTeamModalOpen,
   setIsTeamAuthModalOpen,
 }: LobbyProps) => {
@@ -135,7 +136,7 @@ export const Lobby = ({
   }) => (
     <div
       onClick={() => {
-        setActiveTeamId(team.id); // 클릭한 팀 ID 저장
+        setPendingTeamId(team.id); // 클릭한 팀 ID 저장
         setIsTeamAuthModalOpen(); // 인증 모달(비밀번호 입력) 호출
       }}
       className="relative w-full max-w-[320px] rounded-[28px] bg-white px-6 py-6 shadow-sm border border-slate-100 cursor-pointer transition-all hover:shadow-md"

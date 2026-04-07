@@ -13,7 +13,7 @@ export const AVATARS = ['👩‍💻', '👨‍💻', '🎨', '⚙️', '🚀', 
 
 export const TEST_CONFIG = {
   // 팀 아이디 임의 설정
-  TEMPORARY_TEAM_ID: 1, 
+  TEMPORARY_TEAM_ID: 1,
 };
 
 export const STATUS_TYPES: StatusType[] = [
@@ -87,32 +87,37 @@ export const INITIAL_TEAM: Team = {
       name: '영아',
       position: 'Backend Lead',
       avatar: '👩‍💻',
+      phone: '010-1234-5678',
       email: 'younga@istation.dev',
       github: 'https://github.com/younga',
+      uuid: "08183920"
     },
     {
       id: 2,
       name: '민수',
       position: 'Frontend Dev',
       avatar: '👨‍💻',
+      phone: '010-9876-5432',
       email: 'minsu@istation.dev',
       github: '',
+      uuid: "9283928"
     },
     {
       id: 3,
       name: '지수',
       position: 'UI/UX Designer',
       avatar: '🎨',
+      phone: '010-5555-6666',
       email: 'jisu@istation.dev',
       github: '',
+      uuid: "72839192"
     },
   ],
   tickets: [
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content:
-        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -137,6 +142,7 @@ export const INITIAL_TEAM: Team = {
           time: '2026.03.11 10:15',
         },
       ],
+      task_number: 0
     },
     {
       id: 2,
@@ -147,6 +153,7 @@ export const INITIAL_TEAM: Team = {
       status: 'Todo',
       createdAt: '2026.03.11 11:30',
       comments: [],
+      task_number: 1
     },
   ],
   logs: [

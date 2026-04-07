@@ -54,7 +54,7 @@ declare global {
 }
 
 export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
-  // 이메일 / 비밀번호 입력값 상태
+  // --- [1] 상태 관리 (Form State) ---
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -64,7 +64,8 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
   // 구글 버튼 렌더링 ref
   const googleInitializedRef = useRef(false)
 
-  // 이메일과 비밀번호가 비어있지 않은지 검사
+  // --- [2] 유효성 검사 (Simple Validation) ---
+  // 이메일과 비밀번호가 비어있지 않은지 확인 (공백 제거 후 체크)
   const isValid = email.trim() !== '' && password.trim() !== ''
 
   // 구글 클라이언트 ID 정리
@@ -73,19 +74,19 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
 
   // 로그인 성공 시 공통으로 유저 저장
   const saveUser = (
-    user: { uuid: string; name: string; profile_image: string | null },
-    userEmail: string
+  user: { uuid: string; name: string; profile_image: string | null },
+  userEmail: string
   ) => {
     const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
 
     setCurrentUser({
-      id: user.uuid,
+      uuid: user.uuid,
       name: user.name,
+      position: '',
+      avatar: user.profile_image || randomAvatar,
       email: userEmail,
       phone: '',
-      position: '',
       github: '',
-      avatar: user.profile_image || randomAvatar,
     })
   }
 
@@ -110,6 +111,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         return
       }
 
+      // 로그인 실패 시 에러 알림
       alert('로그인에 실패했습니다.')
     },
   })
@@ -128,14 +130,17 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         const user = await getMyInfoApi()
 
         setCurrentUser({
-          id: user.id || '',
-          name: user.name || '',
-          email: user.email || '',
-          phone: user.phone || '',
-          position: user.position || '',
-          github: user.github || '',
-          avatar: user.avatar || '',
-        })
+        // 숫자 id는 숫자일 때만 사용
+        id: typeof user.id === 'number' ? user.id : undefined,
+        // 문자열 uuid는 uuid 필드에 저장
+        uuid: user.uuid || '',
+        name: user.name || '',
+        position: user.position || '',
+        avatar: user.avatar || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        github: user.github || '',
+      })
 
         alert('구글 로그인 성공')
       } catch {
@@ -168,11 +173,10 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     })
   }, [googleLoginMutation])
 
-  // 일반 로그인 제출
+  // --- [4] 이벤트 핸들러 ---
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (!isValid) return
+    e.preventDefault() // 폼 제출 시 페이지 새로고침 방지
+    if (!isValid) return // 유효하지 않으면 뮤테이션 실행 안 함
 
     loginMutation.mutate({
       email,
@@ -180,7 +184,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     })
   }
 
-      useEffect(() => {
+  useEffect(() => {
     // 구글 SDK 없으면 종료
     if (!window.google) return
 
@@ -236,7 +240,9 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
           <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/20">
             <LogIn size={40} className="text-white" />
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tighter italic">i-Station</h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter italic">
+            i-Station
+          </h1>
           <p className="text-slate-400 text-sm font-semibold uppercase tracking-widest opacity-80 mt-1">
             개인 계정 로그인
           </p>
@@ -245,7 +251,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         {/* 로그인 카드 */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 이메일 입력 */}
+            {/* 이메일 입력 영역 */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 flex items-center gap-2">
                 <AtSign size={12} /> 이메일

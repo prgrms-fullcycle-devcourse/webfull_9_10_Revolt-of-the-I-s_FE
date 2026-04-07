@@ -8,7 +8,8 @@ export interface UserStatus {
 
 // 개별 팀원 정보 (로그인 시 입력받는 데이터 규격)
 export interface Member {
-  id?: number | string; // uuid 형식이므로 string 추가
+  id?: number;
+  uuid: string;
   name: string;
   position: string;
   avatar?: string;
@@ -28,6 +29,7 @@ export interface Comment {
 // 업무 티켓(Task) 정보
 export interface Ticket {
   id: number;
+  task_number: number;
   title: string;
   content: string;
   requester: string;
@@ -44,7 +46,7 @@ export interface Log {
   user: string;
   action: string;
   time: string;
-  type: 'default' | 'info' | 'success' | 'error'; 
+  type: 'default' | 'info' | 'success' | 'error';
 }
 
 // 팀 아카이브: 회의록 데이터
@@ -59,9 +61,19 @@ export interface Note {
 // 팀 아카이브: 공유 링크 데이터
 export interface TeamLink {
   id: number;
-  title: string;
-  url: string;
   type: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+// 팀 아카이브: 문서 데이터
+export interface TeamDocument {
+  id: number;
+  type: string;
+  title: string;
+  content: string;
+  createdAt: string;
 }
 
 /**
@@ -81,7 +93,7 @@ export interface Team {
   userStatuses: Record<string, UserStatus>;
 }
 
-export type CurrentUser = Member
+export type CurrentUser = Member;
 
 /**
  * 9. 칸반 상태 설정 타입
@@ -91,13 +103,13 @@ export interface StatusType {
   id: string;
   label: string;
   icon: typeof Circle; // Lucide 아이콘 컴포넌트 타입
-  color: string;      // 아이콘 및 텍스트 색상 (Tailwind)
-  border: string;     // 컬럼/카드 테두리 색상
-  bg: string;         // 배경색
-  next: string | null;      // 다음 단계 상태 ID
+  color: string; // 아이콘 및 텍스트 색상 (Tailwind)
+  border: string; // 컬럼/카드 테두리 색상
+  bg: string; // 배경색
+  next: string | null; // 다음 단계 상태 ID
   nextLabel: string | null; // 다음 단계 버튼 문구
-  back?: string;            // 이전 단계 상태 ID (반려용)
-  backLabel?: string;       // 이전 단계 버튼 문구
+  back?: string; // 이전 단계 상태 ID (반려용)
+  backLabel?: string; // 이전 단계 버튼 문구
 }
 
 // GET /teams API 응답 내 개별 팀원 정보
@@ -178,23 +190,23 @@ export interface LeaveTeamResponse {
 
 // 구글 OAuth 요청 body 타입
 export interface GoogleAuthRequest {
-  googleToken: string
+  googleToken: string;
 }
 
 // 구글 OAuth 응답 유저 타입
 export interface AuthUser {
-  uuid: string
-  name: string
-  profile_image: string | null
+  uuid: string;
+  name: string;
+  profile_image: string | null;
 }
 
 // 구글 OAuth 응답 타입
 export interface GoogleAuthResponse {
-  success: boolean
+  success: boolean;
   data: {
-    token: string
-    user: AuthUser
-  } | null
-  meta: null
-  error: string | null
+    token: string;
+    user: AuthUser;
+  } | null;
+  meta: null;
+  error: string | null;
 }
