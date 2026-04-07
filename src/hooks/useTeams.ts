@@ -35,7 +35,7 @@ import {
 import { updateMyStatusApi } from '../api/status';
 import { pusher } from "../utils/pusher";
 import { getTeamLogsApi } from "../api/log";
-import { createCommentApi } from "../api/comments";
+import { createCommentApi, DeleteCommentApi, updateCommentApi } from "../api/comments";
 
 // 상태별 색 매핑
 const STATUS_COLORS: Record<string, string> = {
@@ -187,7 +187,6 @@ export const useTeams = (
       const response = await updateMyStatusApi(Number(activeTeamId), newStatus);
       
       if (response.success) {
-        // 💡 내 화면을 가장 빠르게 바꾸고 싶다면 아래 코드를 추가하세요.
         queryClient.invalidateQueries({ queryKey: ['teams'] });
       }
     } catch (error) {
@@ -227,10 +226,9 @@ export const useTeams = (
     userChannel.bind('new-task-requested', (data: any) => {
     console.log("🔔 나에게 온 새 업무 신호 수신:", data);
     
-    // 토스트 알림을 띄워줍니다.
+    // 나에게 할당된 요청 알림 - 추후에 토스트 알림으로 변경할 예정
     alert(data.message);
 
-    // 💡 내 소식 탭을 보고 있다면, 새로고침을 통해 내가 담당자인 로그를 가져오게 됩니다.
     queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
     queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
   });
@@ -247,7 +245,7 @@ useEffect(() => {
   // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
   if (!selectedTicketId) return;
 
-  console.log(`🔌 [Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
+  console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
   const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
 
   taskChannel.bind('new-comment', (data: any) => {
@@ -261,6 +259,23 @@ useEffect(() => {
     taskChannel.unbind_all();
   };
 }, [selectedTicketId, queryClient]);
+
+  // 댓글 수정 핸들러
+  const onUpdateComment = async (commentId: number, text: string) => {
+    /* 수정 로직 */
+    const response = await updateCommentApi(commentId, text);
+    if (response.success) {
+      queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
+    }
+  };
+
+  const onDeleteComment = async (commentId: number) => {
+    /* 삭제 로직 */
+    const response = await DeleteCommentApi(commentId);
+    if (response.success) {
+      queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
+    }
+  };
 
   // API 팀 목록과 로컬 팀 목록 합치기
   // 서버에서 데이터를 받아와서 localTeams 동기화
@@ -280,44 +295,6 @@ useEffect(() => {
   }, [teamListData]);
 
   const teams = localTeams;
-
-  // [수정] 5. 티켓 데이터 동기화 (activeTeamId와 localTeams의 존재를 엄격히 체크)
-  useEffect(() => {
-    // 💡 변경: localTeams에 현재 activeTeamId에 해당하는 팀이 있는지 확인하는 로직 보강
-    if (ticketData?.success && activeTeamId) {
-      setTeams((prev) => {
-        const targetExists = prev.some(t => String(t.id) === String(activeTeamId));
-        if (!targetExists) return prev; // 아직 팀 목록에 없다면 다음 턴에 실행
-
-        return prev.map((team) => {
-          if (String(team.id) === String(activeTeamId)) {
-            const currentMembers = team.members || [];
-            const serverTasks = ticketData.data.tasks.map((task: any) => {
-              const matchedMember = currentMembers.find((m) => String(m.uuid) === String(task.worker_id));
-              const requesterMember = currentMembers.find((m) => String(m.uuid) === String(task.requester_id));
-
-              return {
-                id: task.id,
-                task_number: task.task_number,
-                title: task.title,
-                content: task.content,
-                status: task.status || 'Todo',
-                requester: requesterMember ? requesterMember.name : '요청자',
-                worker: matchedMember ? matchedMember.name : '담당자',
-                createdAt: task.created_at?.split('T')[0] || '',
-                comments: [],
-              };
-            });
-
-            // 데이터가 실제로 다를 때만 업데이트하여 무한 렌더링 방지
-            if (JSON.stringify(team.tickets) === JSON.stringify(serverTasks)) return team;
-            return { ...team, tickets: serverTasks };
-          }
-          return team;
-        });
-      });
-    }
-  }, [ticketData, activeTeamId]); // 💡 localTeams는 의존성에서 제외하여 루프 방지
 
   /**
    * 팀 활동 로그 조회
@@ -349,23 +326,10 @@ useEffect(() => {
     // 3. 서버에서 온 티켓 데이터가 있다면 합치기
     if (ticketData?.success && ticketData.data.tasks) {
       baseTeam.tickets = ticketData.data.tasks.map((task: any) => {
-        // 💡 [수정] Number로 강제 변환하여 비교 (가장 확실한 방법)
+        // Number로 변환 후 비교
       const isSelected = selectedTicketId !== null && Number(task.id) === Number(selectedTicketId);
 
-// 💡 상세 데이터의 id(136)가 현재 루프를 도는 테스크의 id(136)와 같은지 확인
-// const hasDetail = !!detailData?.data;
-const detailIdMatch = detailData?.success && String(detailData.data.id) === String(task.id);
-
-// ✅ 이 로그가 찍히는지 확인하는 것이 핵심입니다!
-if (isSelected) {
-  console.log(`--------------------------------------`);
-  console.log(`🔍 [조립] 현재 검사 중인 업무 번호: #${task.task_number}`);
-  console.log(`   - 테스크 진짜 ID: ${task.id}`);
-  console.log(`   - 선택된 모달 ID: ${selectedTicketId}`);
-  console.log(`   - 서버 상세 정보 ID: ${detailData?.data?.id}`);
-  console.log(`   - 매칭 결과: ${detailIdMatch}`); // 👈 이게 드디어 true가 되어야 합니다.
-  console.log(`--------------------------------------`);
-}
+      const detailIdMatch = detailData?.success && String(detailData.data.id) === String(task.id);
 
       // 댓글 매핑
       let serverComments = [];
@@ -388,6 +352,7 @@ if (isSelected) {
         status: task.status || 'Todo',
         requester: baseTeam.members.find(m => String(m.uuid) === String(task.requester_id))?.name || '요청자',
         worker: baseTeam.members.find(m => String(m.uuid) === String(task.worker_id))?.name || '담당자',
+        worker_id: String(task.worker_id || ""),
         createdAt: task.created_at?.split('T')[0] || '',
         comments: serverComments,
       };
@@ -446,64 +411,21 @@ if (isSelected) {
   };
 
   const handleDeleteTicketApi = async (ticketId: number) => {
-    try {
-      const response = await deleteTicketApi(ticketId);
-      if (response.success) {
-        await queryClient.invalidateQueries({
-          queryKey: ['tickets', activeTeamId],
-        });
-        setTeams((prevTeams) =>
-          prevTeams.map((team) => {
-            if (String(team.id) === String(activeTeamId)) {
-              return {
-                ...team,
-                tickets: team.tickets.filter((t) => t.id !== ticketId),
-              };
-            }
-            return team;
-          }),
-        );
-        return { ok: true };
-      }
-      return { ok: false, message: '삭제에 실패했습니다.' };
-    } catch (error) {
-      console.error('삭제 중 오류 발생:', error);
-      return { ok: false, message: '서버 통신 오류가 발생했습니다.' };
+    console.log(`[삭제 시도] 티켓:${ticketId}, 활성팀:${activeTeamId}`);
+
+  try {
+    const response = await deleteTicketApi(ticketId);
+
+    if (response.success) {
+      await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      
+      return { ok: true };
     }
-  };
-
-  // [수정] 6. 로그 데이터 동기화
-  useEffect(() => {
-    if (logData?.success && activeTeamId) {
-      const serverLogs = logData.data.map((log: any) => {
-        let displayType: 'default' | 'info' | 'success' | 'error' = 'default';
-        const at = log.action_type;
-        if (at === 'CREATE_TASK' || at === 'ACCEPT_TASK') displayType = 'info';
-        else if (at === 'APPROVE_TASK' || at === 'STATUS_CHANGE') displayType = 'success';
-        else if (at === 'REJECT_TASK' || at === 'CANCEL_TASK') displayType = 'error';
-
-        return {
-          id: log.id,
-          ticketId: log.task_id,
-          user: log.user.name,
-          action: log.message,
-          time: new Date(log.created_at).toLocaleTimeString('ko-KR', { hour12: false }),
-          type: displayType,
-        };
-      });
-
-      setTeams((prev) => {
-        const targetExists = prev.some(t => String(t.id) === String(activeTeamId));
-        if (!targetExists) return prev;
-
-        return prev.map((team) => 
-          String(team.id) === String(activeTeamId) 
-            ? { ...team, logs: serverLogs }
-            : team
-        );
-      });
-    }
-  }, [logData, activeTeamId]);
+    return { ok: false, message: response.error || "삭제 권한이 없습니다." };
+  } catch (error: any) {
+    return { ok: false, message: "서버에서 권한을 거부했습니다." };
+  }
+};
 
   // addLog 함수
   const addLog = (_ticketId: number, userName: string, action: string, _type: any = 'default') => {
@@ -674,7 +596,7 @@ if (isSelected) {
   const handleCreateTicket = (
     title: string,
     content: string,
-    worker: string,
+    worker_id: string,
   ) => {
     if (!currentUser || !activeTeamId) {
       console.error('생성 실패: 유저 정보나 활성화된 팀 ID가 없습니다.');
@@ -688,7 +610,8 @@ if (isSelected) {
       title,
       content,
       requester: currentUser.name,
-      worker,
+      worker: "담당자",
+      worker_id: String(worker_id),
       status: 'Todo',
       createdAt: new Date()
         .toLocaleString('ko-KR', { hour12: false })
@@ -703,8 +626,6 @@ if (isSelected) {
           : team,
       ),
     );
-
-    // addLog(newTicket.id, currentUser.name, `새 업무 발행: ${title}`, 'default');
   };
 
   /**
@@ -973,6 +894,8 @@ if (isSelected) {
     updateTicketStatus,
     handleCreateTicket,
     handleAddComment,
+    onUpdateComment,
+    onDeleteComment,
     leaveTeam,
     activeLogTab,
     setActiveLogTab,

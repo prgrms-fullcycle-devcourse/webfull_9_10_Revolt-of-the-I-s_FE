@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { X, Clock, ArrowRight, Send } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { X, Clock, ArrowRight, Send, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import type { Ticket, Team, CurrentUser } from '../../types';
 
 interface TicketDetailProps {
@@ -12,9 +12,16 @@ interface TicketDetailProps {
   activeTeamId: string | number | null;
   addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void;
   handleDeleteTicketApi: (ticketId: number) => Promise<{ ok: boolean; message?: string }>;
+  onUpdateComment: (commentId: number, text: string) => Promise<void>;
+  onDeleteComment: (commentId: number) => Promise<void>;
 }
 
-export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi, onUpdateComment, onDeleteComment }: TicketDetailProps) => {
+
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null); // 현재 수정 중인 댓글 ID
+  const [editValue, setEditValue] = useState(""); // 수정 중인 입력값
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(null); // 현재 메뉴가 열린 댓글 ID
+
   // 스크롤 위치를 잡기 위한 Ref 생성
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -28,11 +35,32 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
     scrollToBottom();
   }, [ticket.comments]);
 
-  // 권한 체크
-  const isWorker = currentUser.name === ticket.worker;
+  // --- 핸들러 함수들 ---
+  const startEdit = (id: number, currentText: string) => {
+    setEditingCommentId(id);
+    setEditValue(currentText);
+    setActiveMenuId(null);
+  };
+
+  const handleUpdate = async (commentId: number) => {
+    if (!editValue.trim()) return;
+    await onUpdateComment(commentId, editValue); 
+    setEditingCommentId(null);
+  };
+
+  const handleDelete = async (commentId: number) => {
+    if (window.confirm("댓글을 삭제하시겠습니까?")) {
+      // props로 받은 onDeleteComment 호출
+      await onDeleteComment(commentId);
+      setActiveMenuId(null);
+    }
+  };
+
+  const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
 
   // 삭제(요청 취소) 핸들러
   const onClickDelete = async () => {
+    console.log("비교 대상 -> 내 UUID:", currentUser?.uuid, "티켓 담당자ID:", ticket.worker_id, "결과:", isWorker);
     if (!isWorker) {
       alert("담당자만 요청을 취소할 수 있습니다.");
       return;
@@ -111,7 +139,7 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
         </header>
 
         {/* 바디 섹션: 내용, 담당자 정보, 상태 변경, 댓글 리스트 */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-8 scrollbar-hide min-h-0">
+        <div className="flex-1 overflow-y-auto px-8 flex flex-col space-y-8 scrollbar-hide min-h-0">
           {/* 업무 설명 박스 */}
           <div className="bg-slate-50/50 p-8 rounded-4xl border border-slate-100">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 mb-6">
@@ -160,48 +188,105 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
           </div>
 
           {/* 댓글 섹션 */}
-          <div className="space-y-6">
+          <div className="flex-1 flex flex-col space-y-6 pb-8">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">커뮤니케이션</p>
           
-          <div className="space-y-4">
+          {/* 댓글 리스트 섹션 */}
+          <div className="flex-1 space-y-4">
             {ticket.comments.map((c) => {
-              // 내가 쓴 글인지 판단하는 변수
               const isMe = c.user === currentUser.name;
+              const isEditing = editingCommentId === c.id;
+              const isMenuOpen = activeMenuId === c.id;
 
               return (
                 <div 
                   key={c.id} 
-                  className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex gap-3 group relative ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+                  onMouseLeave={() => setActiveMenuId(null)}
                 >
-                  {/* 아바타 div 설정 */}
+                  {/* 아바타 */}
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                    isMe ? 'bg-blue-600 shadow-md shadow-blue-100' : 'bg-slate-200'
+                    isMe ? 'bg-blue-600 shadow-md' : 'bg-slate-200'
                   }`}>
                     {c.user ? c.user[0] : '?'}
                   </div>
 
-                  {/* 메시지 div 설정 */}
-                  <div className={`max-w-[75%] p-4 rounded-2xl text-xs leading-relaxed ${
-                    isMe 
-                      ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
-                      : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
-                  }`}>
-                    {/* 내가 쓴 글이 아닐 때만 이름을 표시 */}
-                    {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
-                    {c.text}
+                  {/* 말풍선 컨테이너 */}
+                  <div className={`relative max-w-[75%] group/bubble`}>
+                    {isEditing ? (
+                      /* 수정 시, 입력창으로 전환 */
+                      <div className="flex flex-col gap-2">
+                        <textarea
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className="w-full p-3 text-xs bg-white border-2 border-blue-500 rounded-2xl outline-none focus:ring-0"
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => setEditingCommentId(null)}
+                            className="text-[10px] font-bold text-slate-400"
+                          >
+                            취소
+                          </button>
+                          <button 
+                            onClick={() => handleUpdate(c.id)}
+                            className="text-[10px] font-bold text-blue-600"
+                          >
+                            저장
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 댓글 말풍선 출력 */
+                      <div className={`p-4 rounded-2xl text-xs leading-relaxed ${
+                        isMe 
+                          ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
+                          : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
+                      }`}>
+                        {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
+                        {c.text}
+                      </div>
+                    )}
+
+                    {/* [더보기 버튼] 호버 시 노출 & 내 글일 때만 */}
+                    {isMe && !isEditing && (
+                      <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover/bubble:opacity-100 transition-opacity`}>
+                        <button 
+                          onClick={() => setActiveMenuId(isMenuOpen ? null : c.id)}
+                          className="p-1 text-slate-400 hover:text-slate-600"
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 더보기 클릭 시 팝업 메뉴] */}
+                    {isMenuOpen && (
+                      <div className={`absolute z-10 top-6 ${isMe ? 'left-0' : 'right-0'} bg-white border border-slate-100 shadow-xl rounded-xl overflow-hidden py-1 min-w-20`}>
+                        <button 
+                          onClick={() => startEdit(c.id, c.text)}
+                          className="w-full px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Pencil size={12} /> 수정
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(c.id)}
+                          className="w-full px-3 py-2 text-[10px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <Trash2 size={12} /> 삭제
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
-
-            {/* 스크롤 하단 이동 지점 */}
             <div ref={messagesEndRef} />
-            </div>
-          </div>
         </div>
 
         {/* 푸터 섹션: 댓글 입력 폼 */}
-        <div className="p-8 border-t border-slate-100 bg-white shrink-0">
+        <div className="px-8 py-6 border-t border-slate-100 bg-white shrink-0">
           <form onSubmit={addComment} className="relative">
             <input
               name="comment"
@@ -217,6 +302,8 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
           </form>
         </div>
       </div>
+    </div>
+    </div>
     </div>
   );
 };

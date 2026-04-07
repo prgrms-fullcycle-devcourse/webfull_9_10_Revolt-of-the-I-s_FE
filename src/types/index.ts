@@ -34,6 +34,7 @@ export interface Ticket {
   content: string;
   requester: string;
   worker: string;
+  worker_id: string;
   status: string;
   createdAt: string;
   comments: Comment[];

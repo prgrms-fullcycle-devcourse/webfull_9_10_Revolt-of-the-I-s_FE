@@ -50,6 +50,8 @@ export default function App() {
     setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
+    onUpdateComment,
+    onDeleteComment,
     addLog,
     handleDeleteTicketApi,
     handleEditPosition,
@@ -1038,6 +1040,8 @@ export default function App() {
             );
             e.currentTarget.reset();
           }}
+          onUpdateComment={onUpdateComment}
+          onDeleteComment={onDeleteComment}
           setTeams={setTeams}
           activeTeamId={activeTeamId}
           addLog={addLog}
