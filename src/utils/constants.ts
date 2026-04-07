@@ -90,7 +90,7 @@ export const INITIAL_TEAM: Team = {
       phone: '010-1234-5678',
       email: 'younga@istation.dev',
       github: 'https://github.com/younga',
-      uuid: "08183920"
+      uuid: '08183920',
     },
     {
       id: 2,
@@ -100,7 +100,7 @@ export const INITIAL_TEAM: Team = {
       phone: '010-9876-5432',
       email: 'minsu@istation.dev',
       github: '',
-      uuid: "9283928"
+      uuid: '9283928',
     },
     {
       id: 3,
@@ -110,14 +110,15 @@ export const INITIAL_TEAM: Team = {
       phone: '010-5555-6666',
       email: 'jisu@istation.dev',
       github: '',
-      uuid: "72839192"
+      uuid: '72839192',
     },
   ],
   tickets: [
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content:
+        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -142,7 +143,7 @@ export const INITIAL_TEAM: Team = {
           time: '2026.03.11 10:15',
         },
       ],
-      task_number: 0
+      task_number: 0,
     },
     {
       id: 2,
@@ -153,7 +154,7 @@ export const INITIAL_TEAM: Team = {
       status: 'Todo',
       createdAt: '2026.03.11 11:30',
       comments: [],
-      task_number: 1
+      task_number: 1,
     },
   ],
   logs: [
@@ -179,14 +180,17 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1,
       title: 'API 명세 링크',
-      url: 'https://www.notion.so/i-Station-API-ver2-3263c7fd06d980709274d7582b66cf0b?source=copy_link',
+      content:
+        'https://www.notion.so/i-Station-API-ver2-3263c7fd06d980709274d7582b66cf0b?source=copy_link',
       type: 'links',
+      createdAt: '2026.03.11',
     },
     {
       id: 2,
       title: '기획서 (Notion)입니다 반드시 확인해주세요',
-      url: 'https://notion.so',
+      content: 'https://notion.so',
       type: 'documents',
+      createdAt: '2026.03.11',
     },
   ],
 
