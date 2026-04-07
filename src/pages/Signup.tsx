@@ -1,14 +1,57 @@
-import { useMemo, useState } from 'react'
+import { googleAuthApi, signupApi } from '../api/auth'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { UserPlus, User, Phone, AtSign, Lock, Github, ChevronRight } from 'lucide-react'
-import { signupApi } from '../api/auth'
 import axios from 'axios'
 
 interface SignupProps {
   goLogin: () => void
 }
 
+// 구글 SDK 응답 타입
+interface GoogleCredentialResponse {
+  credential: string
+}
+
+// 구글 accounts.id 타입
+interface GoogleAccountsId {
+  initialize: (config: {
+    client_id: string
+    callback: (response: GoogleCredentialResponse) => void
+  }) => void
+  renderButton: (
+    parent: HTMLElement,
+    options: {
+      type?: string
+      theme?: string
+      size?: string
+      text?: string
+      shape?: string
+      width?: number
+      logo_alignment?: string
+    }
+  ) => void
+}
+
+// window.google 타입
+interface GoogleWindow {
+  accounts: {
+    id: GoogleAccountsId
+  }
+}
+
+declare global {
+  interface Window {
+    google: GoogleWindow
+    // 구글 SDK 전역 초기화 여부 저장
+    __googleGsiInitialized?: boolean
+    // 현재 페이지에서 사용할 구글 콜백 저장
+    __googleGsiCallback?: (response: GoogleCredentialResponse) => void
+  }
+}
+
 export const Signup = ({ goLogin }: SignupProps) => {
+  // 입력값 상태
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -17,23 +60,40 @@ export const Signup = ({ goLogin }: SignupProps) => {
   const [github, setGithub] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
+  // 구글 버튼이 들어갈 영역
+  const googleButtonRef = useRef<HTMLDivElement | null>(null)
+
+  // 구글 버튼 렌더링 ref
+  const googleInitializedRef = useRef(false)
+
+  // 유효성 검사 정규식
   const nameRegex = /^[가-힣a-zA-Z]{2,20}$/
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   const passwordRegex =
     /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/
 
+  // 전화번호 숫자만 추출
   const onlyPhone = phone.replace(/\D/g, '').slice(0, 11)
 
+  // 전화번호가 010으로 시작하는지 확인
+  const isPhonePrefixValid = onlyPhone.startsWith('010')
+
+  // 전화번호가 11자리인지 확인
+  const isPhoneLengthValid = onlyPhone.length === 11
+
+  // 각 입력값 유효성 검사
   const isNameValid = nameRegex.test(name.trim())
-  const isPhoneValid = onlyPhone.length === 11
+  const isPhoneValid = isPhonePrefixValid && isPhoneLengthValid
   const isEmailValid = emailRegex.test(email.trim())
   const isPasswordValid = passwordRegex.test(password)
 
+  // 비밀번호 확인 일치 여부
   const isPasswordMatch = useMemo(() => {
     if (!passwordCheck) return true
     return password === passwordCheck
   }, [password, passwordCheck])
 
+  // 전체 입력 유효성 검사
   const isValid =
     isNameValid &&
     isPhoneValid &&
@@ -42,13 +102,16 @@ export const Signup = ({ goLogin }: SignupProps) => {
     passwordCheck.trim() !== '' &&
     isPasswordMatch
 
+  // 구글 클라이언트 ID 정리
+  const googleClientId =
+    import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim().replace(/^"(.*)"$/, '$1')  
+
+  // 일반 회원가입 API
   const signupMutation = useMutation({
     mutationFn: signupApi,
 
     // 회원가입 성공
     onSuccess: (data) => {
-
-      // success가 false면 서버에서 실패 응답을 준 경우
       if (!data.success) {
         setErrorMessage(data.error || '회원가입에 실패했습니다.')
         return
@@ -61,31 +124,84 @@ export const Signup = ({ goLogin }: SignupProps) => {
 
     // 회원가입 실패
     onError: (error) => {
-
-      // axios 에러인지 확인 후 서버 에러 문구 사용
       if (axios.isAxiosError(error)) {
         setErrorMessage(
           error.response?.data?.error || '회원가입에 실패했습니다.'
         )
         return
       }
-      // 그 외 에러
+
       setErrorMessage('회원가입에 실패했습니다.')
     },
   })
 
+  // 구글 OAuth 회원가입 / 로그인 API
+  const googleSignupMutation = useMutation({
+    mutationFn: googleAuthApi,
+
+    // 200 성공 응답 처리
+    onSuccess: (data) => {
+      if (!data.success) {
+        setErrorMessage(data.error || '구글 회원가입에 실패했습니다.')
+        return
+      }
+
+      setErrorMessage('')
+      alert('구글 회원가입 성공')
+      goLogin()
+    },
+
+    // 409, 500 등 에러 응답 처리
+    onError: (error) => {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status
+        const message = error.response?.data?.error
+
+        // 이미 자체 이메일로 가입된 계정
+        if (status === 409) {
+          setErrorMessage(message || '이미 자체 이메일로 가입된 계정입니다.')
+          return
+        }
+
+        setErrorMessage(message || '구글 회원가입에 실패했습니다.')
+        return
+      }
+
+      setErrorMessage('구글 회원가입에 실패했습니다.')
+    },
+  })
+
+  // 구글 회원가입 성공 후 googleToken을 서버로 보내는 함수
+  const handleGoogleCredential = useCallback((response: GoogleCredentialResponse) => {
+    // 토큰이 없으면 종료
+    if (!response.credential) {
+      setErrorMessage('구글 토큰을 받지 못했습니다.')
+      return
+    }
+
+    // 기존 에러 메시지 초기화
+    setErrorMessage('')
+
+    // 서버에 구글 토큰 전달
+    googleSignupMutation.mutate({
+      googleToken: response.credential,
+    })
+  }, [googleSignupMutation])
+
+  // 전화번호 입력 시 숫자만 허용
   const handlePhoneChange = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11)
     setPhone(numbers)
   }
 
+  // 일반 회원가입 제출
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isValid || signupMutation.isPending) return
 
     setErrorMessage('')
 
-    // 서버 요청 형식에 맞게 하이픈 포함 전화번호로 변환
+    // 서버 요청 형식에 맞게 전화번호 포맷팅
     const formattedPhone = `${onlyPhone.slice(0, 3)}-${onlyPhone.slice(3, 7)}-${onlyPhone.slice(7, 11)}`
 
     signupMutation.mutate({
@@ -95,6 +211,59 @@ export const Signup = ({ goLogin }: SignupProps) => {
       password,
       github_url: github.trim() || undefined,
     })
+  }
+
+      useEffect(() => {
+    // 구글 SDK 없으면 종료
+    if (!window.google) return
+
+    // 버튼 영역 저장
+    const googleButton = googleButtonRef.current
+
+    // 버튼 영역 없으면 종료
+    if (!googleButton) return
+
+    // 클라이언트 ID 없으면 종료
+    if (!googleClientId) return
+
+    // 현재 페이지에서 사용할 콜백 저장
+    window.__googleGsiCallback = handleGoogleCredential
+
+    // 앱 전체에서 구글 SDK는 한 번만 초기화
+    if (!window.__googleGsiInitialized) {
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        // 전역 콜백을 통해 현재 페이지 콜백 실행
+        callback: (response: GoogleCredentialResponse) => {
+          window.__googleGsiCallback?.(response)
+        },
+      })
+
+      // 전역 초기화 완료 처리
+      window.__googleGsiInitialized = true
+    }
+
+    // 현재 버튼 영역 비우기
+    googleButton.innerHTML = ''
+
+    // 현재 페이지에 구글 회원가입 버튼 다시 렌더링
+    window.google.accounts.id.renderButton(googleButton, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signup_with',
+      shape: 'pill',
+      width: 460,
+      logo_alignment: 'left',
+    })
+
+    // 현재 페이지 버튼 렌더링 완료 체크
+    googleInitializedRef.current = true
+  }, [googleClientId, handleGoogleCredential])
+
+  // 구글 회원가입 버튼 클릭
+  const handleGoogleSignup = () => {
+    setErrorMessage('')
   }
 
   return (
@@ -147,6 +316,9 @@ export const Signup = ({ goLogin }: SignupProps) => {
                 }`}
                 placeholder="01012345678"
               />
+              {phone && !isPhonePrefixValid && (
+                <p className="text-xs text-red-400 ml-1">전화번호 형식이 틀립니다.</p>
+              )}
               {phone && !isPhoneValid && (
                 <p className="text-xs text-red-400 ml-1">전화번호는 숫자 11자리여야 합니다.</p>
               )}
@@ -243,6 +415,14 @@ export const Signup = ({ goLogin }: SignupProps) => {
               {signupMutation.isPending ? '가입 중...' : '가입하기'}
               <ChevronRight size={20} />
             </button>
+
+            {/* 구글 회원가입 버튼 영역 */}
+            <div
+              onClick={handleGoogleSignup}
+              className="flex justify-center"
+            >
+              <div ref={googleButtonRef} />
+            </div>
 
             <button
               type="button"

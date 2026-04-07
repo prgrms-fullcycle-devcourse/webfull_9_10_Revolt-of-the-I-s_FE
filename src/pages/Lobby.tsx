@@ -173,9 +173,9 @@ export const Lobby = ({
       <div className="pt-5 border-t border-slate-100 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex -space-x-2">
-            {team.members.slice(0, 3).map((m, i) => (
+            {team.members.slice(0, 3).map((m) => (
               <div
-                key={i}
+                key={m.id ?? `${m.email}-${m.name}`}
                 className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm"
               >
                 {m.avatar || m.name.slice(0, 1)}

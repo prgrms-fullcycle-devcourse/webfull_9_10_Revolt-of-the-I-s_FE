@@ -19,7 +19,7 @@ export const Members = ({
 
         return (
           <div
-            key={member.name}
+            key={member.id ?? `${member.email}-${member.name}`}
             className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-center"
           >
             {/* 아바타 섹션 */}

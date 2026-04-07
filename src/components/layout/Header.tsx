@@ -34,7 +34,7 @@ export const Header = ({ view, activeTeam, setIsCreateModalOpen }: HeaderProps) 
 
             return (
               <div
-                key={member.name}
+                key={member.id ?? `${member.email}-${member.name}`}
                 className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-xs font-bold shadow-sm relative group"
               >
                 {member.avatar}

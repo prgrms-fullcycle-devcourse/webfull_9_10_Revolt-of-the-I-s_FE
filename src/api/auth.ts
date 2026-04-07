@@ -1,4 +1,8 @@
-import type { CurrentUser } from "../types"
+import type {
+  CurrentUser,
+  GoogleAuthRequest,
+  GoogleAuthResponse,
+} from "../types"
 import { api } from './client'
 
 // 로그인 요청 body 타입
@@ -70,6 +74,13 @@ export const loginApi = async (
   return res.data
 }
 
+// 구글 로그인 / 회원가입 API 호출
+export const googleAuthApi = async (
+  data: GoogleAuthRequest
+): Promise<GoogleAuthResponse> => {
+  const res = await api.post('/auth/google', data)
+  return res.data
+}
 
 // 로그아웃 API 호출
 export const logoutApi = async (): Promise<LogoutResponse> => {
@@ -79,6 +90,6 @@ export const logoutApi = async (): Promise<LogoutResponse> => {
 
 // 로그인한 유저 정보 조회 api 호출
 export const getMyInfoApi = async (): Promise<CurrentUser> => {
-  const response = await api.get('/users/me');
-  return response.data.data; 
-};
+  const response = await api.get('/users/me')
+  return response.data.data
+}
