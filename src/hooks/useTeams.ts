@@ -377,7 +377,7 @@ useEffect(() => {
     teamListData, 
     ticketData, 
     logData, 
-    detailData?.data,
+    detailData,
     selectedTicketId]);
 
   // 현재 유저가 참여 중인 팀 목록

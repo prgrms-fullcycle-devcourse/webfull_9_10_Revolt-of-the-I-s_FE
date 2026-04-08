@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AtSign, Lock, LogIn, ChevronRight } from 'lucide-react'
 import { loginApi, googleAuthApi, getMyInfoApi } from '../api/auth'
@@ -63,6 +63,11 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
 
   // 구글 버튼 렌더링 ref
   const googleInitializedRef = useRef(false)
+
+  // 구글 로그인 콜백을 ref에 저장해서 입력할 때 버튼이 다시 렌더링되지 않게 함
+  const googleLoginHandlerRef = useRef<
+    ((response: GoogleCredentialResponse) => void) | null
+  >(null)
 
   // --- [2] 유효성 검사 (Simple Validation) ---
   // 이메일과 비밀번호가 비어있지 않은지 확인 (공백 제거 후 체크)
@@ -159,18 +164,20 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     },
   })
 
-  // 구글 로그인 성공 후 googleToken을 서버로 보내는 함수
-  const handleGoogleLogin = useCallback((response: GoogleCredentialResponse) => {
-    // 토큰이 없으면 종료
-    if (!response.credential) {
-      alert('구글 토큰을 받지 못했습니다.')
-      return
-    }
+  // 구글 로그인 토큰 전달 함수를 ref에 저장해서 입력 시 effect 재실행을 막음
+  useEffect(() => {
+    googleLoginHandlerRef.current = (response: GoogleCredentialResponse) => {
+      // 토큰이 없으면 종료
+      if (!response.credential) {
+        alert('구글 토큰을 받지 못했습니다.')
+        return
+      }
 
-    // 서버에 구글 토큰 전달
-    googleLoginMutation.mutate({
-      googleToken: response.credential,
-    })
+      // 서버에 구글 토큰 전달
+      googleLoginMutation.mutate({
+        googleToken: response.credential,
+      })
+    }
   }, [googleLoginMutation])
 
   // --- [4] 이벤트 핸들러 ---
@@ -184,7 +191,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     })
   }
 
-  useEffect(() => {
+    useEffect(() => {
     // 구글 SDK 없으면 종료
     if (!window.google) return
 
@@ -198,7 +205,9 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     if (!googleClientId) return
 
     // 현재 페이지에서 사용할 콜백 저장
-    window.__googleGsiCallback = handleGoogleLogin
+    window.__googleGsiCallback = (response: GoogleCredentialResponse) => {
+      googleLoginHandlerRef.current?.(response)
+    }
 
     // 앱 전체에서 구글 SDK는 한 번만 초기화
     if (!window.__googleGsiInitialized) {
@@ -217,6 +226,9 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     // 현재 버튼 영역 비우기
     googleButton.innerHTML = ''
 
+    // 구글 버튼 너비를 부모 영역 기준으로 맞춰서 레이아웃 흔들림 방지
+    const buttonWidth = Math.min(googleButton.offsetWidth || 320, 320)
+
     // 현재 페이지에 구글 로그인 버튼 다시 렌더링
     window.google.accounts.id.renderButton(googleButton, {
       type: 'standard',
@@ -224,13 +236,13 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
       size: 'large',
       text: 'signin_with',
       shape: 'pill',
-      width: 460,
+      width: buttonWidth,
       logo_alignment: 'left',
     })
 
     // 현재 페이지 버튼 렌더링 완료 체크
     googleInitializedRef.current = true
-  }, [googleClientId, handleGoogleLogin])
+  }, [googleClientId])
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
@@ -294,8 +306,12 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
             </button>
 
             {/* 구글 공식 로그인 버튼 자리 */}
-            <div className="flex justify-center">
-              <div ref={googleButtonRef} />
+            <div className="flex justify-center w-full">
+              {/* 구글 버튼이 카드 너비를 넘지 않게 고정 */}
+              <div
+                ref={googleButtonRef}
+                className="w-full max-w-[320px] overflow-hidden"
+              />
             </div>
 
             {/* 회원가입 이동 버튼 */}
