@@ -60,7 +60,7 @@ export default function App() {
     handleCreateDoc,
     handleDeleteDoc,
     activeLogTab,
-    setActiveLogTab
+    setActiveLogTab,
   } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -425,10 +425,16 @@ export default function App() {
       setActiveModal(null);
       setLinkData({ title: '', content: '' });
       alert(`링크가 성공적으로 추가되었습니다.`);
-    } catch (error: any) {
-      console.log('API 호출 실패 :', error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log('API 호출 실패 :', error.message);
+        alert(error.message || '링크 생성에 실패했습니다.');
+      } else {
+        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
+        console.log('알 수 없는 에러 발생 :', error);
+        alert('링크 생성에 실패했습니다.');
+      }
       setActiveModal(null);
-      alert(error.message || '링크 생성에 실패했습니다.');
     } finally {
       setIsLinkPending(false);
     }
@@ -456,9 +462,16 @@ export default function App() {
 
       console.log(`퀵 링크 id : ${linkId}의 링크를 삭제 성공했습니다.`);
       setActiveModal(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log('API 호출 실패 :', error.message);
+        alert(error.message || '링크 삭제에 실패했습니다.');
+      } else {
+        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
+        console.log('알 수 없는 에러 발생 :', error);
+        alert('링크 삭제에 실패했습니다.');
+      }
       setActiveModal(null);
-      alert(error.message || '링크 삭제에 실패했습니다.');
     }
   };
 
@@ -486,10 +499,15 @@ export default function App() {
       console.log(docData);
       setDocData({ title: '', file: null });
       alert(`문서가 성공적으로 추가되었습니다.`);
-    } catch (error: any) {
-      console.log('문서 생성 API 호출 실패 :', error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log('문서 생성 API 호출 실패 :', error.message);
+        alert(error.message || '문서 생성에 실패했습니다.');
+      } else {
+        console.log('알 수 없는 에러 발생 :', error);
+        alert('문서 생성에 실패했습니다.');
+      }
       setActiveModal(null);
-      alert(error.message || '문서 생성에 실패했습니다.');
     } finally {
       setIsDocPending(false);
     }
@@ -505,9 +523,14 @@ export default function App() {
 
       handleDeleteDoc(docId);
       setActiveModal(null);
-    } catch (error: any) {
-      setActiveModal(null);
-      alert(error.message || '문서 삭제에 실패했습니다.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log('문서 삭제 API 호출 실패 :', error.message);
+        alert(error.message || '문서 삭제에 실패했습니다.');
+      } else {
+        console.log('알 수 없는 에러 발생 :', error);
+        alert('문서 삭제에 실패했습니다.');
+      }
     }
   };
 
@@ -560,10 +583,14 @@ export default function App() {
       // 모달 닫기
       setActiveModal(null);
       alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
-    } catch (error: any) {
-      console.log('API 호출 실패 :', error);
-
-      alert(error.message || '포지션 수정에 실패했습니다.');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log('포지션 수정 API 호출 실패 :', error.message);
+        alert(error.message || '포지션 수정에 실패했습니다.');
+      } else {
+        console.log('알 수 없는 에러 발생 :', error);
+        alert('포지션 수정에 실패했습니다.');
+      }
     } finally {
       setIsPositionPending(false);
     }
