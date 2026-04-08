@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import type { AxiosError } from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
 import { type JoinTeamRequest } from './types';
@@ -139,6 +140,9 @@ export default function App() {
   // 보안 인증 커서 위치
   const [authCursorIndex, setAuthCursorIndex] = useState(0);
 
+  // 사용자가 직접 칸을 클릭해서 수정 중인지 확인
+  const [isAuthManualEditing, setIsAuthManualEditing] = useState(false);
+
   // 보안 인증 숫자 표시 여부
   const [showAuthPassword, setShowAuthPassword] = useState(false);
 
@@ -195,11 +199,13 @@ export default function App() {
       setAuthError('');
       setAuthCursorIndex(0);
       setShowAuthPassword(false);
+      setIsAuthManualEditing(false); // 수정 모드 초기화
       setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
       addLog(0, currentUser!.name, '공간 입장', 'info');
     },
-    onError: () => {
-      setAuthError('비밀번호가 일치하지 않습니다.');
+    onError: (error: AxiosError<{ error?: string }>) => {
+      // 서버 에러 메시지가 있으면 그대로 보여줌
+      setAuthError(error.response?.data?.error || '팀 입장에 실패했습니다.');
     },
   });
 
@@ -274,6 +280,7 @@ export default function App() {
     setAuthError('');
     setAuthCursorIndex(0);
     setShowAuthPassword(false);
+    setIsAuthManualEditing(false); // 수정 모드 초기화
   };
 
   // 보안 인증 붙여넣기 처리
@@ -297,12 +304,23 @@ export default function App() {
     } else {
       setAuthCursorIndex(onlyNumber.length);
     }
+    setIsAuthManualEditing(false); // 붙여넣기는 자동 입력으로 처리
     if (authError) setAuthError('');
   };
 
   // 보안 인증 입력칸 포커스
   const handleFocusAuthInput = () => {
     authInputRef.current?.focus();
+
+    // 비어있는 첫 칸으로 자동 이동
+    const firstEmptyIndex = authPassword.findIndex((digit) => digit === '');
+    if (firstEmptyIndex === -1) {
+      setAuthCursorIndex(5);
+    } else {
+      setAuthCursorIndex(firstEmptyIndex);
+    }
+
+    setIsAuthManualEditing(false); // 전체 영역 클릭은 자동 입력으로 처리
   };
 
   // 보안 인증 클릭한 칸으로 커서 이동
@@ -313,14 +331,17 @@ export default function App() {
     e.preventDefault();
     authInputRef.current?.focus();
     setAuthCursorIndex(index);
+    setIsAuthManualEditing(true); // 클릭해서 들어간 경우만 수정 모드
   };
 
   // 보안 인증 숫자/백스페이스 입력 처리
   const handleAuthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Tab') return;
+
     if (e.key === 'Backspace') {
       e.preventDefault();
       const nextPassword = [...authPassword];
+
       if (nextPassword[authCursorIndex] !== '') {
         nextPassword[authCursorIndex] = '';
         setAuthPassword(nextPassword);
@@ -329,36 +350,64 @@ export default function App() {
         setAuthPassword(nextPassword);
         setAuthCursorIndex(authCursorIndex - 1);
       }
+
+      setIsAuthManualEditing(true); // 지우기는 수정 동작으로 처리
       if (authError) setAuthError('');
       return;
     }
+
     if (e.key === 'Delete') {
       e.preventDefault();
       const nextPassword = [...authPassword];
       nextPassword[authCursorIndex] = '';
       setAuthPassword(nextPassword);
+
+      setIsAuthManualEditing(true); // 삭제는 수정 동작으로 처리
       if (authError) setAuthError('');
       return;
     }
+
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
+      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
       return;
     }
+
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
+      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
       return;
     }
+
     if (!/^\d$/.test(e.key)) {
       e.preventDefault();
       return;
     }
+
     e.preventDefault();
+
     const nextPassword = [...authPassword];
+    const isComplete = nextPassword.every((digit) => digit !== '');
+
+    // 6자리가 이미 다 찬 상태에서는,
+    // 사용자가 직접 칸을 클릭해서 수정 중일 때만 덮어쓰기 허용
+    if (isComplete && !isAuthManualEditing) {
+      return;
+    }
+
     nextPassword[authCursorIndex] = e.key;
     setAuthPassword(nextPassword);
-    if (authCursorIndex < 5) setAuthCursorIndex(authCursorIndex + 1);
+
+    if (authCursorIndex < 5 && nextPassword[authCursorIndex + 1] === '') {
+      setAuthCursorIndex(authCursorIndex + 1);
+      setIsAuthManualEditing(false); // 일반 입력은 다음 칸으로 자동 이동
+    } else if (authCursorIndex < 5 && !isComplete) {
+      setAuthCursorIndex(authCursorIndex + 1);
+      setIsAuthManualEditing(false); // 자동 입력 흐름 유지
+    }
+
     if (authError) setAuthError('');
   };
 
@@ -616,6 +665,7 @@ export default function App() {
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
+      setIsAuthManualEditing(false); // 수정 모드 초기화
       setShowAuthPassword(false);
       setAuthPage('login');
     } catch (error) {
@@ -743,6 +793,7 @@ export default function App() {
             name="teamPassword"
             type="password"
             required
+            maxLength={6} // 팀 비밀번호는 6자리까지만 입력 가능
             className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
             placeholder="비밀번호"
           />
