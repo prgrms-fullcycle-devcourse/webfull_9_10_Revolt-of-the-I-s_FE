@@ -37,7 +37,36 @@ export interface Ticket {
   worker_id: string;
   status: string;
   createdAt: string;
-  comments: Comment[];
+  comments: TaskComment[];
+}
+
+// 공통 테스크 데이터 
+export interface TaskBaseFromApi {
+  id: number;
+  task_number: number;
+  team_id: number;
+  title: string;
+  content: string;
+  status: string;
+  requester_id: string;
+  requester_name: string;
+  worker_id: string;
+  worker_name: string;
+  created_at: string;
+  comment_count: number;
+}
+
+// 테스크 상세 조회 응답 (comments와 상세 유저 정보 포함)
+export interface TaskDetailFromApi extends TaskBaseFromApi {
+  comments: TaskComment[];
+}
+
+// 테스크 댓글
+export interface TaskComment {
+  id: number;
+  user: string;
+  text: string;
+  time: string;
 }
 
 // 활동 로그 히스토리 (Sidebar에 출력됨)
@@ -48,6 +77,40 @@ export interface Log {
   action: string;
   time: string;
   type: 'default' | 'info' | 'success' | 'error';
+}
+
+// pusher 리스너 - 개인별 테스크 할당 알림 타입 정의
+export interface NewTaskNotification {
+  message: string;
+  taskId: number;
+  taskNumber: number;
+  teamId: number;
+}
+
+// 서버에서 보내주는 댓글 원본 규격 (Mapping 전)
+export interface TaskCommentFromApi {
+  id: number;
+  task_id: number;
+  content: string;
+  created_at: string;
+  user: {
+    uuid: string;
+    name: string;
+    profile_image: string | null;
+  };
+}
+
+// pusher 리스너 - 실시간 댓글 데이터 타입 정의
+export interface PusherCommentData {
+  id: number;
+  task_id: number;
+  content: string;
+  created_at: string;
+  user: {
+    uuid: string;
+    name: string;
+    profile_image: string | null;
+  };
 }
 
 // 팀 아카이브: 회의록 데이터

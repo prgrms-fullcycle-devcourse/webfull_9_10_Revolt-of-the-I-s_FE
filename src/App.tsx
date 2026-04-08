@@ -9,6 +9,7 @@ import {
   editMemberPositionApi,
 } from './api/member';
 import { createDocApi, createQuickLinkApi } from './api/archive';
+import { AxiosError } from 'axios';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -41,7 +42,7 @@ export default function App() {
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
-    setTeams,
+    // setTeams,
     activeTeamId,
     setActiveTeamId,
     activeTeam,
@@ -52,7 +53,6 @@ export default function App() {
     handleAddComment,
     onUpdateComment,
     onDeleteComment,
-    addLog,
     handleDeleteTicketApi,
     handleEditPosition,
     handleCreateQuickLink,
@@ -61,6 +61,8 @@ export default function App() {
     handleDeleteDoc,
     activeLogTab,
     setActiveLogTab,
+    createNote,
+    leaveTeam,
   } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -174,17 +176,12 @@ export default function App() {
     mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
       joinTeamApi(teamId, data),
     onSuccess: (data) => {
-      if (!data.success) {
-        setAuthError(data.error || '비밀번호가 일치하지 않습니다.');
-        return;
-      }
+      if (data && (data.success || data.data)) { 
+      console.log("팀 입장 성공!");
 
-      // 인증 성공 시, 대기 중이던 ID를 활성 ID로 설정
-      // useTeams의 useQuery가 작동하여 테스크 목록 호출
+      // 인증 성공 시 처리 로직
       if (pendingTeamId) {
         setActiveTeamId(pendingTeamId);
-
-        addLog(0, currentUser!.name, '공간 입장', 'info');
       }
 
       queryClient.invalidateQueries({ queryKey: ['teams'] });
@@ -196,10 +193,15 @@ export default function App() {
       setAuthCursorIndex(0);
       setShowAuthPassword(false);
       setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
-      addLog(0, currentUser!.name, '공간 입장', 'info');
-    },
-    onError: () => {
-      setAuthError('비밀번호가 일치하지 않습니다.');
+    } else {
+      // 서버에서 200~299 사이 코드를 줬지만 내용은 에러인 경우
+      setAuthError(data?.error || '비밀번호가 일치하지 않습니다.');
+    }
+  },
+  onError: (error: AxiosError<{ error?: string }>) => {
+      console.error("입장 에러:", error);
+      const serverErrorMessage = error.response?.data?.error;
+      setAuthError(serverErrorMessage || '비밀번호가 일치하지 않습니다.');
     },
   });
 
@@ -375,22 +377,18 @@ export default function App() {
     });
   };
 
-  const createNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newNote: Note = {
-      id: Date.now(),
-      title: formData.get('title') as string,
-      content: formData.get('content') as string,
-      author: currentUser!.name,
-      date: new Date().toISOString().split('T')[0],
-    };
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t,
-      ),
-    );
+    
+    const title = formData.get('title') as string;
+    const content = formData.get('content') as string;
+
+    // 훅에서 가져온 createNote 실행
+    createNote(title, content);
+
     setActiveModal(null);
+    setNote({ title: '', content: '' });
   };
 
   // 회의록 수정
@@ -420,7 +418,7 @@ export default function App() {
       );
       console.log('링크 추가 성공 : ', result);
 
-      handleCreateQuickLink(newLinkData.title, newLinkData.content);
+      handleCreateQuickLink();
 
       setActiveModal(null);
       setLinkData({ title: '', content: '' });
@@ -493,7 +491,7 @@ export default function App() {
       const result = await createDocApi(Number(activeTeamId), newDocData);
       console.log('문서 추가 성공 : ', result);
 
-      handleCreateDoc(newDocData.title, newDocData.file);
+      handleCreateDoc();
 
       setActiveModal(null);
       console.log(docData);
@@ -534,7 +532,7 @@ export default function App() {
     }
   };
 
-  const handleLeaveTeam = (teamId: string | number | null) => {
+  const handleLeaveTeam = async (teamId: string | number | null) => {
     if (!teamId) return;
     if (
       !window.confirm(
@@ -543,23 +541,26 @@ export default function App() {
     )
       return;
     console.log('탈퇴 시작 - 팀 ID:', teamId);
-    setTeams((prevTeams) =>
-      prevTeams.map((t) =>
-        String(t.id) === String(teamId) ? { ...t, isJoined: false } : t,
-      ),
-    );
-    if (String(activeTeamId) === String(teamId)) {
-      setIsTeamAuthorized(false);
-      setActiveTeamId(null);
-      setView('dashboard');
-    }
+    try {
+    // 훅에 있는 leaveTeam 실행 (내부적으로 API 호출 및 쿼리 무효화 처리)
+    await leaveTeam(); 
+
+    // UI 상태 초기화
+    setIsTeamAuthorized(false);
+    setActiveTeamId(null);
+    setView('dashboard');
+
     setTimeout(() => {
       alert('팀 탈퇴가 완료되었습니다.');
     }, 100);
-  };
+
+  } catch (error: unknown) {
+    console.error('탈퇴 처리 중 오류:', error);
+    alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
+  }
+};
 
   // 포지션 수정
-
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isPositionPending) return;
@@ -669,8 +670,6 @@ export default function App() {
             setIsTeamAuthorized={setIsTeamAuthorized}
             onLogout={handleLogout}
             setActiveTeamId={setActiveTeamId}
-            setTeams={setTeams}
-            addLog={addLog}
             onLeaveTeam={handleLeaveTeam}
             activeLogTab={activeLogTab}
             setActiveLogTab={setActiveLogTab}
@@ -685,8 +684,6 @@ export default function App() {
               {view === 'dashboard' && activeTeam && (
                 <Dashboard
                   activeTeam={activeTeam}
-                  setTeams={setTeams}
-                  addLog={addLog}
                   activeTeamId={activeTeamId}
                   currentUser={currentUser}
                   setSelectedTicketId={setSelectedTicketId}
@@ -858,7 +855,7 @@ export default function App() {
         }}
         title="회의록 기록"
       >
-        <form onSubmit={createNote} className="space-y-6">
+        <form onSubmit={handleCreateNote} className="space-y-6">
           <input
             name="title"
             onChange={(e) => setNote({ ...note, title: e.target.value })}
@@ -1069,9 +1066,7 @@ export default function App() {
           }}
           onUpdateComment={onUpdateComment}
           onDeleteComment={onDeleteComment}
-          setTeams={setTeams}
           activeTeamId={activeTeamId}
-          addLog={addLog}
           handleDeleteTicketApi={handleDeleteTicketApi}
         />
       )}

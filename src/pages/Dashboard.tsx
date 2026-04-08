@@ -1,4 +1,4 @@
-import type { CurrentUser, Team } from '../types';
+import type { CurrentUser, Member, Team } from '../types';
 import { STATUS_TYPES } from '../utils/constants';
 import { KanbanColumn } from '../components/task/KanbanBoard';
 import { createTicketApi, type CreateTicketRequest } from '../api/tickets';
@@ -8,8 +8,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 interface DashboardProps {
   activeTeam: Team;
-  setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
-  addLog: (ticketId: number, user: string, action: string, type?: any) => void;
   activeTeamId: string | number | null;
   currentUser: CurrentUser;
   setSelectedTicketId: (id: number) => void; 
@@ -18,14 +16,11 @@ interface DashboardProps {
     actionType: 'accept' | 'submit' | 'confirm' | 'reject'
   ) => Promise<{ ok: boolean } | undefined>;
   activeModal: string | null; 
-  setActiveModal: React.Dispatch<React.SetStateAction<any>>;
+  setActiveModal: React.Dispatch<React.SetStateAction<'create' | 'note' | 'link' | 'createTeam' | 'auth' | 'position' | 'document' | 'updateNote' | 'deleteLink' | null>>;
 }
 
 export const Dashboard = ({
   activeTeam,
-  setTeams,
-  addLog,
-  currentUser,
   activeTeamId,
   setSelectedTicketId,
   updateTicketStatus,
@@ -38,7 +33,7 @@ export const Dashboard = ({
 
   // member 데이터 가공
   const membersWithUuid =
-    activeTeam?.members.map((m: any) => ({
+    activeTeam?.members.map((m: Member) => ({
       uuid: m.uuid || String(m.id),
       name: m.name || 'Unknown',
     })) || [];
@@ -68,46 +63,10 @@ export const Dashboard = ({
         worker_id: selectedWorkerUuid,
       };
 
-      const result = await createTicketApi(Number(activeTeamId), ticketData);
+      // api 호출
+      await createTicketApi(Number(activeTeamId), ticketData);
+      // 서버 데이터 무효화
       queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      const rawTicket = result.data || result;
-      const serverTeamId = String(rawTicket.team_id || activeTeamId);
-
-      // UI 반영용 최종 객체 = finalTicket
-      const finalTicket = {
-        ...rawTicket,
-        status: rawTicket.status || 'Todo',
-        requester: rawTicket.requester_name || currentUser.name,
-        worker:
-          membersWithUuid.find((m) => m.uuid === selectedWorkerUuid)?.name ||
-          '담당자',
-        createdAt: new Date().toISOString().split('T')[0],
-        comments: [],
-      };
-
-      console.log('UI 반영용 최종 티켓 객체:', finalTicket);
-
-      // setTeams를 통해 상태 변경 시, 리액트가 activeTeam의 변경을 확실히 인지하도록 설정
-      setTeams((prev: Team[]) => {
-        // 리스트에 팀이 있을 때 업데이트
-        return prev.map((team) => {
-          if (String(team.id) === serverTeamId) {
-            return {
-              ...team,
-              // 기존 티켓 리스트를 새로운 배열로 교체하여 참조 변경
-              tickets: [finalTicket, ...(team.tickets || [])],
-            };
-          }
-          return team;
-        });
-      });
-
-      addLog(
-        finalTicket.id,
-        currentUser.name,
-        `새 업무 요청: ${finalTicket.title}`,
-        'success',
-      );
       setActiveModal(null);
       form.reset();
     } catch (error) {
