@@ -34,6 +34,7 @@ export interface Ticket {
   content: string;
   requester: string;
   worker: string;
+  worker_id: string;
   status: string;
   createdAt: string;
   comments: Comment[];
@@ -41,7 +42,7 @@ export interface Ticket {
 
 // 활동 로그 히스토리 (Sidebar에 출력됨)
 export interface Log {
-  id: number;
+  id: number | string;
   ticketId: number;
   user: string;
   action: string;

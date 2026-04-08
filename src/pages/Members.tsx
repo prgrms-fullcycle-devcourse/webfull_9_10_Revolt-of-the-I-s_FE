@@ -43,8 +43,8 @@ export const Members = ({
               </div>
               <span
                 className={`absolute -bottom-1.25 -right-1.25 w-5 h-5 border-4 border-white rounded-full ${
-                activeTeam.userStatuses[member.id!]?.color ?? 'bg-green-500'
-              }`}
+                  activeTeam.userStatuses[member.name]?.color ?? 'bg-green-500'
+                }`}
               />
             </div>
 

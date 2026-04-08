@@ -37,6 +37,7 @@ import { validateUrl } from './utils/validation';
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
@@ -45,9 +46,12 @@ export default function App() {
     setActiveTeamId,
     activeTeam,
     pendingTeamId,
+    updateMyStatus,
     setPendingTeamId,
     updateTicketStatus,
     handleAddComment,
+    onUpdateComment,
+    onDeleteComment,
     addLog,
     handleDeleteTicketApi,
     handleEditPosition,
@@ -55,7 +59,9 @@ export default function App() {
     handleDeleteQuickLink,
     handleCreateDoc,
     handleDeleteDoc,
-  } = useTeams(currentUser);
+    activeLogTab,
+    setActiveLogTab
+  } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
@@ -83,7 +89,7 @@ export default function App() {
   >(null);
 
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+
   const selectedTicket =
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
@@ -113,10 +119,7 @@ export default function App() {
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
-  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink | null>(
-    null,
-  );
-
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>();
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -181,7 +184,7 @@ export default function App() {
       if (pendingTeamId) {
         setActiveTeamId(pendingTeamId);
 
-        addLog(0, currentUser!.name, '공간 입장', 'info', pendingTeamId);
+        addLog(0, currentUser!.name, '공간 입장', 'info');
       }
 
       queryClient.invalidateQueries({ queryKey: ['teams'] });
@@ -633,6 +636,7 @@ export default function App() {
             activeTeam={activeTeam!}
             activeTeamId={activeTeamId}
             currentUser={currentUser}
+            updateMyStatus={updateMyStatus}
             view={view}
             setView={setView}
             setIsTeamAuthorized={setIsTeamAuthorized}
@@ -641,6 +645,8 @@ export default function App() {
             setTeams={setTeams}
             addLog={addLog}
             onLeaveTeam={handleLeaveTeam}
+            activeLogTab={activeLogTab}
+            setActiveLogTab={setActiveLogTab}
           />
           <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
             <Header
@@ -1034,6 +1040,8 @@ export default function App() {
             );
             e.currentTarget.reset();
           }}
+          onUpdateComment={onUpdateComment}
+          onDeleteComment={onDeleteComment}
           setTeams={setTeams}
           activeTeamId={activeTeamId}
           addLog={addLog}

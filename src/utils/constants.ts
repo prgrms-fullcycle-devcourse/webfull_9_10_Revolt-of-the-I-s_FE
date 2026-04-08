@@ -66,9 +66,9 @@ export const STATUS_TYPES: StatusType[] = [
  * Pusher를 통해 실시간으로 주고받을 상태값의 기준이 됩니다.
  */
 export const USER_ACTIVITIES: UserStatus[] = [
-  { label: '개발 중', color: 'bg-green-500' },
+  { label: '업무 중', color: 'bg-green-500' },
   { label: '회의 중', color: 'bg-blue-500' },
-  { label: '휴식 중', color: 'bg-orange-400' },
+  { label: '쉬는 중', color: 'bg-orange-400' },
   { label: '자리 비움', color: 'bg-slate-300' },
 ];
 
@@ -117,8 +117,7 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content:
-        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -144,6 +143,7 @@ export const INITIAL_TEAM: Team = {
         },
       ],
       task_number: 0,
+      worker_id: ""
     },
     {
       id: 2,
@@ -155,6 +155,7 @@ export const INITIAL_TEAM: Team = {
       createdAt: '2026.03.11 11:30',
       comments: [],
       task_number: 1,
+      worker_id: ""
     },
   ],
   logs: [
@@ -199,7 +200,7 @@ export const INITIAL_TEAM: Team = {
    * { "이름": { 상태데이터 } } 구조
    */
   userStatuses: {
-    영아: { label: '개발 중', color: 'bg-green-500' },
+    영아: { label: '업무 중', color: 'bg-green-500' },
     민수: { label: '회의 중', color: 'bg-blue-500' },
     지수: { label: '자리 비움', color: 'bg-slate-300' },
   },

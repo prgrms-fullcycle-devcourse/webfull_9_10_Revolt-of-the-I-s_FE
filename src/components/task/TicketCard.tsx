@@ -4,7 +4,7 @@ import type { Ticket, StatusType } from '../../types';
 interface TicketCardProps {
   ticket: Ticket;
   status: StatusType;
-  onClick: (id: number) => void;
+  onClick: () => void;
   updateTicketStatus: (
     taskId: number, 
     actionType: 'accept' | 'submit' | 'confirm' | 'reject'
@@ -14,7 +14,9 @@ interface TicketCardProps {
 export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: TicketCardProps) => {
   return (
     <div
-      onClick={() => onClick(ticket.id)}
+      onClick={() => {
+        onClick();
+      }}
       className="bg-white p-5 rounded-[28px] border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group cursor-pointer relative shrink-0"
     >
       <h4 className="text-base font-black text-slate-900 group-hover:text-blue-600 transition-colors mb-2 leading-tight">
