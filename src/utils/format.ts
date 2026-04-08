@@ -16,8 +16,12 @@ export const getHostname = (url: string) => {
   try {
     if (!url || !url.startsWith('http')) return url;
     return new URL(url).hostname;
-  } catch (error: any) {
-    console.log('URL에서 호스트네임 추출 실패 :', error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.log('URL에서 호스트네임 추출 실패 :', error.message);
+    } else {
+      console.log('알 수 없는 에러 발생 :', error);
+    }
     return url;
   }
 };
