@@ -28,7 +28,6 @@ export const Archive = ({
   setSelectedNote,
   setSelectedLinkItem,
 }: ArchiveProps) => {
-  console.log(activeTeam);
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto py-4">
       {/* 핵심 문서 & 퀵 링크 섹션 */}

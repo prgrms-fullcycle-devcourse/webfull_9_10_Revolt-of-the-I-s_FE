@@ -59,6 +59,7 @@ export default function App() {
     setActiveLogTab,
     createNote,
     leaveTeam,
+    editNote,
   } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -95,11 +96,13 @@ export default function App() {
   const [selectedNote, setSelectedNote] = useState<TeamArchiveData | null>(
     null,
   );
-  const [note, setNote] = useState<{ title: string; content: string }>({
+  const [noteData, setNoteData] = useState<{ title: string; content: string }>({
     title: '',
     content: '',
   });
-  const isNoteValid = note.title.length > 0 && note.content.length > 0;
+  const isFormValid =
+    noteData.title.trim().length > 0 && noteData.content.trim().length > 0;
+  const [isEditNotePending, setIsEditNotePending] = useState<boolean>(false);
 
   // 포지션 수정 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -422,24 +425,38 @@ export default function App() {
     });
   };
 
+  // 회의록 기록
   const handleCreateNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
 
-    const title = formData.get('title') as string;
-    const content = formData.get('content') as string;
-
-    // 훅에서 가져온 createNote 실행
-    createNote(title, content);
+    createNote(noteData);
 
     setActiveModal(null);
-    setNote({ title: '', content: '' });
+    setNoteData({ title: '', content: '' });
+  };
+
+  const handleOpenUpdateNoteModal = (note: TeamArchiveData) => {
+    setNoteData({ title: note.title, content: note.content });
+    setActiveModal('updateNote');
   };
 
   // 회의록 수정
-  const updateNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handlerEditNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
+
+    if (isEditNotePending || !selectedNote) return;
+    setIsEditNotePending(true);
+
+    try {
+      await editNote(selectedNote.id, noteData);
+      setSelectedNote({ ...selectedNote, ...noteData });
+      alert('회의록이 성공적으로 수정되었습니다.');
+      setActiveModal(null);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsEditNotePending(false);
+    }
   };
 
   // 새로운 링크 생성
@@ -897,21 +914,25 @@ export default function App() {
         isOpen={activeModal === 'note'}
         onClose={() => {
           setActiveModal(null);
-          setNote({ title: '', content: '' });
+          setNoteData({ title: '', content: '' });
         }}
         title="회의록 기록"
       >
         <form onSubmit={handleCreateNote} className="space-y-6">
           <input
             name="title"
-            onChange={(e) => setNote({ ...note, title: e.target.value })}
+            onChange={(e) =>
+              setNoteData({ ...noteData, title: e.target.value })
+            }
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
           />
           <textarea
             name="content"
-            onChange={(e) => setNote({ ...note, content: e.target.value })}
+            onChange={(e) =>
+              setNoteData({ ...noteData, content: e.target.value })
+            }
             required
             rows={8}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
@@ -919,9 +940,9 @@ export default function App() {
           />
           <button
             type="submit"
-            disabled={!isNoteValid}
+            disabled={!isFormValid}
             className={`w-full py-4 rounded-2xl font-black shadow-lg ${
-              isNoteValid
+              isFormValid
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -1121,17 +1142,22 @@ export default function App() {
         <Modal
           isOpen={!!selectedNote}
           onClose={() => setSelectedNote(null)}
-          title={selectedNote.title}
+          title="회의록 상세"
           maxWidth="max-w-2xl"
         >
           <div className="bg-slate-50 p-6 rounded-3xl mb-6">
+            <p className="whitespace-pre-wrap mb-4 text-slate-800 leading-relaxed text-lg">
+              {selectedNote.title}
+            </p>
+            <hr className="mb-4 text-slate-200" />
             <p className="whitespace-pre-wrap text-slate-600 leading-relaxed text-sm">
               {selectedNote.content}
             </p>
           </div>
+
           <div className="flex justify-between">
             <button
-              onClick={() => setActiveModal('updateNote')}
+              onClick={() => handleOpenUpdateNoteModal(selectedNote)}
               className="px-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer"
             >
               회의록 수정
@@ -1148,16 +1174,21 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'updateNote'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+        }}
         title="회의록 수정"
       >
-        <form onSubmit={updateNote} className="space-y-6">
+        <form onSubmit={handlerEditNote} className="space-y-6">
           <input
             name="title"
             required
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
-            defaultValue={selectedNote?.title}
+            value={noteData.title}
+            onChange={(e) =>
+              setNoteData({ ...noteData, title: e.target.value })
+            }
           />
           <textarea
             name="content"
@@ -1165,9 +1196,19 @@ export default function App() {
             rows={8}
             className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
             placeholder="내용 입력"
-            defaultValue={selectedNote?.content}
+            value={noteData.content}
+            onChange={(e) =>
+              setNoteData({ ...noteData, content: e.target.value })
+            }
           />
-          <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
+          <button
+            disabled={isEditNotePending || !isFormValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
+              isEditNotePending || !isFormValid
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+            }`}
+          >
             수정하기
           </button>
         </form>

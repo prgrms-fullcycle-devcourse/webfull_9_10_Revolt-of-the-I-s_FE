@@ -32,11 +32,14 @@ import {
 } from '../api/tickets';
 
 import {
+  createNoteApi,
   deleteDocApi,
   deleteQuickLinkApi,
+  editNoteApi,
   getDocApi,
   getNotesApi,
   getQuickLinksApi,
+  type NoteRequest,
 } from '../api/archive';
 import { updateMyStatusApi } from '../api/status';
 import { pusher } from '../utils/pusher';
@@ -131,11 +134,6 @@ export const useTeams = (
   // 어떤 로그 탭을 보고 있는지 상태 추가
   const [activeLogTab, setActiveLogTab] = useState<'all' | 'mine'>('all');
 
-  // 회의록 api 연동 전 로컬에서 관리할 수 있도록 상태 선언
-  const [localNotes, setLocalNotes] = useState<
-    Record<string, TeamArchiveData[]>
-  >({});
-
   // GET /teams API 호출로 팀 목록 가져오기
   const { data: teamListData } = useQuery({
     queryKey: ['teams'],
@@ -184,24 +182,6 @@ export const useTeams = (
     queryFn: () => getNotesApi(Number(activeTeamId)),
     enabled: !!activeTeamId && !!currentUser,
   });
-
-  // 회의록 생성 함수 (API 연결 전 로컬에서만 실행되도록)
-  const createNote = (title: string, content: string) => {
-    if (!activeTeamId || !currentUser) return;
-
-    const newNote: TeamArchiveData = {
-      id: Date.now(),
-      type: 'NOTE',
-      title,
-      content,
-      created_at: new Date().toISOString(),
-    };
-
-    setLocalNotes((prev) => ({
-      ...prev,
-      [activeTeamId]: [newNote, ...(prev[activeTeamId] || [])],
-    }));
-  };
 
   const queryClient = useQueryClient();
 
@@ -698,6 +678,23 @@ export const useTeams = (
     });
   };
 
+  // 회의록 생성
+  const createNote = async (data: NoteRequest) => {
+    await createNoteApi(Number(activeTeamId), data);
+
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
+
+  // 회의록 수정
+  const editNote = async (noteId: number, data: NoteRequest) => {
+    await editNoteApi(noteId, data);
+
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
   return {
     currentUser,
@@ -729,5 +726,6 @@ export const useTeams = (
     handleCreateDoc,
     handleDeleteDoc,
     createNote,
+    editNote,
   };
 };

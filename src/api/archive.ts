@@ -91,14 +91,15 @@ export const getNotesApi = async (teamId: number) => {
   return response.data;
 };
 
-export const createNoteApi = async (
-  teamId: number,
-  title: string,
-  content: string,
-) => {
+export interface NoteRequest {
+  title: string;
+  content: string;
+}
+
+export const createNoteApi = async (teamId: number, data: NoteRequest) => {
   const response = await api.post(`/teams/${teamId}/archives/meeting`, {
-    title,
-    content,
+    title: data.title,
+    content: data.content,
   });
   return response.data;
 };
@@ -108,14 +109,10 @@ export const getNoteDetailApi = async (archiveId: number) => {
   return response.data;
 };
 
-export const editNoteApi = async (
-  archiveId: number,
-  title: string,
-  content: string,
-) => {
+export const editNoteApi = async (archiveId: number, data: NoteRequest) => {
   const response = await api.patch(`/archives/${archiveId}/meeting`, {
-    title,
-    content,
+    title: data.title,
+    content: data.content,
   });
   return response.data;
 };
