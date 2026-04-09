@@ -194,19 +194,46 @@ export interface GoogleAuthRequest {
   googleToken: string;
 }
 
-// 구글 OAuth 응답 유저 타입
-export interface AuthUser {
-  uuid: string;
+// /auth/google 응답의 유저 타입
+export interface GoogleAuthUser {
+  email: string;
+  google_uid: string;
   name: string;
-  profile_image: string | null;
 }
 
-// 구글 OAuth 응답 타입
+// /auth/google 응답 타입
 export interface GoogleAuthResponse {
+  success: boolean;
+  isNewUser: boolean;
+  data: {
+    user: GoogleAuthUser;
+  } | null;
+  meta: null;
+  error: string | null;
+}
+
+// /auth/google/signup 요청 body 타입
+export interface GoogleSignupRequest {
+  email: string;
+  googleUid: string;
+  name: string;
+  phone: string;
+  profileImage?: string;
+  github_url?: string;
+}
+
+// /auth/google/signup 응답 타입
+export interface GoogleSignupResponse {
   success: boolean;
   data: {
     token: string;
-    user: AuthUser;
+    user: {
+      uuid: string;
+      email: string;
+      name: string;
+      phone: string;
+      google_uid: string;
+    };
   } | null;
   meta: null;
   error: string | null;

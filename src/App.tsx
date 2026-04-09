@@ -129,6 +129,11 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDocPending, setIsDocPending] = useState<boolean>(false);
 
+  // 팀 생성 비밀번호 상태
+  const [createTeamPassword, setCreateTeamPassword] = useState('');
+  const [showCreateTeamPassword, setShowCreateTeamPassword] = useState(false);
+
+
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
   const [authError, setAuthError] = useState('');
@@ -144,7 +149,7 @@ export default function App() {
   const [isAuthManualEditing, setIsAuthManualEditing] = useState(false);
 
   // 보안 인증 숫자 표시 여부
-  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(true);
 
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
@@ -198,7 +203,7 @@ export default function App() {
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
-      setShowAuthPassword(false);
+      setShowAuthPassword(true);
       setIsAuthManualEditing(false); // 수정 모드 초기화
       setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
       addLog(0, currentUser!.name, '공간 입장', 'info');
@@ -219,11 +224,23 @@ export default function App() {
   });
 
   useEffect(() => {
+    console.log('userData:', userData)
+    console.log('isUserLoading:', isUserLoading)
     if (userData) {
+      // 저장된 이름이 있으면 새로고침 후에도 우선 사용
+      const savedDisplayName = localStorage.getItem('displayName');
+      const restoredName =
+        userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
+
+      // 서버에서 이름이 정상적으로 오면 최신 이름으로 다시 저장
+      if (userData.name) {
+        localStorage.setItem('displayName', userData.name);
+      }
+
       setCurrentUser({
         id: userData.id || Date.now(),
         uuid: userData.uuid,
-        name: userData.name || 'Unknown',
+        name: restoredName,
         avatar: userData.avatar || '',
         email: userData.email || '',
         phone: userData.phone || '',
@@ -261,15 +278,18 @@ export default function App() {
     e.preventDefault();
     if (!currentUser) return;
     const formData = new FormData(e.currentTarget);
+
     createTeamMutation.mutate({
       name: formData.get('teamName') as string,
-      pin_password: formData.get('teamPassword') as string,
+      pin_password: createTeamPassword,
     });
   };
 
   // 새 팀 개설 모달 닫기
   const handleCloseCreateTeamModal = () => {
     setActiveModal(null);
+    setCreateTeamPassword('');
+    setShowCreateTeamPassword(false);
   };
 
   // 보안 인증 모달 닫기
@@ -279,7 +299,7 @@ export default function App() {
     setAuthPassword(Array(6).fill(''));
     setAuthError('');
     setAuthCursorIndex(0);
-    setShowAuthPassword(false);
+    setShowAuthPassword(true);
     setIsAuthManualEditing(false); // 수정 모드 초기화
   };
 
@@ -666,7 +686,7 @@ export default function App() {
       setAuthError('');
       setAuthCursorIndex(0);
       setIsAuthManualEditing(false); // 수정 모드 초기화
-      setShowAuthPassword(false);
+      setShowAuthPassword(true);
       setAuthPage('login');
     } catch (error) {
       console.log(error);
@@ -687,12 +707,15 @@ export default function App() {
 
   if (!currentUser) {
     return authPage === 'login' ? (
+      // key를 주어 signup → login 전환 시 Login을 새 인스턴스로 마운트 (구글 SDK 중복 초기화 방지)
       <Login
+        key="login"
         setCurrentUser={setCurrentUser}
         goSignup={() => setAuthPage('signup')}
       />
     ) : (
-      <Signup goLogin={() => setAuthPage('login')} />
+      // key를 주어 login → signup 전환 시 Signup을 새 인스턴스로 마운트 (구글 SDK 중복 초기화 방지)
+      <Signup key="signup" goLogin={() => setAuthPage('login')} />
     );
   }
 
@@ -789,14 +812,36 @@ export default function App() {
             className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
             placeholder="팀 이름"
           />
-          <input
-            name="teamPassword"
-            type="password"
-            required
-            maxLength={6} // 팀 비밀번호는 6자리까지만 입력 가능
-            className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
-            placeholder="비밀번호"
-          />
+                    {/* 팀 비밀번호 6자리 숫자 입력 + 보기/숨기기 */}
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                name="teamPassword"
+                type={showCreateTeamPassword ? 'text' : 'password'}
+                inputMode="numeric"
+                required
+                maxLength={6} // 팀 비밀번호는 6자리까지만 입력 가능
+                value={createTeamPassword}
+                onChange={(e) =>
+                  setCreateTeamPassword(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                className="hide-password-toggle w-full px-5 py-4 pr-12 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+                placeholder="비밀번호 6자리"
+                title="팀 비밀번호는 숫자 6자리로 입력해주세요."
+              />
+              <button
+                type="button"
+                onClick={() => setShowCreateTeamPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {showCreateTeamPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {/* 비밀번호 형식 안내 */}
+            <p className="text-xs text-slate-400 font-medium">
+              팀 비밀번호는 숫자 6자리로 입력해주세요.
+            </p>
+          </div>
           <button
             type="submit"
             className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
@@ -826,7 +871,7 @@ export default function App() {
                 비밀번호를 입력하세요
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                6자리 숫자를 입력해주세요
+                6자리 숫자가 각 칸에 그대로 표시됩니다.
               </p>
             </div>
             <button

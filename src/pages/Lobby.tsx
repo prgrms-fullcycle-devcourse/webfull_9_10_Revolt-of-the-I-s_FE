@@ -54,6 +54,12 @@ export const Lobby = ({
   setIsCreateTeamModalOpen,
   setIsTeamAuthModalOpen,
 }: LobbyProps) => {
+  // 새로고침 후 저장된 이름도 우선 사용
+  const displayName =
+    currentUser.name?.trim() || 
+    localStorage.getItem('displayName') ||
+    currentUser.email?.split('@')[0] || '사용자'
+
   // 로비 내 팀 검색을 위한 지역 상태
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
@@ -203,7 +209,7 @@ export const Lobby = ({
                 Team Lobby
               </h2>
               <p className="text-slate-500 font-bold">
-                {currentUser.name}님, 작업실을 선택하세요.
+                {displayName}님, 작업실을 선택하세요.
               </p>
             </div>
 

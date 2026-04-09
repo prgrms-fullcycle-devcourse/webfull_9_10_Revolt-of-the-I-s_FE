@@ -2,6 +2,8 @@ import type {
   CurrentUser,
   GoogleAuthRequest,
   GoogleAuthResponse,
+  GoogleSignupRequest,
+  GoogleSignupResponse,
 } from "../types"
 import { api } from './client'
 
@@ -74,11 +76,19 @@ export const loginApi = async (
   return res.data
 }
 
-// 구글 로그인 / 회원가입 API 호출
+// 구글 로그인 / 회원가입 여부 확인 API 호출
 export const googleAuthApi = async (
   data: GoogleAuthRequest
 ): Promise<GoogleAuthResponse> => {
   const res = await api.post('/auth/google', data)
+  return res.data
+}
+
+// 구글 회원가입 완료 API 호출
+export const googleSignupApi = async (
+  data: GoogleSignupRequest
+): Promise<GoogleSignupResponse> => {
+  const res = await api.post('/auth/google/signup', data)
   return res.data
 }
 

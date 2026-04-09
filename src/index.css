@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+.hide-password-toggle::-ms-reveal,
+.hide-password-toggle::-ms-clear {
+  display: none;
+}
+
+.hide-password-toggle::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+.hide-password-toggle::-webkit-textfield-decoration-container {
+  display: none !important;
+}
