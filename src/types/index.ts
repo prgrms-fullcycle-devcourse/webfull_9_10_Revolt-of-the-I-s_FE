@@ -18,6 +18,26 @@ export interface Member {
   github: string;
 }
 
+// 활동 중인 유저 정보 : 서버 응답
+export interface OnlineUserFromApi {
+  id: number;
+  position: string;
+  status: string;
+  user: {
+    uuid: string;
+    name: string;
+    profile_image: string | null;
+  };
+}
+
+// api 전체 응답 구조
+export interface GetOnlineUsersResponse {
+  success: boolean;
+  data: OnlineUserFromApi[] | null;
+  meta: null;
+  error: string | null;
+}
+
 // 티켓 내부 댓글 구조
 export interface Comment {
   id: number;

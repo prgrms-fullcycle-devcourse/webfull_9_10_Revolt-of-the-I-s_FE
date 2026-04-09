@@ -17,9 +17,12 @@ export const Members = ({
       {activeTeam.members.map((member) => {
         const isMe = member.email === currentUser.email; // uuid 대신 email로 비교
 
+        // uuid로 실시간 상태 가져오는 역할
+        const currentStatus = activeTeam.userStatuses[member.uuid];
+
         return (
           <div
-            key={member.id ?? `${member.email}-${member.name}`}
+            key={member.id ?? member.uuid}
             className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-center"
           >
             {/* 아바타 섹션 */}
@@ -43,7 +46,7 @@ export const Members = ({
               </div>
               <span
                 className={`absolute -bottom-1.25 -right-1.25 w-5 h-5 border-4 border-white rounded-full ${
-                  activeTeam.userStatuses[member.name]?.color ?? 'bg-green-500'
+                  activeTeam.userStatuses[member.uuid]?.color ?? 'bg-green-500'
                 }`}
               />
             </div>
@@ -70,10 +73,10 @@ export const Members = ({
             <div className="text-[10px] font-bold text-slate-400 mb-6 flex items-center gap-1.5">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  activeTeam.userStatuses[member.id!]?.color ?? 'bg-green-500'
+                  currentStatus?.color ?? 'bg-green-500'
                 }`}
               />
-              {activeTeam.userStatuses[member.id!]?.label ?? '활동 중'}
+              {currentStatus?.label ?? '활동 중'}
 
               {member.github && (
                 <div className="flex items-center gap-1.5">

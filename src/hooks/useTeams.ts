@@ -17,8 +17,10 @@ import type {
   TaskBaseFromApi,
   TaskComment,
   TaskCommentFromApi,
+  OnlineUserFromApi,
+  GetOnlineUsersResponse,
 } from '../types';
-import { INITIAL_TEAM, AVATARS } from '../utils/constants';
+import { INITIAL_TEAM, AVATARS, USER_ACTIVITIES } from '../utils/constants';
 import { getTeamsApi, joinTeamApi, leaveTeamApi } from '../api/team';
 import {
   deleteTicketApi,
@@ -50,14 +52,7 @@ import {
   DeleteCommentApi,
   updateCommentApi,
 } from '../api/comments';
-
-// 상태별 색 매핑
-const STATUS_COLORS: Record<string, string> = {
-  '업무 중': 'bg-green-500',
-  '회의 중': 'bg-blue-500',
-  '쉬는 중': 'bg-orange-500',
-  '자리 비움': 'bg-slate-400',
-};
+import { getOnlineUsersApi } from "../api/member";
 
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
 const getLogDisplayType = (
@@ -102,12 +97,14 @@ const convertTeam = (team: TeamFromApi): Team => ({
   links: [],
   userStatuses: Object.fromEntries(
     team.members.map((m) => {
-      const statusLabel = m.status || '업무 중'; // 기본값 설정
+      const statusLabel = m.status || '업무 중';
+      const matched = USER_ACTIVITIES.find(a => a.label === statusLabel);
       return [
-        m.user.name,
-        {
+
+        m.user.uuid,
+        { 
           label: statusLabel,
-          color: STATUS_COLORS[statusLabel] || 'bg-green-500',
+          color: matched?.color || 'bg-green-500' 
         },
       ];
     }),
@@ -140,6 +137,16 @@ export const useTeams = (
     queryKey: ['teams'],
     queryFn: getTeamsApi,
     enabled: !!currentUser,
+  });
+
+  // 활동 중인 팀원 목록 전용 쿼리
+  const { data: onlineUsersData } = useQuery<GetOnlineUsersResponse>({
+    queryKey: ['onlineUsers', activeTeamId],
+    queryFn: () => {
+      console.log("🚀 온라인 유저 API 호출 시도! 팀 ID:", activeTeamId);
+      return getOnlineUsersApi(Number(activeTeamId));
+    },
+    enabled: !!activeTeamId && activeTeamId !== '0',
   });
 
   // 활성화된 팀의 테스크 목록 조회
@@ -197,6 +204,7 @@ export const useTeams = (
     teamChannel.bind('status-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+      queryClient.invalidateQueries({ queryKey: ['onlineUsers', activeTeamId] });
     });
 
     // 서버의 팀 목록 데이터를 무효화
@@ -467,6 +475,25 @@ export const useTeams = (
     }
   };
 
+  // 데이터 가공
+  const onlineUsers = useMemo(() => {
+  // 여기서 onlineUsersData는 이제 GetOnlineUsersResponse 형식이 됩니다.
+  if (!onlineUsersData?.success || !onlineUsersData.data) return [];
+  
+    return onlineUsersData.data.map((item: OnlineUserFromApi) => {
+      const avatarIndex = item.id % AVATARS.length;
+      const matched = USER_ACTIVITIES.find(a => a.label === item.status);
+
+      return {
+        id: item.id,
+        name: item.user.name,
+        avatar: item.user.profile_image || AVATARS[avatarIndex],
+        status: item.status, 
+        statusColor: matched?.color || 'bg-green-500'
+      };
+    });
+  }, [onlineUsersData]);
+
   // task 상태 변경
   const updateTicketStatus = async (
     taskId: number,
@@ -730,6 +757,7 @@ export const useTeams = (
     isTeamNameTaken,
     isValidTeamPassword,
     createTeam,
+    onlineUsers,
     joinTeam,
     updateTicketStatus,
     handleCreateTicket,
