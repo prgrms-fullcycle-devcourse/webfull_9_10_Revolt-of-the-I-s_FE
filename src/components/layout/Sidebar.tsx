@@ -13,8 +13,6 @@ interface SidebarProps {
   onLogout: () => void // App.tsx에서 내려준 공통 로그아웃 함수
   activeTeamId: string | null; 
   setActiveTeamId: (id: string | null) => void; // 팀 전환용
-  setTeams: React.Dispatch<React.SetStateAction<Team[]>>; // 유저 상태 업데이트 함수
-  addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void; // 활동 로그 기록 함수
   onLeaveTeam: (id: string | number) => void; //팀 탈퇴 함수
   updateMyStatus: (status: string) => Promise<void>; // 서버 상태 업데이트 함수
   activeLogTab: 'all' | 'mine';
@@ -30,7 +28,6 @@ export const Sidebar = ({
   onLogout,
   updateMyStatus,
   activeTeamId,
-  addLog,
   onLeaveTeam,
   activeLogTab,
   setActiveLogTab
@@ -176,15 +173,12 @@ export const Sidebar = ({
               console.log(`[Step 1] 상태 변경 클릭됨: ${act.label}`);
               
               try {
-                // 1. 서버 API 호출 및 Pusher 방송 유도
+                // 서버 API 호출 및 Pusher 방송 유도
                 console.log(`[Step 2] 서버에 상태 업데이트 요청 중...`);
                 await updateMyStatus(act.label); 
                 
-                // 2. UI 닫기
+                // UI 닫기
                 setIsStatusPickerOpen(false);
-                
-                // 3. 로컬 로그 기록 (참고용)
-                addLog(0, currentUser.name, `상태를 ${act.label}(으)로 변경했습니다.`, 'info');
                 
                 console.log(`[Step 3] 상태 변경 프로세스 완료! (Pusher 방송 대기 중)`);
               } catch (error) {
