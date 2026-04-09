@@ -19,7 +19,7 @@ import type {
   TaskCommentFromApi,
 } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
-import { getTeamsApi, joinTeamApi } from '../api/team';
+import { getTeamsApi, joinTeamApi, leaveTeamApi } from '../api/team';
 import {
   deleteTicketApi,
   getTicketDetailApi,
@@ -631,11 +631,24 @@ export const useTeams = (
   /**
    * [기능] leaveTeam: 현재 유저를 팀 멤버 목록에서 제거
    */
-  const leaveTeam = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['teams'] });
-    setActiveTeamId(null);
-  };
+  const leaveTeam = async (teamId: number) => {
+    try {
+      const response = await leaveTeamApi(teamId);
 
+      if (response.success) {
+        // 가입된 팀 목록이 바뀌었으므로 서버 데이터를 새로고침
+        await queryClient.invalidateQueries({ queryKey: ['teams'] });
+        
+        // 현재 활성화된 팀 ID 정보 삭제
+        setActiveTeamId(null);
+        return { ok: true };
+      }
+      return { ok: false, message: response.error || '탈퇴 처리 실패' };
+    } catch (error) {
+      console.error('탈퇴 API 호출 에러:', error);
+      throw error;
+    }
+  };
   // 내 포지션 수정
   const handleEditPosition = async (newPosition: string) => {
     if (!activeTeamId || !currentUser) return;

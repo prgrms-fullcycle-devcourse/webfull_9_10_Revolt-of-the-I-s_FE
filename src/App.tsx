@@ -13,8 +13,6 @@ import { createDocApi, createQuickLinkApi } from './api/archive';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// import { AxiosError } from 'axios';
-
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -638,16 +636,9 @@ export default function App() {
   };
 
   const handleLeaveTeam = async (teamId: string | number | null) => {
-    if (!teamId) return;
-    if (
-      !window.confirm(
-        '정말 이 팀에서 탈퇴하시겠습니까? 다시 입장하려면 비밀번호가 필요합니다.',
-      )
-    )
-      return;
-    console.log('탈퇴 시작 - 팀 ID:', teamId);
-    try {
-      await leaveTeam();
+  if (!teamId) return;
+  try {
+    await leaveTeam(Number(teamId));
 
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
