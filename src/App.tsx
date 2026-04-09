@@ -10,6 +10,10 @@ import {
   editMemberPositionApi,
 } from './api/member';
 import { createDocApi, createQuickLinkApi } from './api/archive';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+// import { AxiosError } from 'axios';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -27,12 +31,7 @@ import { Modal } from './components/ui/Modal';
 
 // 훅 및 타입
 import { useTeams } from './hooks/useTeams';
-import {
-  type Member,
-  type CurrentUser,
-  type Note,
-  type TeamLink,
-} from './types';
+import { type Member, type CurrentUser, type TeamArchiveData } from './types';
 import { validateUrl } from './utils/validation';
 
 export default function App() {
@@ -42,7 +41,7 @@ export default function App() {
 
   // --- 데이터 로직 (Custom Hook) ---
   const {
-    setTeams,
+    // setTeams,
     activeTeamId,
     setActiveTeamId,
     activeTeam,
@@ -53,7 +52,6 @@ export default function App() {
     handleAddComment,
     onUpdateComment,
     onDeleteComment,
-    addLog,
     handleDeleteTicketApi,
     handleEditPosition,
     handleCreateQuickLink,
@@ -62,6 +60,10 @@ export default function App() {
     handleDeleteDoc,
     activeLogTab,
     setActiveLogTab,
+    createNote,
+    leaveTeam,
+    editNote,
+    deleteNote,
   } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -95,12 +97,19 @@ export default function App() {
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
   // 회의록 상태
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [note, setNote] = useState<{ title: string; content: string }>({
+  const [isNotePending, setIsNotePending] = useState<boolean>(false);
+  const [selectedNote, setSelectedNote] = useState<TeamArchiveData | null>(
+    null,
+  );
+  const [noteData, setNoteData] = useState<{ title: string; content: string }>({
     title: '',
     content: '',
   });
-  const isNoteValid = note.title.length > 0 && note.content.length > 0;
+  const isFormValid =
+    noteData.title.trim().length > 0 &&
+    noteData.title.length <= 100 &&
+    noteData.content.trim().length > 0;
+  const [isEditNotePending, setIsEditNotePending] = useState<boolean>(false);
 
   // 포지션 수정 관련 상태
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -120,7 +129,7 @@ export default function App() {
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
-  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>();
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamArchiveData>();
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -132,7 +141,6 @@ export default function App() {
   // 팀 생성 비밀번호 상태
   const [createTeamPassword, setCreateTeamPassword] = useState('');
   const [showCreateTeamPassword, setShowCreateTeamPassword] = useState(false);
-
 
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
@@ -183,34 +191,29 @@ export default function App() {
     mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
       joinTeamApi(teamId, data),
     onSuccess: (data) => {
-      if (!data.success) {
-        setAuthError(data.error || '비밀번호가 일치하지 않습니다.');
-        return;
+      if (data && (data.success || data.data)) {
+        console.log('팀 입장 성공!');
+        if (pendingTeamId) {
+          setActiveTeamId(pendingTeamId);
+        }
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
+        setIsTeamAuthorized(true);
+        localStorage.setItem('isTeamAuthorized', 'true');
+        setActiveModal(null);
+        setAuthPassword(Array(6).fill(''));
+        setAuthError('');
+        setAuthCursorIndex(0);
+        setShowAuthPassword(false);
+        setIsAuthManualEditing(false);
+        setPendingTeamId(null);
+      } else {
+        setAuthError(data?.error || '비밀번호가 일치하지 않습니다.');
       }
-
-      // 인증 성공 시, 대기 중이던 ID를 활성 ID로 설정
-      // useTeams의 useQuery가 작동하여 테스크 목록 호출
-      if (pendingTeamId) {
-        setActiveTeamId(pendingTeamId);
-
-        addLog(0, currentUser!.name, '공간 입장', 'info');
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-      setIsTeamAuthorized(true);
-      localStorage.setItem('isTeamAuthorized', 'true');
-      setActiveModal(null);
-      setAuthPassword(Array(6).fill(''));
-      setAuthError('');
-      setAuthCursorIndex(0);
-      setShowAuthPassword(true);
-      setIsAuthManualEditing(false); // 수정 모드 초기화
-      setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
-      addLog(0, currentUser!.name, '공간 입장', 'info');
     },
     onError: (error: AxiosError<{ error?: string }>) => {
-      // 서버 에러 메시지가 있으면 그대로 보여줌
-      setAuthError(error.response?.data?.error || '팀 입장에 실패했습니다.');
+      console.error('입장 에러:', error);
+      const serverErrorMessage = error.response?.data?.error;
+      setAuthError(serverErrorMessage || '비밀번호가 일치하지 않습니다.');
     },
   });
 
@@ -218,21 +221,19 @@ export default function App() {
   const { data: userData, isLoading: isUserLoading } = useQuery({
     queryKey: ['myInfo'],
     queryFn: getMyInfoApi,
-    staleTime: Infinity, // 앱이 켜져 있는 동안은 다시 부르지 않음 (중복 호출 방지)
+    staleTime: Infinity,
     gcTime: Infinity,
-    retry: false, // 로그인 안 되어 있을 때 반복 호출 방지
+    retry: false,
   });
 
   useEffect(() => {
-    console.log('userData:', userData)
-    console.log('isUserLoading:', isUserLoading)
+    console.log('userData:', userData);
+    console.log('isUserLoading:', isUserLoading);
     if (userData) {
-      // 저장된 이름이 있으면 새로고침 후에도 우선 사용
       const savedDisplayName = localStorage.getItem('displayName');
       const restoredName =
         userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
 
-      // 서버에서 이름이 정상적으로 오면 최신 이름으로 다시 저장
       if (userData.name) {
         localStorage.setItem('displayName', userData.name);
       }
@@ -300,7 +301,7 @@ export default function App() {
     setAuthError('');
     setAuthCursorIndex(0);
     setShowAuthPassword(true);
-    setIsAuthManualEditing(false); // 수정 모드 초기화
+    setIsAuthManualEditing(false);
   };
 
   // 보안 인증 붙여넣기 처리
@@ -324,7 +325,7 @@ export default function App() {
     } else {
       setAuthCursorIndex(onlyNumber.length);
     }
-    setIsAuthManualEditing(false); // 붙여넣기는 자동 입력으로 처리
+    setIsAuthManualEditing(false);
     if (authError) setAuthError('');
   };
 
@@ -332,7 +333,6 @@ export default function App() {
   const handleFocusAuthInput = () => {
     authInputRef.current?.focus();
 
-    // 비어있는 첫 칸으로 자동 이동
     const firstEmptyIndex = authPassword.findIndex((digit) => digit === '');
     if (firstEmptyIndex === -1) {
       setAuthCursorIndex(5);
@@ -340,7 +340,7 @@ export default function App() {
       setAuthCursorIndex(firstEmptyIndex);
     }
 
-    setIsAuthManualEditing(false); // 전체 영역 클릭은 자동 입력으로 처리
+    setIsAuthManualEditing(false);
   };
 
   // 보안 인증 클릭한 칸으로 커서 이동
@@ -351,7 +351,7 @@ export default function App() {
     e.preventDefault();
     authInputRef.current?.focus();
     setAuthCursorIndex(index);
-    setIsAuthManualEditing(true); // 클릭해서 들어간 경우만 수정 모드
+    setIsAuthManualEditing(true);
   };
 
   // 보안 인증 숫자/백스페이스 입력 처리
@@ -371,7 +371,7 @@ export default function App() {
         setAuthCursorIndex(authCursorIndex - 1);
       }
 
-      setIsAuthManualEditing(true); // 지우기는 수정 동작으로 처리
+      setIsAuthManualEditing(true);
       if (authError) setAuthError('');
       return;
     }
@@ -382,7 +382,7 @@ export default function App() {
       nextPassword[authCursorIndex] = '';
       setAuthPassword(nextPassword);
 
-      setIsAuthManualEditing(true); // 삭제는 수정 동작으로 처리
+      setIsAuthManualEditing(true);
       if (authError) setAuthError('');
       return;
     }
@@ -390,14 +390,14 @@ export default function App() {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
-      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
+      setIsAuthManualEditing(true);
       return;
     }
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
-      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
+      setIsAuthManualEditing(true);
       return;
     }
 
@@ -411,8 +411,6 @@ export default function App() {
     const nextPassword = [...authPassword];
     const isComplete = nextPassword.every((digit) => digit !== '');
 
-    // 6자리가 이미 다 찬 상태에서는,
-    // 사용자가 직접 칸을 클릭해서 수정 중일 때만 덮어쓰기 허용
     if (isComplete && !isAuthManualEditing) {
       return;
     }
@@ -422,10 +420,10 @@ export default function App() {
 
     if (authCursorIndex < 5 && nextPassword[authCursorIndex + 1] === '') {
       setAuthCursorIndex(authCursorIndex + 1);
-      setIsAuthManualEditing(false); // 일반 입력은 다음 칸으로 자동 이동
+      setIsAuthManualEditing(false);
     } else if (authCursorIndex < 5 && !isComplete) {
       setAuthCursorIndex(authCursorIndex + 1);
-      setIsAuthManualEditing(false); // 자동 입력 흐름 유지
+      setIsAuthManualEditing(false);
     }
 
     if (authError) setAuthError('');
@@ -444,28 +442,66 @@ export default function App() {
     });
   };
 
-  const createNote = (e: React.FormEvent<HTMLFormElement>) => {
+  // 회의록 기록
+  const handleCreateNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newNote: Note = {
-      id: Date.now(),
-      title: formData.get('title') as string,
-      content: formData.get('content') as string,
-      author: currentUser!.name,
-      date: new Date().toISOString().split('T')[0],
-    };
-    setTeams((prev) =>
-      prev.map((t) =>
-        t.id === activeTeamId ? { ...t, notes: [newNote, ...t.notes] } : t,
-      ),
-    );
-    setActiveModal(null);
+
+    if (isNotePending) return;
+    setIsNotePending(true);
+
+    try {
+      await createNote(noteData);
+
+      alert('회의록이 성공적으로 기록되었습니다.');
+      setActiveModal(null);
+      setNoteData({ title: '', content: '' });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsNotePending(false);
+    }
+  };
+
+  const handleOpenUpdateNoteModal = (note: TeamArchiveData) => {
+    setNoteData({ title: note.title, content: note.content });
+    setActiveModal('updateNote');
   };
 
   // 회의록 수정
-  const updateNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handlerEditNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(`${selectedNote?.id} 회의록을 수정합니다.`);
+
+    if (isEditNotePending || !selectedNote) return;
+    setIsEditNotePending(true);
+
+    try {
+      await editNote(selectedNote.id, noteData);
+      setSelectedNote({ ...selectedNote, ...noteData });
+      alert('회의록이 성공적으로 수정되었습니다.');
+      setActiveModal(null);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsEditNotePending(false);
+    }
+  };
+
+  // 회의록 삭제
+  const handleDeleteNote = async (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    const noteId = selectedNote?.id;
+    if (!noteId) return;
+    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
+
+    try {
+      await deleteNote(noteId);
+      alert('회의록이 성공적으로 삭제되었습니다.');
+      setSelectedNote(null);
+    } catch (error) {
+      console.log(error);
+      alert('회의록 삭제에 실패했습니다.');
+    }
   };
 
   // 새로운 링크 생성
@@ -489,7 +525,7 @@ export default function App() {
       );
       console.log('링크 추가 성공 : ', result);
 
-      handleCreateQuickLink(newLinkData.title, newLinkData.content);
+      handleCreateQuickLink();
 
       setActiveModal(null);
       setLinkData({ title: '', content: '' });
@@ -499,7 +535,6 @@ export default function App() {
         console.log('API 호출 실패 :', error.message);
         alert(error.message || '링크 생성에 실패했습니다.');
       } else {
-        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
         console.log('알 수 없는 에러 발생 :', error);
         alert('링크 생성에 실패했습니다.');
       }
@@ -536,7 +571,6 @@ export default function App() {
         console.log('API 호출 실패 :', error.message);
         alert(error.message || '링크 삭제에 실패했습니다.');
       } else {
-        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
         console.log('알 수 없는 에러 발생 :', error);
         alert('링크 삭제에 실패했습니다.');
       }
@@ -562,7 +596,7 @@ export default function App() {
       const result = await createDocApi(Number(activeTeamId), newDocData);
       console.log('문서 추가 성공 : ', result);
 
-      handleCreateDoc(newDocData.title, newDocData.file);
+      handleCreateDoc();
 
       setActiveModal(null);
       console.log(docData);
@@ -603,7 +637,7 @@ export default function App() {
     }
   };
 
-  const handleLeaveTeam = (teamId: string | number | null) => {
+  const handleLeaveTeam = async (teamId: string | number | null) => {
     if (!teamId) return;
     if (
       !window.confirm(
@@ -612,23 +646,23 @@ export default function App() {
     )
       return;
     console.log('탈퇴 시작 - 팀 ID:', teamId);
-    setTeams((prevTeams) =>
-      prevTeams.map((t) =>
-        String(t.id) === String(teamId) ? { ...t, isJoined: false } : t,
-      ),
-    );
-    if (String(activeTeamId) === String(teamId)) {
+    try {
+      await leaveTeam();
+
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
       setView('dashboard');
+
+      setTimeout(() => {
+        alert('팀 탈퇴가 완료되었습니다.');
+      }, 100);
+    } catch (error: unknown) {
+      console.error('탈퇴 처리 중 오류:', error);
+      alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
     }
-    setTimeout(() => {
-      alert('팀 탈퇴가 완료되었습니다.');
-    }, 100);
   };
 
   // 포지션 수정
-
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isPositionPending) return;
@@ -639,17 +673,14 @@ export default function App() {
         position: myPosition,
       };
 
-      // API 호출하여 포지션 변경
       const { success } = await editMemberPositionApi(
         Number(activeTeamId),
         editPositionData,
       );
 
-      // 요청이 성공하면 teams 상태 업데이트하기
       handleEditPosition(myPosition);
       console.log('포지션 수정 성공 결과', success);
 
-      // 모달 닫기
       setActiveModal(null);
       alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
     } catch (error: unknown) {
@@ -685,7 +716,7 @@ export default function App() {
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
-      setIsAuthManualEditing(false); // 수정 모드 초기화
+      setIsAuthManualEditing(false);
       setShowAuthPassword(true);
       setAuthPage('login');
     } catch (error) {
@@ -707,14 +738,12 @@ export default function App() {
 
   if (!currentUser) {
     return authPage === 'login' ? (
-      // key를 주어 signup → login 전환 시 Login을 새 인스턴스로 마운트 (구글 SDK 중복 초기화 방지)
       <Login
         key="login"
         setCurrentUser={setCurrentUser}
         goSignup={() => setAuthPage('signup')}
       />
     ) : (
-      // key를 주어 login → signup 전환 시 Signup을 새 인스턴스로 마운트 (구글 SDK 중복 초기화 방지)
       <Signup key="signup" goLogin={() => setAuthPage('login')} />
     );
   }
@@ -742,8 +771,6 @@ export default function App() {
             setIsTeamAuthorized={setIsTeamAuthorized}
             onLogout={handleLogout}
             setActiveTeamId={setActiveTeamId}
-            setTeams={setTeams}
-            addLog={addLog}
             onLeaveTeam={handleLeaveTeam}
             activeLogTab={activeLogTab}
             setActiveLogTab={setActiveLogTab}
@@ -758,8 +785,6 @@ export default function App() {
               {view === 'dashboard' && activeTeam && (
                 <Dashboard
                   activeTeam={activeTeam}
-                  setTeams={setTeams}
-                  addLog={addLog}
                   activeTeamId={activeTeamId}
                   currentUser={currentUser}
                   setSelectedTicketId={setSelectedTicketId}
@@ -812,7 +837,7 @@ export default function App() {
             className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
             placeholder="팀 이름"
           />
-                    {/* 팀 비밀번호 6자리 숫자 입력 + 보기/숨기기 */}
+          {/* 팀 비밀번호 6자리 숫자 입력 + 보기/숨기기 */}
           <div className="space-y-2">
             <div className="relative">
               <input
@@ -820,7 +845,7 @@ export default function App() {
                 type={showCreateTeamPassword ? 'text' : 'password'}
                 inputMode="numeric"
                 required
-                maxLength={6} // 팀 비밀번호는 6자리까지만 입력 가능
+                maxLength={6}
                 value={createTeamPassword}
                 onChange={(e) =>
                   setCreateTeamPassword(e.target.value.replace(/\D/g, '').slice(0, 6))
@@ -837,7 +862,6 @@ export default function App() {
                 {showCreateTeamPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {/* 비밀번호 형식 안내 */}
             <p className="text-xs text-slate-400 font-medium">
               팀 비밀번호는 숫자 6자리로 입력해주세요.
             </p>
@@ -950,31 +974,44 @@ export default function App() {
         isOpen={activeModal === 'note'}
         onClose={() => {
           setActiveModal(null);
-          setNote({ title: '', content: '' });
+          setNoteData({ title: '', content: '' });
         }}
         title="회의록 기록"
       >
-        <form onSubmit={createNote} className="space-y-6">
+        <form onSubmit={handleCreateNote}>
           <input
             name="title"
-            onChange={(e) => setNote({ ...note, title: e.target.value })}
+            onChange={(e) =>
+              setNoteData({ ...noteData, title: e.target.value })
+            }
+            maxLength={100}
             required
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            className="w-full px-6 py-4 mb-1 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
           />
+          <span
+            className={`flex justify-end mb-6 text-xs font-medium ${
+              noteData.title.length > 100 ? 'text-red-500' : 'text-slate-400'
+            }`}
+          >
+            {noteData.title.length} / 100
+          </span>
+
           <textarea
             name="content"
-            onChange={(e) => setNote({ ...note, content: e.target.value })}
+            onChange={(e) =>
+              setNoteData({ ...noteData, content: e.target.value })
+            }
             required
             rows={8}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            className="w-full px-6 py-4 mb-6 bg-slate-50 rounded-2xl outline-none"
             placeholder="내용 입력"
           />
           <button
             type="submit"
-            disabled={!isNoteValid}
+            disabled={!isFormValid}
             className={`w-full py-4 rounded-2xl font-black shadow-lg ${
-              isNoteValid
+              isFormValid
                 ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                 : 'bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
@@ -1165,9 +1202,7 @@ export default function App() {
           }}
           onUpdateComment={onUpdateComment}
           onDeleteComment={onDeleteComment}
-          setTeams={setTeams}
           activeTeamId={activeTeamId}
-          addLog={addLog}
           handleDeleteTicketApi={handleDeleteTicketApi}
         />
       )}
@@ -1176,26 +1211,33 @@ export default function App() {
         <Modal
           isOpen={!!selectedNote}
           onClose={() => setSelectedNote(null)}
-          title={selectedNote.title}
+          title="회의록 상세"
           maxWidth="max-w-2xl"
         >
           <div className="bg-slate-50 p-6 rounded-3xl mb-6">
-            <p className="whitespace-pre-wrap text-slate-600 leading-relaxed text-sm">
-              {selectedNote.content}
+            <p className="whitespace-pre-wrap mb-4 text-slate-800 leading-relaxed text-lg">
+              {selectedNote.title}
             </p>
+            <hr className="mb-4 text-slate-200" />
+            <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 ">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {selectedNote.content}
+              </ReactMarkdown>
+            </div>
           </div>
+
           <div className="flex justify-between">
             <button
-              onClick={() => setActiveModal('updateNote')}
+              onClick={(e) => handleDeleteNote(e)}
+              className="px-4 py-4 bg-red-100 hover:bg-red-200 text-red-500 rounded-2xl font-bold cursor-pointer"
+            >
+              회의록 삭제
+            </button>
+            <button
+              onClick={() => handleOpenUpdateNoteModal(selectedNote)}
               className="px-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer"
             >
               회의록 수정
-            </button>
-            <button
-              onClick={() => setSelectedNote(null)}
-              className="px-4 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold cursor-pointer"
-            >
-              확인 완료
             </button>
           </div>
         </Modal>
@@ -1203,26 +1245,49 @@ export default function App() {
 
       <Modal
         isOpen={activeModal === 'updateNote'}
-        onClose={() => setActiveModal(null)}
+        onClose={() => {
+          setActiveModal(null);
+        }}
         title="회의록 수정"
       >
-        <form onSubmit={updateNote} className="space-y-6">
+        <form onSubmit={handlerEditNote}>
           <input
             name="title"
             required
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            className="w-full px-6 py-4 mb-1 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
-            defaultValue={selectedNote?.title}
+            value={noteData.title}
+            onChange={(e) =>
+              setNoteData({ ...noteData, title: e.target.value })
+            }
+            maxLength={100}
           />
+          <span
+            className={`flex justify-end mb-6 text-xs font-medium ${
+              noteData.title.length > 100 ? 'text-red-500' : 'text-slate-400'
+            }`}
+          >
+            {noteData.title.length} / 100
+          </span>
           <textarea
             name="content"
             required
             rows={8}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            className="w-full px-6 py-4 mb-6 bg-slate-50 rounded-2xl outline-none"
             placeholder="내용 입력"
-            defaultValue={selectedNote?.content}
+            value={noteData.content}
+            onChange={(e) =>
+              setNoteData({ ...noteData, content: e.target.value })
+            }
           />
-          <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
+          <button
+            disabled={isEditNotePending || !isFormValid}
+            className={`w-full py-4 rounded-2xl font-black shadow-lg transition-colors ${
+              isEditNotePending || !isFormValid
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+            }`}
+          >
             수정하기
           </button>
         </form>

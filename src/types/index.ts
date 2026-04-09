@@ -37,7 +37,36 @@ export interface Ticket {
   worker_id: string;
   status: string;
   createdAt: string;
-  comments: Comment[];
+  comments: TaskComment[];
+}
+
+// 공통 테스크 데이터
+export interface TaskBaseFromApi {
+  id: number;
+  task_number: number;
+  team_id: number;
+  title: string;
+  content: string;
+  status: string;
+  requester_id: string;
+  requester_name: string;
+  worker_id: string;
+  worker_name: string;
+  created_at: string;
+  comment_count: number;
+}
+
+// 테스크 상세 조회 응답 (comments와 상세 유저 정보 포함)
+export interface TaskDetailFromApi extends TaskBaseFromApi {
+  comments: TaskComment[];
+}
+
+// 테스크 댓글
+export interface TaskComment {
+  id: number;
+  user: string;
+  text: string;
+  time: string;
 }
 
 // 활동 로그 히스토리 (Sidebar에 출력됨)
@@ -50,31 +79,49 @@ export interface Log {
   type: 'default' | 'info' | 'success' | 'error';
 }
 
-// 팀 아카이브: 회의록 데이터
-export interface Note {
-  id: number;
-  title: string;
-  content: string;
-  author: string;
-  date: string;
+// pusher 리스너 - 개인별 테스크 할당 알림 타입 정의
+export interface NewTaskNotification {
+  message: string;
+  taskId: number;
+  taskNumber: number;
+  teamId: number;
 }
 
-// 팀 아카이브: 공유 링크 데이터
-export interface TeamLink {
+// 서버에서 보내주는 댓글 원본 규격 (Mapping 전)
+export interface TaskCommentFromApi {
   id: number;
-  type: string;
-  title: string;
+  task_id: number;
   content: string;
-  createdAt: string;
+  created_at: string;
+  user: {
+    uuid: string;
+    name: string;
+    profile_image: string | null;
+  };
 }
 
-// 팀 아카이브: 문서 데이터
-export interface TeamDocument {
+// pusher 리스너 - 실시간 댓글 데이터 타입 정의
+export interface PusherCommentData {
   id: number;
-  type: string;
+  task_id: number;
+  content: string;
+  created_at: string;
+  user: {
+    uuid: string;
+    name: string;
+    profile_image: string | null;
+  };
+}
+
+type ArchiveType = 'NOTE' | 'LINK' | 'PDF';
+
+// 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터
+export interface TeamArchiveData {
+  id: number;
+  type: ArchiveType;
   title: string;
   content: string;
-  createdAt: string;
+  created_at: string;
 }
 
 /**
@@ -89,8 +136,8 @@ export interface Team {
   members: Member[];
   tickets: Ticket[];
   logs: Log[];
-  notes: Note[];
-  links: TeamLink[];
+  notes: TeamArchiveData[];
+  links: TeamArchiveData[];
   userStatuses: Record<string, UserStatus>;
 }
 

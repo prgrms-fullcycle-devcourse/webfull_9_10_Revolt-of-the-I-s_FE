@@ -8,15 +8,13 @@ interface TicketDetailProps {
   currentUser: CurrentUser;
   onClose: () => void; // 모달 닫기 함수
   addComment: (e: React.FormEvent<HTMLFormElement>) => void; // 댓글 등록 함수
-  setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
   activeTeamId: string | number | null;
-  addLog: (ticketId: number, user: string, action: string, type?: 'default' | 'info' | 'success' | 'error') => void;
   handleDeleteTicketApi: (ticketId: number) => Promise<{ ok: boolean; message?: string }>;
   onUpdateComment: (commentId: number, text: string) => Promise<void>;
   onDeleteComment: (commentId: number) => Promise<void>;
 }
 
-export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeams, activeTeamId, addLog, handleDeleteTicketApi, onUpdateComment, onDeleteComment }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleDeleteTicketApi, onUpdateComment, onDeleteComment }: TicketDetailProps) => {
 
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null); // 현재 수정 중인 댓글 ID
   const [editValue, setEditValue] = useState(""); // 수정 중인 입력값
@@ -60,51 +58,20 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, setTeam
 
   // 삭제(요청 취소) 핸들러
   const onClickDelete = async () => {
-    console.log("비교 대상 -> 내 UUID:", currentUser?.uuid, "티켓 담당자ID:", ticket.worker_id, "결과:", isWorker);
-    if (!isWorker) {
-      alert("담당자만 요청을 취소할 수 있습니다.");
-      return;
-    }
-
-    if (!window.confirm("정말 이 요청을 취소하시겠습니까? 취소 시 해당 테스크는 영구적으로 삭제됩니다.")) return;
+    if (!window.confirm('정말 이 테스크를 삭제하시겠습니까?')) return;
 
     try {
-      // 1. API 호출
-      const result = await handleDeleteTicketApi(Number(ticket.id));
-      
+      const result = await handleDeleteTicketApi(ticket.id);
       if (result.ok) {
-        // 2. 로그 추가
-        addLog(
-          Number(ticket.id), 
-          currentUser.name, 
-          `요청 취소: ${ticket.title}`, 
-          'error'
-        );
-        
-        // 3. UI 업데이트 (상태 변경)
-        setTeams((prevTeams) =>
-          prevTeams.map((team) => {
-            if (String(team.id) === String(activeTeamId)) {
-              return {
-                ...team,
-                tickets: team.tickets.filter((t) => String(t.id) !== String(ticket.id)),
-              };
-            }
-            return team;
-          })
-        );
-
-        alert("요청이 성공적으로 취소되어 삭제되었습니다.");
         onClose();
       } else {
-        alert(result.message || "삭제에 실패했습니다.");
+        alert(result.message);
       }
     } catch (error) {
       console.error("삭제 중 에러:", error);
-      alert("서버 통신 중 오류가 발생했습니다.");
     }
   };
-
+  
   return (
     // 고정된 전체 화면 오버레이 (Backdrop)
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
