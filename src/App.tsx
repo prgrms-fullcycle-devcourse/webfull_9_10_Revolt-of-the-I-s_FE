@@ -10,7 +10,7 @@ import {
   editMemberPositionApi,
 } from './api/member';
 import { createDocApi, createQuickLinkApi } from './api/archive';
-import { AxiosError } from 'axios';
+// import { AxiosError } from 'axios';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -28,12 +28,7 @@ import { Modal } from './components/ui/Modal';
 
 // 훅 및 타입
 import { useTeams } from './hooks/useTeams';
-import {
-  type Member,
-  type CurrentUser,
-  type Note,
-  type TeamLink,
-} from './types';
+import { type Member, type CurrentUser, type TeamArchiveData } from './types';
 import { validateUrl } from './utils/validation';
 
 export default function App() {
@@ -97,7 +92,9 @@ export default function App() {
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
   // 회의록 상태
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [selectedNote, setSelectedNote] = useState<TeamArchiveData | null>(
+    null,
+  );
   const [note, setNote] = useState<{ title: string; content: string }>({
     title: '',
     content: '',
@@ -122,7 +119,7 @@ export default function App() {
   const isLinkValid =
     linkData.title.length > 0 && validateUrl(linkData.content);
   const [isLinkPending, setIsLinkPending] = useState<boolean>(false);
-  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamLink>();
+  const [selectedLinkItem, setSelectedLinkItem] = useState<TeamArchiveData>();
   const [docData, setDocData] = useState<{ title: string; file: File | null }>({
     title: '',
     file: null,
@@ -180,31 +177,31 @@ export default function App() {
     mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
       joinTeamApi(teamId, data),
     onSuccess: (data) => {
-      if (data && (data.success || data.data)) { 
-      console.log("팀 입장 성공!");
+      if (data && (data.success || data.data)) {
+        console.log('팀 입장 성공!');
 
-      // 인증 성공 시 처리 로직
-      if (pendingTeamId) {
-        setActiveTeamId(pendingTeamId);
+        // 인증 성공 시 처리 로직
+        if (pendingTeamId) {
+          setActiveTeamId(pendingTeamId);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
+        setIsTeamAuthorized(true);
+        localStorage.setItem('isTeamAuthorized', 'true');
+        setActiveModal(null);
+        setAuthPassword(Array(6).fill(''));
+        setAuthError('');
+        setAuthCursorIndex(0);
+        setShowAuthPassword(false);
+        setIsAuthManualEditing(false); // 수정 모드 초기화
+        setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
+      } else {
+        // 서버에서 200~299 사이 코드를 줬지만 내용은 에러인 경우
+        setAuthError(data?.error || '비밀번호가 일치하지 않습니다.');
       }
-
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-      setIsTeamAuthorized(true);
-      localStorage.setItem('isTeamAuthorized', 'true');
-      setActiveModal(null);
-      setAuthPassword(Array(6).fill(''));
-      setAuthError('');
-      setAuthCursorIndex(0);
-      setShowAuthPassword(false);
-      setIsAuthManualEditing(false); // 수정 모드 초기화
-      setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
-    } else {
-      // 서버에서 200~299 사이 코드를 줬지만 내용은 에러인 경우
-      setAuthError(data?.error || '비밀번호가 일치하지 않습니다.');
-    }
-  },
-  onError: (error: AxiosError<{ error?: string }>) => {
-      console.error("입장 에러:", error);
+    },
+    onError: (error: AxiosError<{ error?: string }>) => {
+      console.error('입장 에러:', error);
       const serverErrorMessage = error.response?.data?.error;
       setAuthError(serverErrorMessage || '비밀번호가 일치하지 않습니다.');
     },
@@ -428,7 +425,7 @@ export default function App() {
   const handleCreateNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const title = formData.get('title') as string;
     const content = formData.get('content') as string;
 
@@ -590,23 +587,22 @@ export default function App() {
       return;
     console.log('탈퇴 시작 - 팀 ID:', teamId);
     try {
-    // 훅에 있는 leaveTeam 실행 (내부적으로 API 호출 및 쿼리 무효화 처리)
-    await leaveTeam(); 
+      // 훅에 있는 leaveTeam 실행 (내부적으로 API 호출 및 쿼리 무효화 처리)
+      await leaveTeam();
 
-    // UI 상태 초기화
-    setIsTeamAuthorized(false);
-    setActiveTeamId(null);
-    setView('dashboard');
+      // UI 상태 초기화
+      setIsTeamAuthorized(false);
+      setActiveTeamId(null);
+      setView('dashboard');
 
-    setTimeout(() => {
-      alert('팀 탈퇴가 완료되었습니다.');
-    }, 100);
-
-  } catch (error: unknown) {
-    console.error('탈퇴 처리 중 오류:', error);
-    alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
-  }
-};
+      setTimeout(() => {
+        alert('팀 탈퇴가 완료되었습니다.');
+      }, 100);
+    } catch (error: unknown) {
+      console.error('탈퇴 처리 중 오류:', error);
+      alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
+    }
+  };
 
   // 포지션 수정
   const editPosition = async (e: React.FormEvent<HTMLFormElement>) => {

@@ -40,7 +40,7 @@ export interface Ticket {
   comments: TaskComment[];
 }
 
-// 공통 테스크 데이터 
+// 공통 테스크 데이터
 export interface TaskBaseFromApi {
   id: number;
   task_number: number;
@@ -113,31 +113,15 @@ export interface PusherCommentData {
   };
 }
 
-// 팀 아카이브: 회의록 데이터
-export interface Note {
-  id: number;
-  title: string;
-  content: string;
-  author: string;
-  date: string;
-}
+type ArchiveType = 'NOTE' | 'LINK' | 'PDF';
 
-// 팀 아카이브: 공유 링크 데이터
-export interface TeamLink {
+// 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터
+export interface TeamArchiveData {
   id: number;
-  type: string;
+  type: ArchiveType;
   title: string;
   content: string;
-  createdAt: string;
-}
-
-// 팀 아카이브: 문서 데이터
-export interface TeamDocument {
-  id: number;
-  type: string;
-  title: string;
-  content: string;
-  createdAt: string;
+  created_at: string;
 }
 
 /**
@@ -152,8 +136,8 @@ export interface Team {
   members: Member[];
   tickets: Ticket[];
   logs: Log[];
-  notes: Note[];
-  links: TeamLink[];
+  notes: TeamArchiveData[];
+  links: TeamArchiveData[];
   userStatuses: Record<string, UserStatus>;
 }
 

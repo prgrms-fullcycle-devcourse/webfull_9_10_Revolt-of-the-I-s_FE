@@ -1,7 +1,7 @@
-import { FileText, FileCode, Link as LinkIcon } from 'lucide-react';
-import type { TeamLink } from '../../types';
+import { FileText, Link as LinkIcon } from 'lucide-react';
+import type { TeamArchiveData } from '../../types';
 
-export const LinkCard = ({ link }: { link: TeamLink }) => (
+export const LinkCard = ({ link }: { link: TeamArchiveData }) => (
   <a
     href={link.content}
     target="_blank"
@@ -12,20 +12,10 @@ export const LinkCard = ({ link }: { link: TeamLink }) => (
       {/* 타입별 아이콘 및 배경색 (인라인 조건부 렌더링) */}
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 ${
-          link.type === 'planning'
-            ? 'bg-orange-400' // 기획: 주황색
-            : link.type === 'dev'
-              ? 'bg-blue-400' // 개발: 파란색
-              : 'bg-slate-400' // 기타: 회색
+          link.type === 'LINK' ? 'bg-orange-400' : 'bg-purple-400'
         }`}
       >
-        {link.type === 'planning' ? (
-          <FileText size={18} />
-        ) : link.type === 'dev' ? (
-          <FileCode size={18} />
-        ) : (
-          <LinkIcon size={18} />
-        )}
+        {link.type === 'LINK' ? <LinkIcon size={18} /> : <FileText size={18} />}
       </div>
       {/* 링크 정보 섹션 (텍스트 넘침 방지 처리) */}
       <div className="overflow-hidden">

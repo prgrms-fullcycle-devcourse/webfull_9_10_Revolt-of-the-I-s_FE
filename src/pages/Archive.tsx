@@ -6,8 +6,8 @@ import {
   Eye,
   Trash2,
 } from 'lucide-react';
-import type { Team, Note, TeamLink } from '../types';
-import { getHostname } from '../utils/format';
+import type { Team, TeamArchiveData } from '../types';
+import { formatDate, getHostname } from '../utils/format';
 
 interface ArchiveProps {
   activeTeam: Team; // 현재 활성화된 팀의 모든 데이터 (links, notes 포함)
@@ -15,8 +15,8 @@ interface ArchiveProps {
   setIsDocModalOpen: (open: boolean) => void; // 문서 추가 모달 제어 함수
   setIsNoteModalOpen: (open: boolean) => void; // 회의록 추가 모달 제어 함수
   setIsDeleteLinkModalOpen: (open: boolean) => void; // 링크 삭제 모달 호출 함수
-  setSelectedNote: (note: Note) => void; // 특정 회의록 클릭 시 상세보기 모달 호출 함수
-  setSelectedLinkItem: (link: TeamLink) => void; // 특정 링크 클릭 시 삭제 모달 호출 함수
+  setSelectedNote: (note: TeamArchiveData) => void; // 특정 회의록 클릭 시 상세보기 모달 호출 함수
+  setSelectedLinkItem: (link: TeamArchiveData) => void; // 특정 링크 클릭 시 삭제 모달 호출 함수
 }
 
 export const Archive = ({
@@ -28,6 +28,7 @@ export const Archive = ({
   setSelectedNote,
   setSelectedLinkItem,
 }: ArchiveProps) => {
+  console.log(activeTeam);
   return (
     <div className="flex flex-col gap-8 max-w-7xl mx-auto py-4">
       {/* 핵심 문서 & 퀵 링크 섹션 */}
@@ -82,9 +83,7 @@ export const Archive = ({
                         <LinkIcon size={18} />
                       ) : link.type === 'PDF' ? (
                         <File size={18} />
-                      ) : (
-                        <LinkIcon size={18} />
-                      )}
+                      ) : null}
                     </div>
                     <div className="overflow-hidden">
                       <span
@@ -152,7 +151,7 @@ export const Archive = ({
               >
                 <div className="flex justify-between items-start mb-3">
                   <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
-                    {note.date}
+                    {formatDate(note.created_at)}
                   </span>
                   <Eye
                     size={16}

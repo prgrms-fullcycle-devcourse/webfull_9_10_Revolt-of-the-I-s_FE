@@ -4,7 +4,6 @@
 
 import { api } from './client';
 
-// 퀵 링크 API
 // 퀵 링크 생성 요청 데이터 타입 정의
 export interface CreateQuickLinkRequest {
   title: string;
@@ -83,5 +82,45 @@ export const getDocApi = async (teamId: number) => {
 
 export const deleteDocApi = async (docId: number) => {
   const response = await api.delete(`/archives/${docId}/documents`);
+  return response.data;
+};
+
+// 회의록 관련 api
+export const getNotesApi = async (teamId: number) => {
+  const response = await api.get(`/teams/${teamId}/archives/meeting`);
+  return response.data;
+};
+
+export const createNoteApi = async (
+  teamId: number,
+  title: string,
+  content: string,
+) => {
+  const response = await api.post(`/teams/${teamId}/archives/meeting`, {
+    title,
+    content,
+  });
+  return response.data;
+};
+
+export const getNoteDetailApi = async (archiveId: number) => {
+  const response = await api.get(`/archives/${archiveId}/meeting`);
+  return response.data;
+};
+
+export const editNoteApi = async (
+  archiveId: number,
+  title: string,
+  content: string,
+) => {
+  const response = await api.patch(`/archives/${archiveId}/meeting`, {
+    title,
+    content,
+  });
+  return response.data;
+};
+
+export const deleteNoteApi = async (archiveId: number) => {
+  const response = await api.delete(`/archives/${archiveId}/meeting`);
   return response.data;
 };
