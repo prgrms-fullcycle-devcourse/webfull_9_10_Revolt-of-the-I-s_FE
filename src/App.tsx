@@ -10,6 +10,9 @@ import {
   editMemberPositionApi,
 } from './api/member';
 import { createDocApi, createQuickLinkApi } from './api/archive';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 // import { AxiosError } from 'axios';
 
 // 레이아웃 및 페이지
@@ -103,7 +106,9 @@ export default function App() {
     content: '',
   });
   const isFormValid =
-    noteData.title.trim().length > 0 && noteData.content.trim().length > 0;
+    noteData.title.trim().length > 0 &&
+    noteData.title.length <= 100 &&
+    noteData.content.trim().length > 0;
   const [isEditNotePending, setIsEditNotePending] = useState<boolean>(false);
 
   // 포지션 수정 관련 상태
@@ -477,6 +482,7 @@ export default function App() {
 
     const noteId = selectedNote?.id;
     if (!noteId) return;
+    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
 
     try {
       await deleteNote(noteId);
@@ -947,16 +953,25 @@ export default function App() {
         }}
         title="회의록 기록"
       >
-        <form onSubmit={handleCreateNote} className="space-y-6">
+        <form onSubmit={handleCreateNote}>
           <input
             name="title"
             onChange={(e) =>
               setNoteData({ ...noteData, title: e.target.value })
             }
+            maxLength={100}
             required
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            className="w-full px-6 py-4 mb-1 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
           />
+          <span
+            className={`flex justify-end mb-6 text-xs font-medium ${
+              noteData.title.length > 100 ? 'text-red-500' : 'text-slate-400'
+            }`}
+          >
+            {noteData.title.length} / 100
+          </span>
+
           <textarea
             name="content"
             onChange={(e) =>
@@ -964,7 +979,7 @@ export default function App() {
             }
             required
             rows={8}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            className="w-full px-6 py-4 mb-6 bg-slate-50 rounded-2xl outline-none"
             placeholder="내용 입력"
           />
           <button
@@ -1179,9 +1194,11 @@ export default function App() {
               {selectedNote.title}
             </p>
             <hr className="mb-4 text-slate-200" />
-            <p className="whitespace-pre-wrap text-slate-600 leading-relaxed text-sm">
-              {selectedNote.content}
-            </p>
+            <div className="prose prose-slate max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 ">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {selectedNote.content}
+              </ReactMarkdown>
+            </div>
           </div>
 
           <div className="flex justify-between">
@@ -1208,22 +1225,30 @@ export default function App() {
         }}
         title="회의록 수정"
       >
-        <form onSubmit={handlerEditNote} className="space-y-6">
+        <form onSubmit={handlerEditNote}>
           <input
             name="title"
             required
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold"
+            className="w-full px-6 py-4 mb-1 bg-slate-50 rounded-2xl outline-none font-bold"
             placeholder="회의 제목"
             value={noteData.title}
             onChange={(e) =>
               setNoteData({ ...noteData, title: e.target.value })
             }
+            maxLength={100}
           />
+          <span
+            className={`flex justify-end mb-6 text-xs font-medium ${
+              noteData.title.length > 100 ? 'text-red-500' : 'text-slate-400'
+            }`}
+          >
+            {noteData.title.length} / 100
+          </span>
           <textarea
             name="content"
             required
             rows={8}
-            className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none"
+            className="w-full px-6 py-4 mb-6 bg-slate-50 rounded-2xl outline-none"
             placeholder="내용 입력"
             value={noteData.content}
             onChange={(e) =>
