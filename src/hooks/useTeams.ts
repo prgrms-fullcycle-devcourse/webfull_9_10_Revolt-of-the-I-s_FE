@@ -11,13 +11,12 @@ import type {
   Ticket,
   CurrentUser,
   TeamFromApi,
-  TeamLink,
+  TeamArchiveData,
   NewTaskNotification,
   PusherCommentData,
   TaskBaseFromApi,
   TaskComment,
   TaskCommentFromApi,
-  Note,
 } from '../types';
 import { INITIAL_TEAM, AVATARS } from '../utils/constants';
 import { getTeamsApi, joinTeamApi } from '../api/team';
@@ -33,15 +32,24 @@ import {
 } from '../api/tickets';
 
 import {
+  createNoteApi,
   deleteDocApi,
+  deleteNoteApi,
   deleteQuickLinkApi,
+  editNoteApi,
   getDocApi,
+  getNotesApi,
   getQuickLinksApi,
+  type NoteRequest,
 } from '../api/archive';
 import { updateMyStatusApi } from '../api/status';
-import { pusher } from "../utils/pusher";
-import { getTeamLogsApi } from "../api/log";
-import { createCommentApi, DeleteCommentApi, updateCommentApi } from "../api/comments";
+import { pusher } from '../utils/pusher';
+import { getTeamLogsApi } from '../api/log';
+import {
+  createCommentApi,
+  DeleteCommentApi,
+  updateCommentApi,
+} from '../api/comments';
 
 // 상태별 색 매핑
 const STATUS_COLORS: Record<string, string> = {
@@ -52,15 +60,21 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
-const getLogDisplayType = (actionType: string, message: string): 'default' | 'info' | 'success' | 'error' => {
-  if (actionType === 'CREATE_TASK' || actionType === 'ACCEPT_TASK') return 'info';
-  if (actionType === 'APPROVE_TASK' || actionType === 'STATUS_CHANGE') return 'success';
-  if (actionType === 'REJECT_TASK' || actionType === 'CANCEL_TASK') return 'error';
-  
+const getLogDisplayType = (
+  actionType: string,
+  message: string,
+): 'default' | 'info' | 'success' | 'error' => {
+  if (actionType === 'CREATE_TASK' || actionType === 'ACCEPT_TASK')
+    return 'info';
+  if (actionType === 'APPROVE_TASK' || actionType === 'STATUS_CHANGE')
+    return 'success';
+  if (actionType === 'REJECT_TASK' || actionType === 'CANCEL_TASK')
+    return 'error';
+
   // 타입이 명확하지 않을 때 메시지 내용으로 한 번 더 체크
   if (message.includes('반려') || message.includes('취소')) return 'error';
   if (message.includes('상태') || message.includes('승인')) return 'success';
-  
+
   return 'default';
 };
 
@@ -91,9 +105,9 @@ const convertTeam = (team: TeamFromApi): Team => ({
       const statusLabel = m.status || '업무 중'; // 기본값 설정
       return [
         m.user.name,
-        { 
+        {
           label: statusLabel,
-          color: STATUS_COLORS[statusLabel] || 'bg-green-500' 
+          color: STATUS_COLORS[statusLabel] || 'bg-green-500',
         },
       ];
     }),
@@ -112,7 +126,6 @@ export const useTeams = (
   currentUser: CurrentUser | null,
   selectedTicketId: number | null,
 ) => {
-
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
@@ -121,9 +134,6 @@ export const useTeams = (
 
   // 어떤 로그 탭을 보고 있는지 상태 추가
   const [activeLogTab, setActiveLogTab] = useState<'all' | 'mine'>('all');
-
-  // 회의록 api 연동 전 로컬에서 관리할 수 있도록 상태 선언
-  const [localNotes, setLocalNotes] = useState<Record<string, Note[]>>({});
 
   // GET /teams API 호출로 팀 목록 가져오기
   const { data: teamListData } = useQuery({
@@ -143,16 +153,14 @@ export const useTeams = (
     queryKey: ['ticketDetail', selectedTicketId],
     queryFn: () => getTicketDetailApi(selectedTicketId!),
     enabled: !!selectedTicketId,
-    staleTime: 0
+    staleTime: 0,
   });
 
   // 로그 데이터 조회 (React Query)
   const { data: logData } = useQuery({
-    queryKey: ['logs', activeTeamId, activeLogTab], 
-    queryFn: () => getTeamLogsApi(
-      Number(activeTeamId), 
-      activeLogTab === 'mine'
-    ),
+    queryKey: ['logs', activeTeamId, activeLogTab],
+    queryFn: () =>
+      getTeamLogsApi(Number(activeTeamId), activeLogTab === 'mine'),
     enabled: !!activeTeamId,
   });
 
@@ -169,23 +177,12 @@ export const useTeams = (
     enabled: !!activeTeamId && !!currentUser,
   });
 
-  // 회의록 생성 함수 (API 연결 전 로컬에서만 실행되도록)
-  const createNote = (title: string, content: string) => {
-    if (!activeTeamId || !currentUser) return;
-
-    const newNote: Note = {
-      id: Date.now(),
-      title,
-      content,
-      author: currentUser.name,
-      date: new Date().toISOString().split('T')[0],
-    };
-
-    setLocalNotes((prev) => ({
-      ...prev,
-      [activeTeamId]: [newNote, ...(prev[activeTeamId] || [])],
-    }));
-  };
+  // 활성화된 팀의 회의록 목록 조회
+  const { data: noteData } = useQuery({
+    queryKey: ['noteData', activeTeamId],
+    queryFn: () => getNotesApi(Number(activeTeamId)),
+    enabled: !!activeTeamId && !!currentUser,
+  });
 
   const queryClient = useQueryClient();
 
@@ -212,56 +209,63 @@ export const useTeams = (
     userChannel.bind('new-task-requested', (data: NewTaskNotification) => {
       alert(data.message);
       queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-  });
+    });
 
     // pusher 리스너 - 테스크 상태 업데이트
-    teamChannel.bind('task-status-updated', (data: { taskId: number; status: string }) => {
-    console.log("📍 [실시간] 테스크 상태 변경 감지!", data);
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-    });
+    teamChannel.bind(
+      'task-status-updated',
+      (data: { taskId: number; status: string }) => {
+        console.log('📍 [실시간] 테스크 상태 변경 감지!', data);
+        queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      },
+    );
 
     // pusher 리스너 - 개인별 테스크 할당 알림
     userChannel.bind('new-task-requested', (data: NewTaskNotification) => {
-    console.log("🔔 나에게 온 새 업무 신호 수신:", data);
-    
-    // 나에게 할당된 요청 알림 - 추후에 토스트 알림으로 변경할 예정
-    alert(data.message);
+      console.log('🔔 나에게 온 새 업무 신호 수신:', data);
 
-    queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-    queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
-  });
+      // 나에게 할당된 요청 알림 - 추후에 토스트 알림으로 변경할 예정
+      alert(data.message);
 
-  return () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+    });
+
+    return () => {
       pusher.unsubscribe(`team-${activeTeamId}`);
       pusher.unsubscribe(`user-${currentUser.uuid}`);
     };
   }, [activeTeamId, currentUser, queryClient]);
 
-useEffect(() => {
-  // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
-  if (!selectedTicketId) return;
+  useEffect(() => {
+    // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
+    if (!selectedTicketId) return;
 
-  console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
-  const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
+    console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
+    const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
 
-  taskChannel.bind('new-comment', (data: PusherCommentData) => {
-    console.log("💬 [Pusher] 실시간 댓글 이벤트 발생!", data);
-    // 💡 여기서 invalidateQueries를 호출해야 위 useMemo가 다시 작동합니다.
-    queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
-  });
+    taskChannel.bind('new-comment', (data: PusherCommentData) => {
+      console.log('💬 [Pusher] 실시간 댓글 이벤트 발생!', data);
+      // 💡 여기서 invalidateQueries를 호출해야 위 useMemo가 다시 작동합니다.
+      queryClient.invalidateQueries({
+        queryKey: ['ticketDetail', selectedTicketId],
+      });
+    });
 
-  return () => {
-    pusher.unsubscribe(`task-${selectedTicketId}`);
-    taskChannel.unbind_all();
-  };
-}, [selectedTicketId, queryClient]);
+    return () => {
+      pusher.unsubscribe(`task-${selectedTicketId}`);
+      taskChannel.unbind_all();
+    };
+  }, [selectedTicketId, queryClient]);
 
   // 댓글 수정 핸들러
   const onUpdateComment = async (commentId: number, text: string) => {
     /* 수정 로직 */
     const response = await updateCommentApi(commentId, text);
     if (response.success) {
-      queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
+      queryClient.invalidateQueries({
+        queryKey: ['ticketDetail', selectedTicketId],
+      });
     }
   };
 
@@ -269,97 +273,132 @@ useEffect(() => {
     /* 삭제 로직 */
     const response = await DeleteCommentApi(commentId);
     if (response.success) {
-      queryClient.invalidateQueries({ queryKey: ['ticketDetail', selectedTicketId] });
+      queryClient.invalidateQueries({
+        queryKey: ['ticketDetail', selectedTicketId],
+      });
     }
   };
 
   // teams 변수를 서버 데이터로부터 생성
   const teams = useMemo(() => {
-    return teamListData?.data ? teamListData.data.map(convertTeam) : [INITIAL_TEAM];
+    return teamListData?.data
+      ? teamListData.data.map(convertTeam)
+      : [INITIAL_TEAM];
   }, [teamListData]);
 
   // 현재 활성화된 팀 객체를 실시간으로 찾아 유지
   const activeTeam = useMemo(() => {
     if (!teamListData?.data || !activeTeamId) return null;
-    const rawTeam = teamListData.data.find((t: TeamFromApi) => String(t.id) === String(activeTeamId));
+    const rawTeam = teamListData.data.find(
+      (t: TeamFromApi) => String(t.id) === String(activeTeamId),
+    );
     if (!rawTeam) return null;
 
     // 기본 구조 변환 (Team 객체 초기화)
     const baseTeam = convertTeam(rawTeam);
 
     if (ticketData?.success && ticketData.data.tasks) {
-      baseTeam.tickets = ticketData.data.tasks.map((task: TaskBaseFromApi): Ticket => {
-        const isSelected = selectedTicketId !== null && Number(task.id) === Number(selectedTicketId);
+      baseTeam.tickets = ticketData.data.tasks.map(
+        (task: TaskBaseFromApi): Ticket => {
+          const isSelected =
+            selectedTicketId !== null &&
+            Number(task.id) === Number(selectedTicketId);
 
-        // 상세 데이터 타입 캐스팅
-        const detailMatch = detailData?.success && String(detailData.data.id) === String(task.id);
-        const currentDetail = detailMatch ? detailData.data : null;
+          // 상세 데이터 타입 캐스팅
+          const detailMatch =
+            detailData?.success &&
+            String(detailData.data.id) === String(task.id);
+          const currentDetail = detailMatch ? detailData.data : null;
 
-        let serverComments: TaskComment[] = [];
-        
-        if (isSelected && currentDetail && 'comments' in currentDetail) {
-          serverComments = currentDetail.comments.map((c: TaskCommentFromApi): TaskComment => ({
-            id: c.id,
-            user: c.user.name,
-            text: c.content,
-            time: new Date(c.created_at).toLocaleTimeString('ko-KR', { hour12: false }),
-          }));
-        }
+          let serverComments: TaskComment[] = [];
 
-        return {
-          id: task.id,
-          task_number: task.task_number,
-          title: task.title,
-          content: task.content,
-          status: task.status || 'Todo',
-          requester: task.requester_name,
-          worker: task.worker_name,
-          worker_id: String(task.worker_id),
-          createdAt: task.created_at?.split('T')[0] || '',
-          comments: serverComments,
-        };
-      });
+          if (isSelected && currentDetail && 'comments' in currentDetail) {
+            serverComments = currentDetail.comments.map(
+              (c: TaskCommentFromApi): TaskComment => ({
+                id: c.id,
+                user: c.user.name,
+                text: c.content,
+                time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
+                  hour12: false,
+                }),
+              }),
+            );
+          }
+
+          return {
+            id: task.id,
+            task_number: task.task_number,
+            title: task.title,
+            content: task.content,
+            status: task.status || 'Todo',
+            requester: task.requester_name,
+            worker: task.worker_name,
+            worker_id: String(task.worker_id),
+            createdAt: task.created_at?.split('T')[0] || '',
+            comments: serverComments,
+          };
+        },
+      );
     }
 
     // 로그 조립
     if (logData?.success && Array.isArray(logData.data)) {
-      baseTeam.logs = logData.data.map((log: { id: number; task_id: number; user: { name: string }; message: string; created_at: string; action_type: string }) => ({
-        id: log.id,
-        ticketId: log.task_id,
-        user: log.user.name,
-        action: log.message,
-        time: new Date(log.created_at).toLocaleTimeString('ko-KR', { hour12: false }),
-        type: getLogDisplayType(log.action_type, log.message),
-      }));
+      baseTeam.logs = logData.data.map(
+        (log: {
+          id: number;
+          task_id: number;
+          user: { name: string };
+          message: string;
+          created_at: string;
+          action_type: string;
+        }) => ({
+          id: log.id,
+          ticketId: log.task_id,
+          user: log.user.name,
+          action: log.message,
+          time: new Date(log.created_at).toLocaleTimeString('ko-KR', {
+            hour12: false,
+          }),
+          type: getLogDisplayType(log.action_type, log.message),
+        }),
+      );
     }
 
     // 아카이브(링크/문서) 데이터 조립 추가
     const rawLinks = linkData?.data || [];
     const rawDocs = docData?.data || [];
-    baseTeam.links = [...rawLinks, ...rawDocs].sort((a, b) => 
-      (b.created_at || '').localeCompare(a.created_at || '')
-    ).map((link: TeamLink) => ({
-      id: link.id,
-      type: link.type,
-      title: link.title,
-      content: link.content,
-      createdAt: link.createdAt,
-    }));
+    baseTeam.links = [...rawLinks, ...rawDocs]
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+      .map((link: TeamArchiveData) => ({
+        id: link.id,
+        type: link.type,
+        title: link.title,
+        content: link.content,
+        created_at: link.created_at,
+      }));
 
-    // 아카이브 회의록 로컬 처리
-    baseTeam.notes = localNotes[activeTeamId] || [];
+    // 아카이브 회의록 데이터 조립
+
+    baseTeam.notes =
+      noteData?.data.map((note: TeamArchiveData) => ({
+        id: note.id,
+        type: note.type,
+        title: note.title,
+        content: note.content,
+        created_at: note.created_at,
+      })) || [];
 
     return baseTeam;
   }, [
-    activeTeamId, 
-    teamListData, 
-    ticketData, 
-    logData, 
+    activeTeamId,
+    teamListData,
+    ticketData,
+    logData,
     detailData,
     selectedTicketId,
     linkData,
     docData,
-    localNotes
+    noteData,
   ]);
 
   // 현재 유저가 참여 중인 팀 목록
@@ -406,23 +445,22 @@ useEffect(() => {
   };
 
   const joinTeam = async (teamId: string, password: string) => {
-  if (!currentUser) return { ok: false, message: '유저 정보가 없습니다.' };
+    if (!currentUser) return { ok: false, message: '유저 정보가 없습니다.' };
 
-  try {
-    // 받아온 teamId와 password를 API 함수에 전달하여 사용
-    const response = await joinTeamApi(String(teamId), { 
-      password,
-      userId: Number(currentUser.id) // 현재 유저의 ID 전달
-    });
+    try {
+      // 받아온 teamId와 password를 API 함수에 전달하여 사용
+      const response = await joinTeamApi(String(teamId), {
+        password,
+        userId: Number(currentUser.id), // 현재 유저의 ID 전달
+      });
 
       if (response.success) {
         // 가입 성공 시 서버의 팀 목록을 새로고침
         await queryClient.invalidateQueries({ queryKey: ['teams'] });
         return { ok: true, message: '팀 가입이 완료되었습니다.' };
       }
-      
-      return { ok: false, message: response.error || '가입에 실패했습니다.' };
 
+      return { ok: false, message: response.error || '가입에 실패했습니다.' };
     } catch (error: unknown) {
       console.error('팀 가입 중 오류:', error);
       return { ok: false, message: '서버 통신 중 오류가 발생했습니다.' };
@@ -444,8 +482,12 @@ useEffect(() => {
     try {
       const response = await apiMap[actionType](taskId);
       if (response.data?.success) {
-        await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-        await queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+        await queryClient.invalidateQueries({
+          queryKey: ['tickets', activeTeamId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['logs', activeTeamId],
+        });
         return { ok: true };
       }
     } catch (error: unknown) {
@@ -457,19 +499,21 @@ useEffect(() => {
   const handleDeleteTicketApi = async (ticketId: number) => {
     console.log(`[삭제 시도] 티켓:${ticketId}, 활성팀:${activeTeamId}`);
 
-  try {
-    const response = await deleteTicketApi(ticketId);
+    try {
+      const response = await deleteTicketApi(ticketId);
 
-    if (response.success) {
-      await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      
-      return { ok: true };
+      if (response.success) {
+        await queryClient.invalidateQueries({
+          queryKey: ['tickets', activeTeamId],
+        });
+
+        return { ok: true };
+      }
+      return { ok: false, message: response.error || '삭제 권한이 없습니다.' };
+    } catch {
+      return { ok: false, message: '서버에서 권한을 거부했습니다.' };
     }
-    return { ok: false, message: response.error || "삭제 권한이 없습니다." };
-  } catch {
-    return { ok: false, message: "서버에서 권한을 거부했습니다." };
-  }
-};
+  };
 
   /**
    * [기능] createTeam: 새 팀 생성
@@ -501,14 +545,15 @@ useEffect(() => {
       return { ok: false, message: '이미 존재하는 팀 이름입니다.' };
     }
 
-    console.log("팀 생성 시도:", { teamName, teamPassword });
-    
+    console.log('팀 생성 시도:', { teamName, teamPassword });
+
     // 성공했다고 가정하고 서버 데이터 새로고침
     await queryClient.invalidateQueries({ queryKey: ['teams'] });
 
     return {
       ok: true,
-      message: '팀이 생성되었습니다. (서버 연동 시 자동으로 목록에 나타납니다.)',
+      message:
+        '팀이 생성되었습니다. (서버 연동 시 자동으로 목록에 나타납니다.)',
     };
   };
 
@@ -534,8 +579,12 @@ useEffect(() => {
       });
 
       if (response.success) {
-        await queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-        await queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+        await queryClient.invalidateQueries({
+          queryKey: ['tickets', activeTeamId],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: ['logs', activeTeamId],
+        });
         console.log('✅ 티켓 생성 성공 및 데이터 동기화 완료');
       }
     } catch (error: unknown) {
@@ -550,28 +599,34 @@ useEffect(() => {
   const handleAddComment = async (ticketId: number, text: string) => {
     if (!text || !currentUser || !activeTeamId) return false;
 
-  console.log(`🚀 [댓글전송] ${ticketId}번 테스크에 댓글 작성 시도: "${text}"`);
+    console.log(
+      `🚀 [댓글전송] ${ticketId}번 테스크에 댓글 작성 시도: "${text}"`,
+    );
 
-  try {
-    const response = await createCommentApi(ticketId, text); 
+    try {
+      const response = await createCommentApi(ticketId, text);
 
-    if (response.success) {
-      console.log("✅ [서버응답] 댓글 저장 완료. 데이터를 새로고침합니다.");
-      
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['ticketDetail', ticketId] }),
-        queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] }),
-        queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] })
-      ]);
-      
-      return true;
+      if (response.success) {
+        console.log('✅ [서버응답] 댓글 저장 완료. 데이터를 새로고침합니다.');
+
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ['ticketDetail', ticketId],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ['tickets', activeTeamId],
+          }),
+          queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] }),
+        ]);
+
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('❌ [에러] 댓글 작성 실패:', error);
+      return false;
     }
-    return false;
-  } catch (error) {
-    console.error("❌ [에러] 댓글 작성 실패:", error);
-    return false;
-  }
-};
+  };
 
   /**
    * [기능] leaveTeam: 현재 유저를 팀 멤버 목록에서 제거
@@ -584,10 +639,10 @@ useEffect(() => {
   // 내 포지션 수정
   const handleEditPosition = async (newPosition: string) => {
     if (!activeTeamId || !currentUser) return;
-    
+
     try {
       console.log(`포지션 변경 시도: ${newPosition}`);
-      await queryClient.invalidateQueries({ queryKey: ['teams'] });      
+      await queryClient.invalidateQueries({ queryKey: ['teams'] });
     } catch (error: unknown) {
       console.error('포지션 수정 실패:', error);
     }
@@ -596,26 +651,59 @@ useEffect(() => {
   // 아카이브 > 퀵 링크 생성
   const handleCreateQuickLink = async () => {
     // 💡 setTeams 삭제 -> API 호출 후 invalidateQueries(['linkData']) 사용
-    await queryClient.invalidateQueries({ queryKey: ['linkData', activeTeamId] });
+    await queryClient.invalidateQueries({
+      queryKey: ['linkData', activeTeamId],
+    });
   };
 
   // 아카이브 > 퀵 링크 삭제
   const handleDeleteQuickLink = async (linkId: number) => {
     await deleteQuickLinkApi(linkId);
-    await queryClient.invalidateQueries({ queryKey: ['linkData', activeTeamId] });
+    await queryClient.invalidateQueries({
+      queryKey: ['linkData', activeTeamId],
+    });
   };
 
   // 아카이브 > 문서 생성
   const handleCreateDoc = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['docData', activeTeamId] });
+    await queryClient.invalidateQueries({
+      queryKey: ['docData', activeTeamId],
+    });
   };
 
   // 아카이브 > 문서 삭제 (링크 삭제와 동일하게 처리)
   const handleDeleteDoc = async (docId: number) => {
     await deleteDocApi(docId);
-    await queryClient.invalidateQueries({ queryKey: ['docData', activeTeamId] });
+    await queryClient.invalidateQueries({
+      queryKey: ['docData', activeTeamId],
+    });
   };
 
+  // 회의록 생성
+  const createNote = async (data: NoteRequest) => {
+    await createNoteApi(Number(activeTeamId), data);
+
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
+
+  // 회의록 수정
+  const editNote = async (noteId: number, data: NoteRequest) => {
+    await editNoteApi(noteId, data);
+
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
+
+  // 회의록 삭제
+  const deleteNote = async (noteId: number) => {
+    await deleteNoteApi(noteId);
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
   return {
     currentUser,
@@ -646,6 +734,8 @@ useEffect(() => {
     handleDeleteQuickLink,
     handleCreateDoc,
     handleDeleteDoc,
-    createNote
+    createNote,
+    editNote,
+    deleteNote,
   };
 };

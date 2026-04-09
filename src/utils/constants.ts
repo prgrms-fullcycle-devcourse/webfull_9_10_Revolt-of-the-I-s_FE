@@ -117,7 +117,8 @@ export const INITIAL_TEAM: Team = {
     {
       id: 1, // DB의 PK와 매칭됨
       title: 'API 명세서 수정 요청',
-      content: '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
+      content:
+        '로그인 시 반환되는 JWT 토큰에 유저 권한 정보 추가가 필요합니다.',
       requester: '영아',
       worker: '민수',
       status: 'Doing',
@@ -143,7 +144,7 @@ export const INITIAL_TEAM: Team = {
         },
       ],
       task_number: 0,
-      worker_id: ""
+      worker_id: '',
     },
     {
       id: 2,
@@ -155,7 +156,7 @@ export const INITIAL_TEAM: Team = {
       createdAt: '2026.03.11 11:30',
       comments: [],
       task_number: 1,
-      worker_id: ""
+      worker_id: '',
     },
   ],
   logs: [
@@ -173,8 +174,8 @@ export const INITIAL_TEAM: Team = {
       id: 1,
       title: '주간 회의록 (03.11)',
       content: '### 결정 사항\n- MVP 기능 확정\n- 이번주 UI 완성',
-      author: '영아',
-      date: '2026.03.11',
+      type: 'NOTE',
+      created_at: '2026.03.11',
     },
   ],
   links: [
@@ -183,15 +184,15 @@ export const INITIAL_TEAM: Team = {
       title: 'API 명세 링크',
       content:
         'https://www.notion.so/i-Station-API-ver2-3263c7fd06d980709274d7582b66cf0b?source=copy_link',
-      type: 'links',
-      createdAt: '2026.03.11',
+      type: 'LINK',
+      created_at: '2026.03.11',
     },
     {
       id: 2,
       title: '기획서 (Notion)입니다 반드시 확인해주세요',
       content: 'https://notion.so',
-      type: 'documents',
-      createdAt: '2026.03.11',
+      type: 'PDF',
+      created_at: '2026.03.11',
     },
   ],
 
