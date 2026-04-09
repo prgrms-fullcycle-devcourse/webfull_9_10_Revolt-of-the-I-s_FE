@@ -34,6 +34,7 @@ import {
 import {
   createNoteApi,
   deleteDocApi,
+  deleteNoteApi,
   deleteQuickLinkApi,
   editNoteApi,
   getDocApi,
@@ -695,6 +696,14 @@ export const useTeams = (
       queryKey: ['noteData', activeTeamId],
     });
   };
+
+  // 회의록 삭제
+  const deleteNote = async (noteId: number) => {
+    await deleteNoteApi(noteId);
+    await queryClient.invalidateQueries({
+      queryKey: ['noteData', activeTeamId],
+    });
+  };
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
   return {
     currentUser,
@@ -727,5 +736,6 @@ export const useTeams = (
     handleDeleteDoc,
     createNote,
     editNote,
+    deleteNote,
   };
 };

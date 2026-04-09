@@ -60,6 +60,7 @@ export default function App() {
     createNote,
     leaveTeam,
     editNote,
+    deleteNote,
   } = useTeams(currentUser, selectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -93,6 +94,7 @@ export default function App() {
     activeTeam?.tickets.find((t) => t.id === selectedTicketId) ?? null;
 
   // 회의록 상태
+  const [isNotePending, setIsNotePending] = useState<boolean>(false);
   const [selectedNote, setSelectedNote] = useState<TeamArchiveData | null>(
     null,
   );
@@ -426,13 +428,23 @@ export default function App() {
   };
 
   // 회의록 기록
-  const handleCreateNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    createNote(noteData);
+    if (isNotePending) return;
+    setIsNotePending(true);
 
-    setActiveModal(null);
-    setNoteData({ title: '', content: '' });
+    try {
+      await createNote(noteData);
+
+      alert('회의록이 성공적으로 기록되었습니다.');
+      setActiveModal(null);
+      setNoteData({ title: '', content: '' });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsNotePending(false);
+    }
   };
 
   const handleOpenUpdateNoteModal = (note: TeamArchiveData) => {
@@ -456,6 +468,23 @@ export default function App() {
       console.log(error);
     } finally {
       setIsEditNotePending(false);
+    }
+  };
+
+  // 회의록 삭제
+  const handleDeleteNote = async (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    const noteId = selectedNote?.id;
+    if (!noteId) return;
+
+    try {
+      await deleteNote(noteId);
+      alert('회의록이 성공적으로 삭제되었습니다.');
+      setSelectedNote(null);
+    } catch (error) {
+      console.log(error);
+      alert('회의록 삭제에 실패했습니다.');
     }
   };
 
@@ -1157,16 +1186,16 @@ export default function App() {
 
           <div className="flex justify-between">
             <button
+              onClick={(e) => handleDeleteNote(e)}
+              className="px-4 py-4 bg-red-100 hover:bg-red-200 text-red-500 rounded-2xl font-bold cursor-pointer"
+            >
+              회의록 삭제
+            </button>
+            <button
               onClick={() => handleOpenUpdateNoteModal(selectedNote)}
               className="px-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer"
             >
               회의록 수정
-            </button>
-            <button
-              onClick={() => setSelectedNote(null)}
-              className="px-4 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold cursor-pointer"
-            >
-              확인 완료
             </button>
           </div>
         </Modal>
