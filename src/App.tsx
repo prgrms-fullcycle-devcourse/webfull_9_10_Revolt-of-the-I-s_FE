@@ -138,6 +138,10 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDocPending, setIsDocPending] = useState<boolean>(false);
 
+  // 팀 생성 비밀번호 상태
+  const [createTeamPassword, setCreateTeamPassword] = useState('');
+  const [showCreateTeamPassword, setShowCreateTeamPassword] = useState(false);
+
   // 보안 인증 입력 상태
   const [authPassword, setAuthPassword] = useState<string[]>(Array(6).fill(''));
   const [authError, setAuthError] = useState('');
@@ -153,7 +157,7 @@ export default function App() {
   const [isAuthManualEditing, setIsAuthManualEditing] = useState(false);
 
   // 보안 인증 숫자 표시 여부
-  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(true);
 
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
@@ -189,12 +193,9 @@ export default function App() {
     onSuccess: (data) => {
       if (data && (data.success || data.data)) {
         console.log('팀 입장 성공!');
-
-        // 인증 성공 시 처리 로직
         if (pendingTeamId) {
           setActiveTeamId(pendingTeamId);
         }
-
         queryClient.invalidateQueries({ queryKey: ['teams'] });
         setIsTeamAuthorized(true);
         localStorage.setItem('isTeamAuthorized', 'true');
@@ -203,10 +204,9 @@ export default function App() {
         setAuthError('');
         setAuthCursorIndex(0);
         setShowAuthPassword(false);
-        setIsAuthManualEditing(false); // 수정 모드 초기화
-        setPendingTeamId(null); // 인증 후에는 pendingTeamId 초기화
+        setIsAuthManualEditing(false);
+        setPendingTeamId(null);
       } else {
-        // 서버에서 200~299 사이 코드를 줬지만 내용은 에러인 경우
         setAuthError(data?.error || '비밀번호가 일치하지 않습니다.');
       }
     },
@@ -221,17 +221,27 @@ export default function App() {
   const { data: userData, isLoading: isUserLoading } = useQuery({
     queryKey: ['myInfo'],
     queryFn: getMyInfoApi,
-    staleTime: Infinity, // 앱이 켜져 있는 동안은 다시 부르지 않음 (중복 호출 방지)
+    staleTime: Infinity,
     gcTime: Infinity,
-    retry: false, // 로그인 안 되어 있을 때 반복 호출 방지
+    retry: false,
   });
 
   useEffect(() => {
+    console.log('userData:', userData);
+    console.log('isUserLoading:', isUserLoading);
     if (userData) {
+      const savedDisplayName = localStorage.getItem('displayName');
+      const restoredName =
+        userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
+
+      if (userData.name) {
+        localStorage.setItem('displayName', userData.name);
+      }
+
       setCurrentUser({
         id: userData.id || Date.now(),
         uuid: userData.uuid,
-        name: userData.name || 'Unknown',
+        name: restoredName,
         avatar: userData.avatar || '',
         email: userData.email || '',
         phone: userData.phone || '',
@@ -269,15 +279,18 @@ export default function App() {
     e.preventDefault();
     if (!currentUser) return;
     const formData = new FormData(e.currentTarget);
+
     createTeamMutation.mutate({
       name: formData.get('teamName') as string,
-      pin_password: formData.get('teamPassword') as string,
+      pin_password: createTeamPassword,
     });
   };
 
   // 새 팀 개설 모달 닫기
   const handleCloseCreateTeamModal = () => {
     setActiveModal(null);
+    setCreateTeamPassword('');
+    setShowCreateTeamPassword(false);
   };
 
   // 보안 인증 모달 닫기
@@ -287,8 +300,8 @@ export default function App() {
     setAuthPassword(Array(6).fill(''));
     setAuthError('');
     setAuthCursorIndex(0);
-    setShowAuthPassword(false);
-    setIsAuthManualEditing(false); // 수정 모드 초기화
+    setShowAuthPassword(true);
+    setIsAuthManualEditing(false);
   };
 
   // 보안 인증 붙여넣기 처리
@@ -312,7 +325,7 @@ export default function App() {
     } else {
       setAuthCursorIndex(onlyNumber.length);
     }
-    setIsAuthManualEditing(false); // 붙여넣기는 자동 입력으로 처리
+    setIsAuthManualEditing(false);
     if (authError) setAuthError('');
   };
 
@@ -320,7 +333,6 @@ export default function App() {
   const handleFocusAuthInput = () => {
     authInputRef.current?.focus();
 
-    // 비어있는 첫 칸으로 자동 이동
     const firstEmptyIndex = authPassword.findIndex((digit) => digit === '');
     if (firstEmptyIndex === -1) {
       setAuthCursorIndex(5);
@@ -328,7 +340,7 @@ export default function App() {
       setAuthCursorIndex(firstEmptyIndex);
     }
 
-    setIsAuthManualEditing(false); // 전체 영역 클릭은 자동 입력으로 처리
+    setIsAuthManualEditing(false);
   };
 
   // 보안 인증 클릭한 칸으로 커서 이동
@@ -339,7 +351,7 @@ export default function App() {
     e.preventDefault();
     authInputRef.current?.focus();
     setAuthCursorIndex(index);
-    setIsAuthManualEditing(true); // 클릭해서 들어간 경우만 수정 모드
+    setIsAuthManualEditing(true);
   };
 
   // 보안 인증 숫자/백스페이스 입력 처리
@@ -359,7 +371,7 @@ export default function App() {
         setAuthCursorIndex(authCursorIndex - 1);
       }
 
-      setIsAuthManualEditing(true); // 지우기는 수정 동작으로 처리
+      setIsAuthManualEditing(true);
       if (authError) setAuthError('');
       return;
     }
@@ -370,7 +382,7 @@ export default function App() {
       nextPassword[authCursorIndex] = '';
       setAuthPassword(nextPassword);
 
-      setIsAuthManualEditing(true); // 삭제는 수정 동작으로 처리
+      setIsAuthManualEditing(true);
       if (authError) setAuthError('');
       return;
     }
@@ -378,14 +390,14 @@ export default function App() {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.max(prev - 1, 0));
-      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
+      setIsAuthManualEditing(true);
       return;
     }
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       setAuthCursorIndex((prev) => Math.min(prev + 1, 5));
-      setIsAuthManualEditing(true); // 방향키 이동 후 수정 가능
+      setIsAuthManualEditing(true);
       return;
     }
 
@@ -399,8 +411,6 @@ export default function App() {
     const nextPassword = [...authPassword];
     const isComplete = nextPassword.every((digit) => digit !== '');
 
-    // 6자리가 이미 다 찬 상태에서는,
-    // 사용자가 직접 칸을 클릭해서 수정 중일 때만 덮어쓰기 허용
     if (isComplete && !isAuthManualEditing) {
       return;
     }
@@ -410,10 +420,10 @@ export default function App() {
 
     if (authCursorIndex < 5 && nextPassword[authCursorIndex + 1] === '') {
       setAuthCursorIndex(authCursorIndex + 1);
-      setIsAuthManualEditing(false); // 일반 입력은 다음 칸으로 자동 이동
+      setIsAuthManualEditing(false);
     } else if (authCursorIndex < 5 && !isComplete) {
       setAuthCursorIndex(authCursorIndex + 1);
-      setIsAuthManualEditing(false); // 자동 입력 흐름 유지
+      setIsAuthManualEditing(false);
     }
 
     if (authError) setAuthError('');
@@ -525,7 +535,6 @@ export default function App() {
         console.log('API 호출 실패 :', error.message);
         alert(error.message || '링크 생성에 실패했습니다.');
       } else {
-        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
         console.log('알 수 없는 에러 발생 :', error);
         alert('링크 생성에 실패했습니다.');
       }
@@ -562,7 +571,6 @@ export default function App() {
         console.log('API 호출 실패 :', error.message);
         alert(error.message || '링크 삭제에 실패했습니다.');
       } else {
-        // 에러 객체가 아닐 경우(문자열 등이 던져질 때) 대비
         console.log('알 수 없는 에러 발생 :', error);
         alert('링크 삭제에 실패했습니다.');
       }
@@ -639,10 +647,8 @@ export default function App() {
       return;
     console.log('탈퇴 시작 - 팀 ID:', teamId);
     try {
-      // 훅에 있는 leaveTeam 실행 (내부적으로 API 호출 및 쿼리 무효화 처리)
       await leaveTeam();
 
-      // UI 상태 초기화
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
       setView('dashboard');
@@ -667,17 +673,14 @@ export default function App() {
         position: myPosition,
       };
 
-      // API 호출하여 포지션 변경
       const { success } = await editMemberPositionApi(
         Number(activeTeamId),
         editPositionData,
       );
 
-      // 요청이 성공하면 teams 상태 업데이트하기
       handleEditPosition(myPosition);
       console.log('포지션 수정 성공 결과', success);
 
-      // 모달 닫기
       setActiveModal(null);
       alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
     } catch (error: unknown) {
@@ -713,8 +716,8 @@ export default function App() {
       setAuthPassword(Array(6).fill(''));
       setAuthError('');
       setAuthCursorIndex(0);
-      setIsAuthManualEditing(false); // 수정 모드 초기화
-      setShowAuthPassword(false);
+      setIsAuthManualEditing(false);
+      setShowAuthPassword(true);
       setAuthPage('login');
     } catch (error) {
       console.log(error);
@@ -736,11 +739,12 @@ export default function App() {
   if (!currentUser) {
     return authPage === 'login' ? (
       <Login
+        key="login"
         setCurrentUser={setCurrentUser}
         goSignup={() => setAuthPage('signup')}
       />
     ) : (
-      <Signup goLogin={() => setAuthPage('login')} />
+      <Signup key="signup" goLogin={() => setAuthPage('login')} />
     );
   }
 
@@ -833,14 +837,35 @@ export default function App() {
             className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
             placeholder="팀 이름"
           />
-          <input
-            name="teamPassword"
-            type="password"
-            required
-            maxLength={6} // 팀 비밀번호는 6자리까지만 입력 가능
-            className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
-            placeholder="비밀번호"
-          />
+          {/* 팀 비밀번호 6자리 숫자 입력 + 보기/숨기기 */}
+          <div className="space-y-2">
+            <div className="relative">
+              <input
+                name="teamPassword"
+                type={showCreateTeamPassword ? 'text' : 'password'}
+                inputMode="numeric"
+                required
+                maxLength={6}
+                value={createTeamPassword}
+                onChange={(e) =>
+                  setCreateTeamPassword(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                className="hide-password-toggle w-full px-5 py-4 pr-12 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
+                placeholder="비밀번호 6자리"
+                title="팀 비밀번호는 숫자 6자리로 입력해주세요."
+              />
+              <button
+                type="button"
+                onClick={() => setShowCreateTeamPassword((prev) => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {showCreateTeamPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 font-medium">
+              팀 비밀번호는 숫자 6자리로 입력해주세요.
+            </p>
+          </div>
           <button
             type="submit"
             className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
@@ -870,7 +895,7 @@ export default function App() {
                 비밀번호를 입력하세요
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                6자리 숫자를 입력해주세요
+                6자리 숫자가 각 칸에 그대로 표시됩니다.
               </p>
             </div>
             <button

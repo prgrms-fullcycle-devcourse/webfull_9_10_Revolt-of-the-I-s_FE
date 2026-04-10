@@ -11,63 +11,16 @@ interface LoginProps {
   goSignup: () => void
 }
 
-// 구글 SDK 응답 타입
-interface GoogleCredentialResponse {
-  credential: string
-}
-
-// 구글 accounts.id 타입
-interface GoogleAccountsId {
-  initialize: (config: {
-    client_id: string
-    callback: (response: GoogleCredentialResponse) => void
-  }) => void
-  renderButton: (
-    parent: HTMLElement,
-    options: {
-      type?: string
-      theme?: string
-      size?: string
-      text?: string
-      shape?: string
-      width?: number
-      logo_alignment?: string
-    }
-  ) => void
-}
-
-// window.google 타입
-interface GoogleWindow {
-  accounts: {
-    id: GoogleAccountsId
-  }
-}
-
-declare global {
-  interface Window {
-    google: GoogleWindow
-    // 구글 SDK 전역 초기화 여부 저장
-    __googleGsiInitialized?: boolean
-    // 현재 페이지에서 사용할 구글 콜백 저장
-    __googleGsiCallback?: (response: GoogleCredentialResponse) => void
-  }
-}
-
 export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
   // --- [1] 상태 관리 (Form State) ---
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  // 구글 버튼이 그려질 영역 ref
-  const googleButtonRef = useRef<HTMLDivElement | null>(null)
+  // 구글 로그인 중복 호출 방지용 pending ref
+  const googleLoginPendingRef = useRef(false)
 
-  // 구글 버튼 렌더링 ref
-  const googleInitializedRef = useRef(false)
-
-  // 구글 로그인 콜백을 ref에 저장해서 입력할 때 버튼이 다시 렌더링되지 않게 함
-  const googleLoginHandlerRef = useRef<
-    ((response: GoogleCredentialResponse) => void) | null
-  >(null)
+  // googleLoginMutation.mutate를 ref로 분리 → 의존성 없이 최신 함수 참조
+  const googleLoginMutateRef = useRef<((data: { googleToken: string }) => void) | null>(null)
 
   // --- [2] 유효성 검사 (Simple Validation) ---
   // 이메일과 비밀번호가 비어있지 않은지 확인 (공백 제거 후 체크)
@@ -79,14 +32,18 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
 
   // 로그인 성공 시 공통으로 유저 저장
   const saveUser = (
-  user: { uuid: string; name: string; profile_image: string | null },
-  userEmail: string
+    user: { uuid: string; name: string; profile_image: string | null },
+    userEmail: string
   ) => {
     const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
 
+    // 새로고침 후에도 이름 유지용 저장
+    const displayName = user.name || userEmail.split('@')[0] || '사용자'
+    localStorage.setItem('displayName', displayName)
+
     setCurrentUser({
       uuid: user.uuid,
-      name: user.name,
+      name: displayName,
       position: '',
       avatar: user.profile_image || randomAvatar,
       email: userEmail,
@@ -126,26 +83,50 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     mutationFn: googleAuthApi,
 
     onSuccess: async (data) => {
+      // API 완료 시 pending ref 해제
+      googleLoginPendingRef.current = false
+
       if (!data.success) {
         alert(data.error || '구글 로그인에 실패했습니다.')
         return
       }
 
+      // 신규 유저면 회원가입 페이지로 이동
+      if (data.isNewUser && data.data?.user) {
+        sessionStorage.setItem(
+          'googleSignupUser',
+          JSON.stringify({
+            email: data.data.user.email,
+            googleUid: data.data.user.google_uid,
+          })
+        )
+
+        alert('추가 정보 입력 후 회원가입을 완료해주세요.')
+        goSignup()
+        return
+      }
+
+      // 기존 유저면 로그인 완료 처리
       try {
         const user = await getMyInfoApi()
 
+        // 구글 로그인 응답 이름을 새로고침용으로도 저장
+        const googleUser = data.data?.user
+        const displayName =
+          user.name || googleUser?.name || user.email?.split('@')[0] || '사용자'
+
+        localStorage.setItem('displayName', displayName)
+
         setCurrentUser({
-        // 숫자 id는 숫자일 때만 사용
-        id: typeof user.id === 'number' ? user.id : undefined,
-        // 문자열 uuid는 uuid 필드에 저장
-        uuid: user.uuid || '',
-        name: user.name || '',
-        position: user.position || '',
-        avatar: user.avatar || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        github: user.github || '',
-      })
+          id: typeof user.id === 'number' ? user.id : undefined,
+          uuid: user.uuid || '',
+          name: displayName,
+          position: user.position || '',
+          avatar: user.avatar || '',
+          email: user.email || googleUser?.email || '',
+          phone: user.phone || '',
+          github: user.github || '',
+        })
 
         alert('구글 로그인 성공')
       } catch {
@@ -153,8 +134,10 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
       }
     },
 
-    // 구글 로그인 실패
     onError: (error) => {
+      // API 실패 시 pending ref 해제
+      googleLoginPendingRef.current = false
+
       if (axios.isAxiosError(error)) {
         alert(error.response?.data?.error || '구글 로그인에 실패했습니다.')
         return
@@ -164,21 +147,10 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     },
   })
 
-  // 구글 로그인 토큰 전달 함수를 ref에 저장해서 입력 시 effect 재실행을 막음
+  // mutate 함수를 ref에 동기화 (매 렌더마다 최신 mutate 유지)
   useEffect(() => {
-    googleLoginHandlerRef.current = (response: GoogleCredentialResponse) => {
-      // 토큰이 없으면 종료
-      if (!response.credential) {
-        alert('구글 토큰을 받지 못했습니다.')
-        return
-      }
-
-      // 서버에 구글 토큰 전달
-      googleLoginMutation.mutate({
-        googleToken: response.credential,
-      })
-    }
-  }, [googleLoginMutation])
+    googleLoginMutateRef.current = googleLoginMutation.mutate
+  }, [googleLoginMutation.mutate])
 
   // --- [4] 이벤트 핸들러 ---
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -191,58 +163,38 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     })
   }
 
-    useEffect(() => {
-    // 구글 SDK 없으면 종료
+  // 구글 버튼 클릭 �핸들러
+  const handleGoogleLogin = () => {
     if (!window.google) return
-
-    // 버튼 영역 저장
-    const googleButton = googleButtonRef.current
-
-    // 버튼 영역 없으면 종료
-    if (!googleButton) return
-
-    // 클라이언트 ID 없으면 종료
+    if (googleLoginPendingRef.current) return
     if (!googleClientId) return
 
-    // 현재 페이지에서 사용할 콜백 저장
-    window.__googleGsiCallback = (response: GoogleCredentialResponse) => {
-      googleLoginHandlerRef.current?.(response)
-    }
+    // initialize 전 cancel() 호출 → 이전 세션/자동로그인 완전 정리 (콜백 2중 실행 방지 핵심)
+    window.google.accounts.id.cancel()
 
-    // 앱 전체에서 구글 SDK는 한 번만 초기화
-    if (!window.__googleGsiInitialized) {
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        // 전역 콜백을 통해 현재 페이지 콜백 실행
-        callback: (response: GoogleCredentialResponse) => {
-          window.__googleGsiCallback?.(response)
-        },
-      })
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response: { credential: string }) => {
+        if (!response.credential) {
+          alert('구글 토큰을 받지 못했습니다.')
+          return
+        }
 
-      // 전역 초기화 완료 처리
-      window.__googleGsiInitialized = true
-    }
+        // 중복 호출 방지 (pending ref 체크)
+        if (googleLoginPendingRef.current) return
+        googleLoginPendingRef.current = true
 
-    // 현재 버튼 영역 비우기
-    googleButton.innerHTML = ''
-
-    // 구글 버튼 너비를 부모 영역 기준으로 맞춰서 레이아웃 흔들림 방지
-    const buttonWidth = Math.min(googleButton.offsetWidth || 320, 320)
-
-    // 현재 페이지에 구글 로그인 버튼 다시 렌더링
-    window.google.accounts.id.renderButton(googleButton, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text: 'signin_with',
-      shape: 'pill',
-      width: buttonWidth,
-      logo_alignment: 'left',
+        // 서버에 구글 토큰 전달
+        googleLoginMutateRef.current?.({ googleToken: response.credential })
+      },
+      // auto_select 비활성화 → 자동 로그인 시도 차단 (자동+수동 2중 콜백 방지)
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      ux_mode: 'popup',
     })
 
-    // 현재 페이지 버튼 렌더링 완료 체크
-    googleInitializedRef.current = true
-  }, [googleClientId])
+    window.google.accounts.id.prompt()
+  }
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
@@ -261,7 +213,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         </div>
 
         {/* 로그인 카드 */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl min-h-130">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 이메일 입력 영역 */}
             <div className="space-y-2">
@@ -272,7 +224,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                 placeholder="mail@istation.dev"
               />
             </div>
@@ -286,7 +238,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                 placeholder="비밀번호 입력"
               />
             </div>
@@ -295,7 +247,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
             <button
               type="submit"
               disabled={!isValid || loginMutation.isPending}
-              className={`w-full font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl text-lg transition-all ${
+              className={`w-full font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl text-lg transition-colors ${
                 isValid && !loginMutation.isPending
                   ? 'bg-blue-600 hover:bg-blue-500 text-white'
                   : 'bg-slate-700 text-slate-400 cursor-not-allowed'
@@ -305,14 +257,22 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
               <ChevronRight size={20} />
             </button>
 
-            {/* 구글 공식 로그인 버튼 자리 */}
-            <div className="flex justify-center w-full">
-              {/* 구글 버튼이 카드 너비를 넘지 않게 고정 */}
-              <div
-                ref={googleButtonRef}
-                className="w-full max-w-[320px] overflow-hidden"
-              />
-            </div>
+            {/* 구글 로그인 커스텀 버튼 (클릭 시 cancel → initialize → prompt 순서로 실행) */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={googleLoginMutation.isPending}
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-full border border-gray-300 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {/* 구글 로고 SVG */}
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              {googleLoginMutation.isPending ? '로그인 중...' : 'Google로 로그인'}
+            </button>
 
             {/* 회원가입 이동 버튼 */}
             <button
