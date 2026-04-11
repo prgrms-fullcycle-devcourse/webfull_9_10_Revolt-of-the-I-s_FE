@@ -45,6 +45,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
         },
+        '/archives': {
+          target,
+          changeOrigin: true,
+          secure: true,
+        },
       },
     },
   }
