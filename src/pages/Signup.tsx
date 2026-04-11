@@ -43,11 +43,20 @@ export const Signup = ({ goLogin }: SignupProps) => {
   const [passwordCheck, setPasswordCheck] = useState('')
   const [github, setGithub] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  // 이미지가 없을 때 사용할 기본 프로필 이미지 목록
+  const DEFAULT_PROFILE_IMAGES = [
+    '/avatars/avatar1.png',
+    '/avatars/avatar2.png',
+    '/avatars/avatar3.png',
+    '/avatars/avatar4.png',
+  ]
 
   // 구글 회원가입용 임시 유저 정보
   const [googleSignupUser, setGoogleSignupUser] = useState<GoogleSignupUser | null>(
     savedGoogleUser
   )
+
+  const [profileImage, setProfileImage] = useState<File | null>(null)
 
   // 이미 가입된 구글 계정 여부 (true면 구글 버튼 숨기고 로그인 안내)
   const [isAlreadyGoogleUser, setIsAlreadyGoogleUser] = useState(false)
@@ -217,7 +226,32 @@ export const Signup = ({ goLogin }: SignupProps) => {
     setPhone(numbers)
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 첫 번째 이미지 1장만 저장
+    const file = e.target.files?.[0] || null
+    setProfileImage(file)
+  }
+
+  const getRandomProfileImageFile = async (): Promise<File | null> => {
+    try {
+      // 랜덤 이미지 하나 선택
+      const randomImage =
+        DEFAULT_PROFILE_IMAGES[
+          Math.floor(Math.random() * DEFAULT_PROFILE_IMAGES.length)
+        ]
+
+      // 이미지 파일 받아오기
+      const response = await fetch(randomImage)
+      const blob = await response.blob()
+
+      // File 객체로 변환
+      return new File([blob], 'random-profile.png', { type: blob.type })
+    } catch {
+      return null
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     const formattedPhone = `${onlyPhone.slice(0, 3)}-${onlyPhone.slice(3, 7)}-${onlyPhone.slice(7, 11)}`
@@ -244,12 +278,16 @@ export const Signup = ({ goLogin }: SignupProps) => {
     setIsAlreadyGoogleUser(false)
     setErrorMessage('')
 
+    // 사용자가 이미지를 안 골랐으면 랜덤 이미지 사용
+    const imageToUpload = profileImage || (await getRandomProfileImageFile())
+
     signupMutation.mutate({
       name: name.trim(),
       phone: formattedPhone,
       email: email.trim(),
       password,
       github_url: github.trim() || undefined,
+      profile_image: imageToUpload,
     })
   }
 
@@ -433,6 +471,21 @@ export const Signup = ({ goLogin }: SignupProps) => {
                 className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                 placeholder="https://github.com/..."
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 flex items-center gap-2">
+                <User size={12} /> 프로필 이미지 (선택)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleProfileImageChange}
+                className="w-full bg-slate-800/50 border border-white/5 rounded-2xl px-6 py-4 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <p className="text-xs text-slate-400 ml-1">
+                이미지 파일은 1장만 업로드할 수 있습니다.
+              </p>
             </div>
 
             {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}

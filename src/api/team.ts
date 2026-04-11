@@ -8,7 +8,7 @@ import type {
   LeaveTeamResponse,
 } from '../types'
 
-// GET /teams - 팀 목록 전체 조회
+// GET /teams - 팀 로비용 조회
 export const getTeamsApi = async (): Promise<GetTeamsResponse> => {
   const res = await api.get('/teams')
   return res.data
@@ -23,7 +23,7 @@ export const createTeamApi = async (
 }
 
 /**
- * POST /teams/{teamId}/members - 팀 가입/입장
+ * POST /teams/{teamId}/members/join - 팀 가입/입장
  * @param teamId - 입장할 팀 ID
  * @param data   - { password: string, userId: number } (현재 로그인한 유저 ID)
  */
@@ -31,8 +31,7 @@ export const joinTeamApi = async (
   teamId: string,
   data: JoinTeamRequest
 ): Promise<JoinTeamResponse> => {
-  // Swagger 기준 팀 가입/입장 경로로 수정
-  const res = await api.post(`/teams/${teamId}/members`, data)
+  const res = await api.post(`/teams/${teamId}/members/join`, data)
   return res.data
 }
 

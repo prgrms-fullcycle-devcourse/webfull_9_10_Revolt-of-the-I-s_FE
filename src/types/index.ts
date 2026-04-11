@@ -160,7 +160,7 @@ export interface StatusType {
   backLabel?: string; // 이전 단계 버튼 문구
 }
 
-// GET /teams API 응답 내 개별 팀원 정보
+// GET /teams 로비용 조회 응답 내 개별 팀원 정보
 export interface TeamMemberFromApi {
   id: number;
   position: string;
@@ -175,7 +175,7 @@ export interface TeamMemberFromApi {
   };
 }
 
-// GET /teams API 응답 내 개별 팀 정보
+// GET /teams 로비용 조회 응답 내 개별 팀 정보
 export interface TeamFromApi {
   id: number;
   name: string;
@@ -184,7 +184,7 @@ export interface TeamFromApi {
   members: TeamMemberFromApi[];
 }
 
-// GET /teams API 전체 응답 타입
+// GET /teams 로비용 조회 전체 응답 타입
 export interface GetTeamsResponse {
   success: boolean;
   data: TeamFromApi[] | null;
