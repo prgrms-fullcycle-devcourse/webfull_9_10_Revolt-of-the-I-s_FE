@@ -36,7 +36,7 @@ export const Sidebar = ({
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
 
   // 내 현재 상태 정보 가져오기 (기본값: 개발 중)
-  const myStatus = activeTeam?.userStatuses?.[currentUser.name] || { 
+  const myStatus = activeTeam?.userStatuses?.[currentUser.uuid] || { 
     label: '개발 중', 
     color: 'bg-green-500' 
   };
