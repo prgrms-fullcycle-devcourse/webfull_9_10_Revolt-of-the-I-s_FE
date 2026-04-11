@@ -157,7 +157,7 @@ export default function App() {
   const [isAuthManualEditing, setIsAuthManualEditing] = useState(false);
 
   // 보안 인증 숫자 표시 여부
-  const [showAuthPassword, setShowAuthPassword] = useState(true);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
 
   // 6자리 모두 입력됐는지 확인
   const isAuthPasswordComplete = authPassword.every((digit) => digit !== '');
