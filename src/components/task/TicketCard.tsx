@@ -1,9 +1,10 @@
 import { Clock, ChevronRight } from 'lucide-react';
-import type { Ticket, StatusType } from '../../types';
+import type { Ticket, StatusType, CurrentUser } from '../../types';
 
 interface TicketCardProps {
   ticket: Ticket;
   status: StatusType;
+  currentUser: CurrentUser;
   onClick: () => void;
   updateTicketStatus: (
     taskId: number, 
@@ -11,7 +12,27 @@ interface TicketCardProps {
   ) => Promise<{ ok: boolean } | undefined>;
 }
 
-export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: TicketCardProps) => {
+export const TicketCard = ({ ticket, status, currentUser, onClick, updateTicketStatus }: TicketCardProps) => {
+
+  // 권한 체크
+  const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
+  const isRequester = String(currentUser?.uuid) === String(ticket.requester_id);
+
+  console.log('유저 UUID:', currentUser?.uuid, typeof currentUser?.uuid);
+  console.log('담당자 ID:', ticket.worker_id, typeof ticket.worker_id);
+  console.log('일치 여부:', isWorker);
+
+  // 현재 버튼 클릭 가능 여부 판단
+  let canClickNext = false;
+  if (ticket.status === 'Todo' || ticket.status === 'Doing') {
+    canClickNext = isWorker;
+  } else if (ticket.status === 'Done') {
+    canClickNext = isRequester;
+  }
+
+  // 비활성화 시 공통 스타일
+  const disabledStyle = "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none opacity-60 hover:bg-slate-100 active:scale-100";
+
   return (
     <div
       onClick={() => {
@@ -40,17 +61,23 @@ export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: Tick
             {/* 반려 버튼 */}
             {status.back && (
               <button
+                disabled={!isRequester}
                 onClick={(e) => {
                   e.stopPropagation();
                   updateTicketStatus(ticket.id, 'reject');
                 }}
-                className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-black rounded-xl hover:bg-red-100 transition-all"
+                className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition-all ${
+                  isRequester 
+                    ? "bg-red-50 text-red-600 hover:bg-red-100"
+                    : disabledStyle
+                }`}
               >
                 반려
               </button>
             )}
             {/* 단계 별 버튼 (수락/제출/승인) */}
             <button
+              disabled={!canClickNext}
               onClick={(e) => {
                 e.stopPropagation();
 
@@ -63,7 +90,11 @@ export const TicketCard = ({ ticket, status, onClick, updateTicketStatus }: Tick
 
                 updateTicketStatus(ticket.id, action);
               }}
-              className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 flex items-center gap-1 active:scale-95 transition-all"
+              className={`px-4 py-2 text-[10px] font-black rounded-xl flex items-center gap-1 transition-all ${
+                canClickNext 
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95"
+                  : disabledStyle
+              }`}
             >
               {status.nextLabel} <ChevronRight size={12} />
             </button>

@@ -332,6 +332,7 @@ export const useTeams = (
             content: task.content,
             status: task.status || 'Todo',
             requester: task.requester_name,
+            requester_id: String(task.requester_id),
             worker: task.worker_name,
             worker_id: String(task.worker_id),
             createdAt: task.created_at?.split('T')[0] || '',

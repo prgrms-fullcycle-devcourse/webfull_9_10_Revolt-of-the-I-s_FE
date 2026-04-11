@@ -113,7 +113,6 @@ export const Sidebar = ({
           <div className="space-y-3 max-h-40 overflow-y-auto pr-1 scrollbar-hide min-h-40">
           {displayLogs.length > 0 ? (
               displayLogs.map((log) => {
-                console.log("로그 타입 확인:", log.type);
                 const currentType = (log.type && LOG_STYLES[log.type as keyof typeof LOG_STYLES]) 
                   ? (log.type as keyof typeof LOG_STYLES) 
                   : 'default';

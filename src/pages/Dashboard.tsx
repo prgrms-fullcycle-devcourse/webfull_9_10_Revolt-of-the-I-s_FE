@@ -22,6 +22,7 @@ interface DashboardProps {
 export const Dashboard = ({
   activeTeam,
   activeTeamId,
+  currentUser,
   setSelectedTicketId,
   updateTicketStatus,
   activeModal,
@@ -195,6 +196,7 @@ export const Dashboard = ({
                 <KanbanColumn
                   key={status.id}
                   status={status}
+                  currentUser={currentUser}
                   tickets={filteredTickets}
                   onTicketClick={setSelectedTicketId}
                   updateTicketStatus={updateTicketStatus}
