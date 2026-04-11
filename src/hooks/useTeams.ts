@@ -56,19 +56,11 @@ import { getOnlineUsersApi } from "../api/member";
 
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
 const getLogDisplayType = (
-  actionType: string,
-  message: string,
+  actionType: string
 ): 'default' | 'info' | 'success' | 'error' => {
-  if (actionType === 'CREATE_TASK' || actionType === 'ACCEPT_TASK')
-    return 'info';
-  if (actionType === 'APPROVE_TASK' || actionType === 'STATUS_CHANGE')
-    return 'success';
-  if (actionType === 'REJECT_TASK' || actionType === 'CANCEL_TASK')
-    return 'error';
-
-  // 타입이 명확하지 않을 때 메시지 내용으로 한 번 더 체크
-  if (message.includes('반려') || message.includes('취소')) return 'error';
-  if (message.includes('상태') || message.includes('승인')) return 'success';
+  if (actionType === 'CREATE') return 'info'; 
+  if (actionType === 'MOVE') return 'success';
+  if (actionType === 'DELETE') return 'error';
 
   return 'default';
 };
@@ -367,7 +359,7 @@ export const useTeams = (
           time: new Date(log.created_at).toLocaleTimeString('ko-KR', {
             hour12: false,
           }),
-          type: getLogDisplayType(log.action_type, log.message),
+          type: getLogDisplayType(log.action_type),
         }),
       );
     }
