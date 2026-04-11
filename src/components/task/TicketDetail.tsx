@@ -190,7 +190,7 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">
                   WORKER
                 </p>
-                {/* ✅ 수정 모드일 때 담당자 선택 Select 박스 노출 */}
+                {/* 수정 모드일 때 담당자 선택 Select 박스 노출 */}
                 {isEditingTask ? (
                   <select
                     value={taskForm.worker_id}
@@ -241,6 +241,7 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
               const isMe = c.user === currentUser.name;
               const isEditing = editingCommentId === c.id;
               const isMenuOpen = activeMenuId === c.id;
+              console.log(`${c.id}번 댓글 수정 여부:`, c.is_edited);
 
               return (
                 <div 
@@ -289,7 +290,17 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
                           : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
                       }`}>
                         {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
-                        {c.text}
+                        
+                        <div className="flex flex-wrap items-end gap-2">
+                          <span>{c.text}</span>
+                          
+                          {/* 댓글 [수정됨] 표시 추가 */}
+                          {c.is_edited && (
+                            <span className="text-[8px] font-bold text-slate-400 opacity-60">
+                              (수정됨)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
 

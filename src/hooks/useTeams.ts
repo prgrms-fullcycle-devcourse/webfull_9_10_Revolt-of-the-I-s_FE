@@ -314,16 +314,31 @@ export const useTeams = (
           let serverComments: TaskComment[] = [];
 
           if (isSelected && currentDetail && 'comments' in currentDetail) {
-            serverComments = currentDetail.comments.map(
-              (c: TaskCommentFromApi): TaskComment => ({
-                id: c.id,
-                user: c.user.name,
-                text: c.content,
-                time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
-                  hour12: false,
-                }),
+            // serverComments = currentDetail.comments.map(
+            //   (c: TaskCommentFromApi): TaskComment => ({
+            //     id: c.id,
+            //     user: c.user.name,
+            //     text: c.content,
+            //     time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
+            //       hour12: false,
+            //     }),
+            //     is_edited: Boolean(c.is_edited),
+            //   }),
+            // );
+            serverComments = currentDetail.comments.map((c: TaskCommentFromApi): TaskComment => {
+            // 💡 여기서 c를 출력해서 서버에서 넘어온 원본 데이터를 확인합니다.
+            console.log(`💬 댓글 ID ${c.id} 원본 데이터:`, c);
+
+            return {
+              id: c.id,
+              user: c.user.name,
+              text: c.content,
+              time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
+                hour12: false,
               }),
-            );
+              is_edited: Boolean(c.is_edited),
+            };
+          });
           }
 
           return {

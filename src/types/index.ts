@@ -90,6 +90,7 @@ export interface TaskComment {
   user: string;
   text: string;
   time: string;
+  is_edited: boolean;
 }
 
 // 활동 로그 히스토리 (Sidebar에 출력됨)
@@ -116,6 +117,7 @@ export interface TaskCommentFromApi {
   task_id: number;
   content: string;
   created_at: string;
+  is_edited: boolean;
   user: {
     uuid: string;
     name: string;
@@ -129,6 +131,7 @@ export interface PusherCommentData {
   task_id: number;
   content: string;
   created_at: string;
+  is_edited: boolean;
   user: {
     uuid: string;
     name: string;
