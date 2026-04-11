@@ -20,6 +20,7 @@ export interface SignupRequest {
   name: string
   phone: string
   github_url?: string
+  profile_image?: File | null
 }
 
 // 회원가입 성공/실패 응답 타입
@@ -64,7 +65,25 @@ export interface LogoutResponse {
 export const signupApi = async (
   data: SignupRequest
 ): Promise<SignupResponse> => {
-  const res = await api.post('/auth/signup', data)
+  // 회원가입 데이터는 FormData로 전송
+  const formData = new FormData()
+  formData.append('email', data.email)
+  formData.append('password', data.password)
+  formData.append('name', data.name)
+  formData.append('phone', data.phone)
+
+  // 선택 입력값이 있으면 같이 전송
+  if (data.github_url) {
+    formData.append('github_url', data.github_url)
+  }
+
+  // 이미지가 있으면 1장만 전송
+  if (data.profile_image) {
+    formData.append('profile_image', data.profile_image)
+  }
+
+  const res = await api.post('/auth/signup', formData)
+
   return res.data
 }
 
