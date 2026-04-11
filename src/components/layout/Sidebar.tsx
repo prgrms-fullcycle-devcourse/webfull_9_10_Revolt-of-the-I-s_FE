@@ -113,12 +113,17 @@ export const Sidebar = ({
           <div className="space-y-3 max-h-40 overflow-y-auto pr-1 scrollbar-hide min-h-40">
           {displayLogs.length > 0 ? (
               displayLogs.map((log) => {
-                const style = LOG_STYLES[log.type as keyof typeof LOG_STYLES] || LOG_STYLES.default;
+                const currentType = (log.type && LOG_STYLES[log.type as keyof typeof LOG_STYLES]) 
+                  ? (log.type as keyof typeof LOG_STYLES) 
+                  : 'default';
+                const style = LOG_STYLES[currentType];
 
       return (
-        <div key={log.id} className={`relative pl-3 border-l ${style.border} ${style.bg} transition-all py-1`}>
+        <div 
+          key={log.id} 
+          className={`relative pl-3 border-l ${style.border} ${style.bg} transition-all py-2 rounded-r-lg`}>
           {/* 상태 변경 점 색상 적용 */}
-          <div className={`absolute left-[-3.5px] top-2 w-1.5 h-1.5 rounded-full ${style.dot}`} />
+          <div className={`absolute -left-1.25 top-3 w-2 h-2 rounded-full ${style.dot} ring-2 ring-white `} />
           
           <div className="flex justify-between items-start leading-none mb-1">
             <span className="text-[10px] font-bold text-slate-700">{log.user}</span>
@@ -126,14 +131,20 @@ export const Sidebar = ({
           </div>
           
           {/* 텍스트 색상 적용 */}
-          <p className={`text-[9px] truncate ${style.text} font-medium`}>
-            <span className="opacity-70 mr-1">
+          <p className={`text-[11px] leading-snug ${style.text} font-bold wrap-break-word`}>
+            <span className="opacity-60 mr-1 text-[10px] font-mono">
               {log.ticketId > 0 && !log.action.includes('#') 
                 ? `#${String(log.ticketId).replace('#', '')}` 
-                : (log.ticketId === 0 ? 'Entry' : '')}
+                : (log.ticketId === 0 ? '[Entry]' : '')}
             </span>
             {log.action}
           </p>
+            {/* 시간 */}
+            {/* <div className="flex justify-end mt-1">
+              <span className="text-[9px] font-mono text-slate-400 opacity-80">
+                {log.time}
+              </span>
+            </div> */}
         </div>
       );
     })

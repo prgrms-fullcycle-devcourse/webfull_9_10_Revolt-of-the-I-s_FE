@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import type { AxiosError } from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
@@ -31,6 +31,7 @@ import { Modal } from './components/ui/Modal';
 import { useTeams } from './hooks/useTeams';
 import { type Member, type CurrentUser, type TeamArchiveData } from './types';
 import { validateUrl } from './utils/validation';
+import { updateMyStatusApi } from "./api/status";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -167,6 +168,17 @@ export default function App() {
   // 로그아웃 API 호출
   const logoutMutation = useMutation({ mutationFn: logoutApi });
 
+  // 공통 상태 업데이트 헬퍼 함수
+  const syncUserStatus = useCallback(async (teamId: number, status: string) => {
+    try {
+      await updateMyStatusApi(teamId, status);
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ['onlineUsers', String(teamId)] });
+    } catch (err) {
+      console.warn(`[Status Sync] ${status} 업데이트 실패:`, err);
+    }
+  }, [queryClient]);
+
   // 팀 생성 API 호출
   const createTeamMutation = useMutation({
     mutationFn: createTeamApi,
@@ -189,9 +201,13 @@ export default function App() {
   const joinTeamMutation = useMutation({
     mutationFn: ({ teamId, data }: { teamId: string; data: JoinTeamRequest }) =>
       joinTeamApi(teamId, data),
-    onSuccess: (data) => {
+    onSuccess: async (data, variables) => {
       if (data && (data.success || data.data)) {
         console.log('팀 입장 성공!');
+
+        // 입장한 팀에 '업무 중'으로 상태 업데이트
+        await syncUserStatus(Number(variables.teamId), '업무 중');
+
         if (pendingTeamId) {
           setActiveTeamId(pendingTeamId);
         }
@@ -250,15 +266,21 @@ export default function App() {
 
       const lastTeamId = localStorage.getItem('lastTeamId');
       const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
-      if (lastTeamId && wasAuthorized) {
-        setActiveTeamId(lastTeamId);
-        setIsTeamAuthorized(true);
+
+      // [로그인 시 자동 처리] 세션 복원 시 마지막 활성 팀을 '업무 중'으로 변경
+      if (lastTeamId) {
+        syncUserStatus(Number(lastTeamId), '업무 중');
+        
+        if (wasAuthorized) {
+          setActiveTeamId(lastTeamId);
+          setIsTeamAuthorized(true);
+        }
       }
     }
     if (!isUserLoading) {
       setIsAuthLoading(false);
     }
-  }, [userData, isUserLoading, setActiveTeamId]);
+  }, [userData, isUserLoading, setActiveTeamId, queryClient, syncUserStatus]);
 
   // --- 세션 유지 로직 ---
   useEffect(() => {
@@ -691,6 +713,15 @@ export default function App() {
   // 공통 로그아웃 처리
   const handleLogout = async () => {
     try {
+      // 로그아웃 시, '자리 비움'으로 상태 변경
+      if (activeTeamId) {
+        try {
+          await syncUserStatus(Number(activeTeamId), '자리 비움');
+        } catch (err) {
+          console.warn("로그아웃 상태 업데이트 실패 (무시하고 로그아웃 진행):", err);
+        }
+      }
+
       const data = await logoutMutation.mutateAsync();
       if (!data.success) {
         alert(data.error || '로그아웃에 실패했습니다.');
@@ -714,6 +745,11 @@ export default function App() {
     } catch (error) {
       console.log(error);
       alert('로그아웃에 실패했습니다.');
+      // 토큰 만료 시, 내 브라우저에서 자리비움 처리
+      setCurrentUser(null);
+      setActiveTeamId(null);
+      setIsTeamAuthorized(false);
+      setAuthPage('login');
     }
   };
 

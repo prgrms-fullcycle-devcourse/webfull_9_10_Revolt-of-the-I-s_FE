@@ -53,6 +53,7 @@ export interface Ticket {
   title: string;
   content: string;
   requester: string;
+  requester_id: string;
   worker: string;
   worker_id: string;
   status: string;
