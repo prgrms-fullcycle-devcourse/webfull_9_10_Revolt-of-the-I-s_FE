@@ -213,7 +213,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
         </div>
 
         {/* 로그인 카드 */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl min-h-130">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* 이메일 입력 영역 */}
             <div className="space-y-2">
