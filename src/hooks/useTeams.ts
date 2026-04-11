@@ -31,6 +31,7 @@ import {
   confirmTicketApi,
   rejectTicketApi,
   createTicketApi,
+  UpdateTicketApi,
 } from '../api/tickets';
 
 import {
@@ -337,6 +338,7 @@ export const useTeams = (
             worker_id: String(task.worker_id),
             createdAt: task.created_at?.split('T')[0] || '',
             comments: serverComments,
+            is_edited: task.is_edited || false
           };
         },
       );
@@ -534,6 +536,24 @@ export const useTeams = (
       return { ok: false, message: '서버에서 권한을 거부했습니다.' };
     }
   };
+
+  // task 수정 핸들러
+  const onUpdateTicket = async (taskId: number, data: { title: string; content: string; worker_id: string }) => {
+    try {
+      const response = await UpdateTicketApi(taskId, data);
+      if (response.success) {
+        // task 무효화 후 최신 데이터로 업데이트
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] }),
+          queryClient.invalidateQueries({ queryKey: ['ticketDetail', taskId] })
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ 테스크 수정 실패:", error);
+      alert("수정에 실패했습니다.");
+    }
+  };
+
 
   /**
    * [기능] createTeam: 새 팀 생성
@@ -761,6 +781,7 @@ export const useTeams = (
     activeLogTab,
     setActiveLogTab,
     handleDeleteTicketApi,
+    onUpdateTicket,
     handleEditPosition,
     pendingTeamId,
     setPendingTeamId,

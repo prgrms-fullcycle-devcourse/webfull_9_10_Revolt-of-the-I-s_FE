@@ -59,6 +59,7 @@ export interface Ticket {
   status: string;
   createdAt: string;
   comments: TaskComment[];
+  is_edited: boolean;
 }
 
 // 공통 테스크 데이터
@@ -75,6 +76,7 @@ export interface TaskBaseFromApi {
   worker_name: string;
   created_at: string;
   comment_count: number;
+  is_edited: boolean;
 }
 
 // 테스크 상세 조회 응답 (comments와 상세 유저 정보 포함)

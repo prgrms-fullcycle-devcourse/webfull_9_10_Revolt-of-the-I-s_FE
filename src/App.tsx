@@ -53,6 +53,7 @@ export default function App() {
     onUpdateComment,
     onDeleteComment,
     handleDeleteTicketApi,
+    onUpdateTicket,
     handleEditPosition,
     handleCreateQuickLink,
     handleDeleteQuickLink,
@@ -1216,6 +1217,7 @@ export default function App() {
 
       {selectedTicket && currentUser && (
         <TicketDetail
+          key={selectedTicket.id}
           ticket={selectedTicket}
           activeTeam={activeTeam!}
           currentUser={currentUser}
@@ -1233,6 +1235,7 @@ export default function App() {
           onDeleteComment={onDeleteComment}
           activeTeamId={activeTeamId}
           handleDeleteTicketApi={handleDeleteTicketApi}
+          onUpdateTicket={onUpdateTicket}
         />
       )}
 

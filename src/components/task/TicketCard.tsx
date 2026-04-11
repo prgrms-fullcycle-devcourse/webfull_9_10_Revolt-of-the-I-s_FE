@@ -18,10 +18,6 @@ export const TicketCard = ({ ticket, status, currentUser, onClick, updateTicketS
   const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
   const isRequester = String(currentUser?.uuid) === String(ticket.requester_id);
 
-  console.log('유저 UUID:', currentUser?.uuid, typeof currentUser?.uuid);
-  console.log('담당자 ID:', ticket.worker_id, typeof ticket.worker_id);
-  console.log('일치 여부:', isWorker);
-
   // 현재 버튼 클릭 가능 여부 판단
   let canClickNext = false;
   if (ticket.status === 'Todo' || ticket.status === 'Doing') {
