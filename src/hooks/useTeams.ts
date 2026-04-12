@@ -196,6 +196,11 @@ export const useTeams = (
     const teamChannel = pusher.subscribe(`team-${activeTeamId}`);
     const userChannel = pusher.subscribe(`user-${currentUser.uuid}`);
 
+    const refreshTeamData = () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+    };
+
     // 내 상태 업데이트 리스너
     teamChannel.bind('status-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
@@ -203,27 +208,15 @@ export const useTeams = (
       queryClient.invalidateQueries({ queryKey: ['onlineUsers', activeTeamId] });
     });
 
-    // 서버의 팀 목록 데이터를 무효화
-    teamChannel.bind('task-status-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
-    });
-
     // 테스크 상태 업데이트 리스너
-    teamChannel.bind(
-      'task-status-updated',
-      (data: { taskId: number; status: string }) => {
-        console.log('📍 [실시간] 테스크 상태 변경 감지!', data);
-        queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+    teamChannel.bind('task-status-updated', () => {
+        refreshTeamData();
       },
     );
 
     // 개인별 테스크 할당 알림 리스너
     userChannel.bind('new-task-requested', () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+      refreshTeamData();
     });
 
     return () => {
