@@ -12,6 +12,7 @@ import {
 import { createDocApi, createQuickLinkApi } from './api/archive';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Toaster } from "react-hot-toast";
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -65,7 +66,7 @@ export default function App() {
     leaveTeam,
     editNote,
     deleteNote,
-  } = useTeams(currentUser, selectedTicketId);
+  } = useTeams(currentUser, selectedTicketId, setSelectedTicketId);
 
   // --- UI 상태 관리 ---
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
@@ -779,6 +780,18 @@ export default function App() {
 
   return (
     <>
+    {/* 토스트 알림 기능 */}
+    <Toaster 
+        position="top-right" // 알림 위치: 우측 상단
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            fontFamily: 'Pretendard, sans-serif',
+            fontSize: '17px',
+          },
+        }}
+      />
+
       {!activeTeamId || !isTeamAuthorized || !activeTeam ? (
         <Lobby
           currentUser={currentUser}
@@ -810,6 +823,8 @@ export default function App() {
               activeTeam={activeTeam!}
               onlineUsers={onlineUsers || []}
               setIsCreateModalOpen={() => setActiveModal('create')}
+              currentUser={currentUser}
+              setSelectedTicketId={setSelectedTicketId}
             />
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               {view === 'dashboard' && activeTeam && (

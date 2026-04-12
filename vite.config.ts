@@ -50,6 +50,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
         },
+        '/notifications': {
+          target,
+          changeOrigin: true,
+          secure: true,
+        },
       },
     },
   }

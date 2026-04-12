@@ -141,6 +141,29 @@ export interface PusherCommentData {
 
 type ArchiveType = 'NOTE' | 'LINK' | 'PDF';
 
+// 알림 타입 정의
+export type NotificationType = "NEW_TASK" | "TASK_UPDATED" | "TASK_DELETED" | "STATUS_CHANGED" | "NEW_COMMENT";
+
+// 알림 api 응답 타입 정의
+export interface NotificationItem {
+  id: number;
+  user_id: string;
+  team_id: number;
+  task_id: number | null;
+  type: NotificationType;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Pusher로 넘어오는 데이터 규격
+export interface PusherNotificationData {
+  type: NotificationType;
+  message: string;
+  taskId: number;
+  teamId: number;
+}
+
 // 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터
 export interface TeamArchiveData {
   id: number;
