@@ -67,9 +67,14 @@ export const useNotifications = (currentUserUuid: string | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
+    userChannel.bind('pusher:subscription_error', (status: unknown) => {
+      console.error('Pusher 구독 에러:', status);
+    });
+
     return () => {
-      pusher.unsubscribe(`user-${currentUserUuid}`);
+      console.log(`🚫 Pusher 구독 해제: user-${currentUserUuid}`);
       userChannel.unbind_all();
+      pusher.unsubscribe(`user-${currentUserUuid}`);
     };
   }, [currentUserUuid, queryClient]);
 

@@ -206,6 +206,9 @@ export const useTeams = (
     // 서버의 팀 목록 데이터를 무효화
     teamChannel.bind('task-status-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
     });
 
     // 테스크 상태 업데이트 리스너

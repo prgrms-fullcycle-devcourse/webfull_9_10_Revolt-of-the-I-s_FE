@@ -207,6 +207,9 @@ export default function App() {
       if (data && (data.success || data.data)) {
         console.log('팀 입장 성공!');
 
+        // pusher 연결 재시작 (소켓 세션 갱신)
+        import('./utils/pusher').then(({ pusher }) => pusher.connect());
+
         // 입장한 팀에 '업무 중'으로 상태 업데이트
         await syncUserStatus(Number(variables.teamId), '업무 중');
 
@@ -265,6 +268,8 @@ export default function App() {
         position: userData.position || '팀원',
         github: userData.github || '',
       });
+
+      import('./utils/pusher').then(({ pusher }) => pusher.connect());
 
       const lastTeamId = localStorage.getItem('lastTeamId');
       const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
