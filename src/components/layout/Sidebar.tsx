@@ -1,8 +1,9 @@
-import { useState } from 'react'; 
-import { LayoutDashboard, Users, FileText, History, ChevronRight, Bell } from 'lucide-react';
+import { useState, useRef } from 'react'; 
+import { LayoutDashboard, Users, FileText, History, ChevronRight, Bell, Pencil } from 'lucide-react';
 import type { Team, CurrentUser } from '../../types';
 import { StatusBadge } from '../status/StatusBadge';
 import { StatusPicker } from "../status/StatusPicker";
+// import { updateProfileImageApi } from "../../api/member";
 
 interface SidebarProps {
   activeTeam: Team; // 현재 프로젝트 팀 정보
@@ -17,10 +18,12 @@ interface SidebarProps {
   updateMyStatus: (status: string) => Promise<void>; // 서버 상태 업데이트 함수
   activeLogTab: 'all' | 'mine';
   setActiveLogTab: (tab: 'all' | 'mine') => void;
+  updateProfileImage: (formData: FormData) => void;
 }
 
 export const Sidebar = ({ 
   activeTeam, 
+  updateProfileImage,
   currentUser, 
   view, 
   setView, 
@@ -34,6 +37,8 @@ export const Sidebar = ({
 }: SidebarProps) => {
   // 상태 선택 팝업창의 열림/닫힘 여부
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 내 현재 상태 정보 가져오기 (기본값: 개발 중)
   const myStatus = activeTeam?.userStatuses?.[currentUser.uuid] || { 
@@ -55,6 +60,16 @@ export const Sidebar = ({
     
     // 4. 회색 (기본값, 입장/퇴장 등 일반 로그)
     default: { dot: 'bg-slate-400', border: 'border-slate-200', text: 'text-slate-500', bg: '' },
+  };
+
+  // 이미지 변경 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      updateProfileImage(formData);
+    }
   };
   
   return (
@@ -161,20 +176,46 @@ export const Sidebar = ({
 
       {/* 하단 내 상태 및 로그아웃 영역 */}
       <div className="p-4 border-t border-slate-200 bg-[#0F172A] relative shrink-0">
-        <div
-          onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-slate-700 hover:bg-slate-800/50 group"
+        {/* 숨겨진 파일 선택 Input */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          accept="image/*" 
+          className="hidden" 
+        />
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-transparent transition-all group/info">
+        {/* 아바타/이미지 영역 */}
+        <div 
+          className="relative w-9 h-9 rounded-full shrink-0 cursor-pointer group/avatar overflow-hidden bg-slate-800 flex items-center justify-center"
+          onClick={() => fileInputRef.current?.click()}
         >
-          {/* MemberStatusItem으로 내 정보 표시 */}
-          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
+          {/* 이름 첫 글자 표시 */}
+          <span className="text-white font-bold text-xs uppercase">
             {currentUser.name?.[0] || '?'}
+          </span>
+
+          {/* 마우스 호버 시 '수정 가능'임을 알리는 오버레이 */}
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-200">
+            <Pencil size={14} className="text-white" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
-            <StatusBadge color={myStatus.color} label={myStatus.label} showLabel size="sm" />
-          </div>
-          <ChevronRight size={14} className={`text-slate-400 ${isStatusPickerOpen ? 'rotate-90' : ''}`} />
         </div>
+
+        {/* 이름 및 상태 정보 (클릭 시 상태 피커 열기) */}
+        <div 
+          className="flex-1 min-w-0 cursor-pointer" 
+          onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
+        >
+          <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
+          <StatusBadge color={myStatus.color} label={myStatus.label} showLabel size="sm" />
+        </div>
+
+        <ChevronRight 
+          size={14} 
+          className={`text-slate-400 cursor-pointer transition-transform ${isStatusPickerOpen ? 'rotate-90' : ''}`} 
+          onClick={() => setIsStatusPickerOpen(!isStatusPickerOpen)}
+        />
+      </div>
 
         {/* StatusPicker 컴포넌트 사용 */}
         {isStatusPickerOpen && (

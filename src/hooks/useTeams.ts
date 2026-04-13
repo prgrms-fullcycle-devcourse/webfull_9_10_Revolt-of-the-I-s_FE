@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import type {
   Team,
@@ -53,7 +53,7 @@ import {
   DeleteCommentApi,
   updateCommentApi,
 } from '../api/comments';
-import { getOnlineUsersApi } from "../api/member";
+import { getOnlineUsersApi, updateProfileImageApi } from "../api/member";
 import toast from "react-hot-toast";
 
 // 프로필 이미지가 없을 때 사용할 기본 아바타를 고르는 함수
@@ -292,6 +292,33 @@ export const useTeams = (
       }
     }
   }, [detailError, setSelectedTicketId, queryClient]);
+
+  // 프로필 이미지 수정 Mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: updateProfileImageApi,
+    onSuccess: async (res) => {
+      if (res.success) {
+      await queryClient.refetchQueries({ queryKey: ['myInfo'] });
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
+        queryClient.invalidateQueries({ queryKey: ['onlineUsers'] });
+
+        toast.success("프로필 이미지가 성공적으로 변경되었습니다.", {
+          style: {
+            background: '#1e293b',
+            color: '#fff',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+          },
+        });
+      }
+    },
+    onError: (error) => {
+      console.error("이미지 업로드 실패:", error);
+      toast.error("이미지 변경에 실패했습니다. 다시 시도해주세요.");
+    }
+  });
+
 
   useEffect(() => {
     // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
@@ -864,5 +891,7 @@ export const useTeams = (
     createNote,
     editNote,
     deleteNote,
+    updateProfileImage: uploadImageMutation.mutate,
+    isImageUploading: uploadImageMutation.isPending
   };
 };

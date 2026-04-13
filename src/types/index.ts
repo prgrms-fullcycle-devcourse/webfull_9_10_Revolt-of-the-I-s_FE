@@ -18,6 +18,20 @@ export interface Member {
   github: string;
 }
 
+// 프로필 이미지 추가한 유저 정보
+export interface UserInfoResponse {
+  id: number;
+  uuid: string;
+  name: string;
+  email: string;
+  phone?: string;
+  position?: string;
+  github?: string;
+  profile_image?: string;
+  imageUrl?: string;
+  avatar?: string;
+}
+
 // 활동 중인 유저 정보 : 서버 응답
 export interface OnlineUserFromApi {
   id: number;
