@@ -5,6 +5,12 @@
 import type { GetOnlineUsersResponse } from "../types";
 import { api } from './client';
 
+// 특정 팀의 팀원 목록 조회
+export const getTeamMembersApi = async (teamId: number) => {
+  const response = await api.get(`/teams/${teamId}/members`);
+  return response.data;
+};
+
 // 요청 데이터 타입 정의
 export interface EditMemberPositionRequest {
   position: string;

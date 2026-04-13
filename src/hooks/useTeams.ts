@@ -73,18 +73,20 @@ const convertTeam = (team: TeamFromApi): Team => ({
   name: team.name,
   password: '',
   isMember: team.isMember,
-  members: team.members.map((m) => ({
-    id: m.id,
-    uuid: m.user.uuid,
-    name: m.user.name,
-    position: m.position,
-    avatar:
-      m.user.profile_image ||
-      AVATARS[Math.floor(Math.random() * AVATARS.length)],
-    email: m.user.email,
-    phone: m.user.phone,
-    github: m.user.github_url || '',
-  })),
+  members: team.members
+    .map((m) => ({
+      id: m.id,
+      uuid: m.user.uuid,
+      name: m.user.name,
+      position: m.position,
+      avatar:
+        m.user.profile_image ||
+        AVATARS[Math.floor(Math.random() * AVATARS.length)],
+      email: m.user.email,
+      phone: m.user.phone,
+      github: m.user.github_url || '',
+    }))
+    .sort((a, b) => Number(a.id) - Number(b.id)),
   tickets: [],
   logs: [],
   notes: [],

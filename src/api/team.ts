@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api } from './client';
 import type {
   GetTeamsResponse,
   CreateTeamRequest,
@@ -6,21 +6,21 @@ import type {
   JoinTeamRequest,
   JoinTeamResponse,
   LeaveTeamResponse,
-} from '../types'
+} from '../types';
 
 // GET /teams - 팀 로비용 조회
 export const getTeamsApi = async (): Promise<GetTeamsResponse> => {
-  const res = await api.get('/teams')
-  return res.data
-}
+  const res = await api.get('/teams');
+  return res.data;
+};
 
 // POST /teams - 팀 생성
 export const createTeamApi = async (
-  data: CreateTeamRequest
+  data: CreateTeamRequest,
 ): Promise<CreateTeamResponse> => {
-  const res = await api.post('/teams', data)
-  return res.data
-}
+  const res = await api.post('/teams', data);
+  return res.data;
+};
 
 /**
  * POST /teams/{teamId}/members/join - 팀 가입/입장
@@ -29,16 +29,17 @@ export const createTeamApi = async (
  */
 export const joinTeamApi = async (
   teamId: string,
-  data: JoinTeamRequest
+  data: JoinTeamRequest,
 ): Promise<JoinTeamResponse> => {
-  const res = await api.post(`/teams/${teamId}/members/join`, data)
-  return res.data
-}
+  // Swagger 기준 팀 가입/입장 경로로 수정
+  const res = await api.post(`/teams/${teamId}/members/join`, data);
+  return res.data;
+};
 
 // DELETE /teams/{teamId}/members/me - 팀 탈퇴
 export const leaveTeamApi = async (
-  teamId: number
+  teamId: number,
 ): Promise<LeaveTeamResponse> => {
-  const res = await api.delete(`/teams/${teamId}/members/me`)
-  return res.data
-}
+  const res = await api.delete(`/teams/${teamId}/members/me`);
+  return res.data;
+};
