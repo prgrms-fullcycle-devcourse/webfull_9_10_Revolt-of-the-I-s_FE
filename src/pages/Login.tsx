@@ -36,8 +36,11 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
     userEmail: string
   ) => {
     const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)]
+    const avatarImage =
+      typeof user.profile_image === 'string' && user.profile_image.trim() !== ''
+        ? user.profile_image
+        : randomAvatar
 
-    // 새로고침 후에도 이름 유지용 저장
     const displayName = user.name || userEmail.split('@')[0] || '사용자'
     localStorage.setItem('displayName', displayName)
 
@@ -45,7 +48,7 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
       uuid: user.uuid,
       name: displayName,
       position: '',
-      avatar: user.profile_image || randomAvatar,
+      avatar: avatarImage,
       email: userEmail,
       phone: '',
       github: '',
