@@ -19,6 +19,14 @@ interface LobbyProps {
   setIsTeamAuthModalOpen: () => void; // 비밀번호 인증 모달 열기
 }
 
+const getDefaultAvatar = (seed: string) => {
+  const value = seed
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+
+  return AVATARS[value % AVATARS.length]
+}
+
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
   id: String(team.id),
@@ -30,7 +38,9 @@ const convertTeam = (team: TeamFromApi): Team => ({
     uuid: m.user.uuid,
     name: m.user.name,
     position: m.position,
-    avatar: m.user.profile_image || AVATARS[Math.floor(Math.random() * AVATARS.length)],
+    avatar:
+    m.user.profile_image ||
+    getDefaultAvatar(m.user.uuid || m.user.email || m.user.name),
     email: m.user.email,
     phone: m.user.phone,
     github: m.user.github_url || '',
@@ -85,8 +95,9 @@ export const Lobby = ({
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teams'],
     queryFn: getTeamsApi,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 30000,
+    gcTime: 30000,
+    refetchOnWindowFocus: false,
   })
 
   // API 응답 데이터를 Team 타입으로 변환
@@ -183,9 +194,17 @@ export const Lobby = ({
             {team.members.slice(0, 3).map((m) => (
               <div
                 key={m.id ?? `${m.email}-${m.name}`}
-                className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm"
+                className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm overflow-hidden"
               >
-                {m.avatar || m.name.slice(0, 1)}
+                {m.avatar ? (
+                  <img
+                    src={m.avatar}
+                    alt={m.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  m.name.slice(0, 1)
+                )}
               </div>
             ))}
           </div>

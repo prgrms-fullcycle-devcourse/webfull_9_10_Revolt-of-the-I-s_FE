@@ -314,7 +314,7 @@ export interface GoogleSignupRequest {
   googleUid: string;
   name: string;
   phone: string;
-  profileImage?: string;
+  profileImage?: File | null;
   github_url?: string;
 }
 

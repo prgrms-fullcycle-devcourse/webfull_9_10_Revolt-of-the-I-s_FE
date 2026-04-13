@@ -20,7 +20,7 @@ export interface SignupRequest {
   name: string
   phone: string
   github_url?: string
-  profile_image?: File | null
+  profileImage?: File | null
 }
 
 // 회원가입 성공/실패 응답 타입
@@ -78,8 +78,8 @@ export const signupApi = async (
   }
 
   // 이미지가 있으면 1장만 전송
-  if (data.profile_image) {
-    formData.append('profile_image', data.profile_image)
+  if (data.profileImage) {
+    formData.append('profileImage', data.profileImage)
   }
 
   const res = await api.post('/auth/signup', formData)
@@ -107,7 +107,21 @@ export const googleAuthApi = async (
 export const googleSignupApi = async (
   data: GoogleSignupRequest
 ): Promise<GoogleSignupResponse> => {
-  const res = await api.post('/auth/google/signup', data)
+  const formData = new FormData()
+  formData.append('email', data.email)
+  formData.append('googleUid', data.googleUid)
+  formData.append('name', data.name)
+  formData.append('phone', data.phone)
+
+  if (data.github_url) {
+    formData.append('github_url', data.github_url)
+  }
+
+  if (data.profileImage) {
+    formData.append('profileImage', data.profileImage)
+  }
+
+  const res = await api.post('/auth/google/signup', formData)
   return res.data
 }
 
