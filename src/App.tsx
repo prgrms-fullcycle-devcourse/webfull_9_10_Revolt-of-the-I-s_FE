@@ -252,7 +252,10 @@ export default function App() {
     if (userData) {
       const savedDisplayName = localStorage.getItem('displayName');
       const restoredName =
-        userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
+        userData.name ||
+        savedDisplayName ||
+        userData.email?.split('@')[0] ||
+        '사용자';
 
       if (userData.name) {
         localStorage.setItem('displayName', userData.name);
@@ -898,7 +901,9 @@ export default function App() {
                 maxLength={6}
                 value={createTeamPassword}
                 onChange={(e) =>
-                  setCreateTeamPassword(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  setCreateTeamPassword(
+                    e.target.value.replace(/\D/g, '').slice(0, 6),
+                  )
                 }
                 className="hide-password-toggle w-full px-5 py-4 pr-12 bg-slate-50 rounded-2xl outline-none font-bold border border-slate-100 focus:ring-2 focus:ring-blue-500"
                 placeholder="비밀번호 6자리"
@@ -909,7 +914,11 @@ export default function App() {
                 onClick={() => setShowCreateTeamPassword((prev) => !prev)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
               >
-                {showCreateTeamPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showCreateTeamPassword ? (
+                  <EyeOff size={18} />
+                ) : (
+                  <Eye size={18} />
+                )}
               </button>
             </div>
             <p className="text-xs text-slate-400 font-medium">
@@ -1278,10 +1287,10 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex justify-end gap-4">
             <button
               onClick={(e) => handleDeleteNote(e)}
-              className="px-4 py-4 bg-red-100 hover:bg-red-200 text-red-500 rounded-2xl font-bold cursor-pointer"
+              className="px-4 py-4 bg-white hover:bg-red-50 border border-red-200 text-red-500 rounded-2xl font-bold cursor-pointer"
             >
               회의록 삭제
             </button>

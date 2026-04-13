@@ -1,5 +1,6 @@
 import { Mail, Github, SquarePen, Smartphone } from 'lucide-react';
 import type { Member, Team, CurrentUser } from '../types';
+import { useMemo } from 'react';
 
 interface MembersProps {
   activeTeam: Team;
@@ -12,9 +13,22 @@ export const Members = ({
   currentUser,
   editPosition,
 }: MembersProps) => {
+  const sortedMembers = useMemo(() => {
+    if (!activeTeam.members) return [];
+
+    return [...activeTeam.members].sort((a, b) => {
+      const aIsMe = a.email === currentUser.email;
+      const bIsMe = b.email === currentUser.email;
+
+      if (aIsMe) return -1;
+      if (bIsMe) return 1;
+      return 0;
+    });
+  }, [activeTeam.members, currentUser.email]);
+
   return (
     <div className="grid grid-flow-row grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-6">
-      {activeTeam.members.map((member) => {
+      {sortedMembers.map((member) => {
         const isMe = member.email === currentUser.email; // uuid 대신 email로 비교
 
         // uuid로 실시간 상태 가져오는 역할
@@ -22,8 +36,8 @@ export const Members = ({
 
         return (
           <div
-            key={member.id ?? member.uuid}
-            className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm flex flex-col items-center"
+            key={member.id ?? `${member.email}-${member.name}`}
+            className={`bg-white p-8 rounded-[40px] border ${isMe ? 'border-blue-500' : 'border-slate-200'} shadow-sm flex flex-col items-center`}
           >
             {/* 아바타 섹션 */}
             <div className="relative mb-6">
