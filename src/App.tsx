@@ -12,6 +12,7 @@ import {
 import { createDocApi, createQuickLinkApi } from './api/archive';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Toaster } from "react-hot-toast";
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -53,6 +54,7 @@ export default function App() {
     onUpdateComment,
     onDeleteComment,
     handleDeleteTicketApi,
+    onUpdateTicket,
     handleEditPosition,
     handleCreateQuickLink,
     handleDeleteQuickLink,
@@ -64,7 +66,7 @@ export default function App() {
     leaveTeam,
     editNote,
     deleteNote,
-  } = useTeams(currentUser, selectedTicketId);
+  } = useTeams(currentUser, selectedTicketId, setSelectedTicketId);
 
   // --- UI 상태 관리 ---
   const [isTeamAuthorized, setIsTeamAuthorized] = useState<boolean>(() => {
@@ -205,6 +207,9 @@ export default function App() {
       if (data && (data.success || data.data)) {
         console.log('팀 입장 성공!');
 
+        // pusher 연결 재시작 (소켓 세션 갱신)
+        import('./utils/pusher').then(({ pusher }) => pusher.connect());
+
         // 입장한 팀에 '업무 중'으로 상태 업데이트
         await syncUserStatus(Number(variables.teamId), '업무 중');
 
@@ -263,6 +268,8 @@ export default function App() {
         position: userData.position || '팀원',
         github: userData.github || '',
       });
+
+      import('./utils/pusher').then(({ pusher }) => pusher.connect());
 
       const lastTeamId = localStorage.getItem('lastTeamId');
       const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
@@ -778,6 +785,18 @@ export default function App() {
 
   return (
     <>
+    {/* 토스트 알림 기능 */}
+    <Toaster 
+        position="top-right" // 알림 위치: 우측 상단
+        reverseOrder={false}
+        toastOptions={{
+          style: {
+            fontFamily: 'Pretendard, sans-serif',
+            fontSize: '17px',
+          },
+        }}
+      />
+
       {!activeTeamId || !isTeamAuthorized || !activeTeam ? (
         <Lobby
           currentUser={currentUser}
@@ -809,6 +828,8 @@ export default function App() {
               activeTeam={activeTeam!}
               onlineUsers={onlineUsers || []}
               setIsCreateModalOpen={() => setActiveModal('create')}
+              currentUser={currentUser}
+              setSelectedTicketId={setSelectedTicketId}
             />
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               {view === 'dashboard' && activeTeam && (
@@ -1216,6 +1237,7 @@ export default function App() {
 
       {selectedTicket && currentUser && (
         <TicketDetail
+          key={selectedTicket.id}
           ticket={selectedTicket}
           activeTeam={activeTeam!}
           currentUser={currentUser}
@@ -1233,6 +1255,7 @@ export default function App() {
           onDeleteComment={onDeleteComment}
           activeTeamId={activeTeamId}
           handleDeleteTicketApi={handleDeleteTicketApi}
+          onUpdateTicket={onUpdateTicket}
         />
       )}
 

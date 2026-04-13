@@ -6,13 +6,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import type {
   Team,
   Ticket,
   CurrentUser,
   TeamFromApi,
   TeamArchiveData,
-  NewTaskNotification,
   PusherCommentData,
   TaskBaseFromApi,
   TaskComment,
@@ -31,6 +31,7 @@ import {
   confirmTicketApi,
   rejectTicketApi,
   createTicketApi,
+  UpdateTicketApi,
 } from '../api/tickets';
 
 import {
@@ -53,6 +54,7 @@ import {
   updateCommentApi,
 } from '../api/comments';
 import { getOnlineUsersApi } from "../api/member";
+import toast from "react-hot-toast";
 
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
 const getLogDisplayType = (
@@ -114,6 +116,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
 export const useTeams = (
   currentUser: CurrentUser | null,
   selectedTicketId: number | null,
+  setSelectedTicketId: (id: number | null) => void
 ) => {
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
@@ -148,11 +151,12 @@ export const useTeams = (
     enabled: !!activeTeamId,
   });
 
-  const { data: detailData } = useQuery({
+  const { data: detailData, error: detailError } = useQuery({
     queryKey: ['ticketDetail', selectedTicketId],
     queryFn: () => getTicketDetailApi(selectedTicketId!),
     enabled: !!selectedTicketId,
     staleTime: 0,
+    retry: 0,
   });
 
   // 로그 데이터 조회 (React Query)
@@ -192,43 +196,27 @@ export const useTeams = (
     const teamChannel = pusher.subscribe(`team-${activeTeamId}`);
     const userChannel = pusher.subscribe(`user-${currentUser.uuid}`);
 
-    // pusher 리스너 - 내 상태 업데이트
+    const refreshTeamData = () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+    };
+
+    // 내 상태 업데이트 리스너
     teamChannel.bind('status-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
       queryClient.invalidateQueries({ queryKey: ['onlineUsers', activeTeamId] });
     });
 
-    // 서버의 팀 목록 데이터를 무효화
-    // => teamListData가 새로 호출되면서 바뀐 status가 들어옴
+    // 테스크 상태 업데이트 리스너
     teamChannel.bind('task-status-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-    });
-
-    // 로그 목록도 함께 갱신
-    userChannel.bind('new-task-requested', (data: NewTaskNotification) => {
-      alert(data.message);
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-    });
-
-    // pusher 리스너 - 테스크 상태 업데이트
-    teamChannel.bind(
-      'task-status-updated',
-      (data: { taskId: number; status: string }) => {
-        console.log('📍 [실시간] 테스크 상태 변경 감지!', data);
-        queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
+        refreshTeamData();
       },
     );
 
-    // pusher 리스너 - 개인별 테스크 할당 알림
-    userChannel.bind('new-task-requested', (data: NewTaskNotification) => {
-      console.log('🔔 나에게 온 새 업무 신호 수신:', data);
-
-      // 나에게 할당된 요청 알림 - 추후에 토스트 알림으로 변경할 예정
-      alert(data.message);
-
-      queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] });
-      queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
+    // 개인별 테스크 할당 알림 리스너
+    userChannel.bind('new-task-requested', () => {
+      refreshTeamData();
     });
 
     return () => {
@@ -236,6 +224,34 @@ export const useTeams = (
       pusher.unsubscribe(`user-${currentUser.uuid}`);
     };
   }, [activeTeamId, currentUser, queryClient]);
+
+  // 알림 해당 task 상세 조회 실패 예외 처리
+  useEffect(() => {
+    if (detailError && axios.isAxiosError(detailError)) {
+      const statusCode = detailError.response?.status;
+
+      if (statusCode === 404) {
+        toast.error("존재하지 않거나 삭제된 테스크입니다.", {
+          icon: '🗑️',
+          duration: 4000,
+          style: {
+            minWidth: '350px',
+            maxWidth: '500px',
+            padding: '16px 24px',
+            background: '#ffffff',
+            color: '#1e293b',
+            borderRadius: '16px',
+            fontSize: '13px',
+            fontWeight: '700',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        });
+
+        setSelectedTicketId(null);
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }
+    }
+  }, [detailError, setSelectedTicketId, queryClient]);
 
   useEffect(() => {
     // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
@@ -313,16 +329,17 @@ export const useTeams = (
           let serverComments: TaskComment[] = [];
 
           if (isSelected && currentDetail && 'comments' in currentDetail) {
-            serverComments = currentDetail.comments.map(
-              (c: TaskCommentFromApi): TaskComment => ({
+            serverComments = currentDetail.comments.map((c: TaskCommentFromApi): TaskComment => {
+              return {
                 id: c.id,
                 user: c.user.name,
                 text: c.content,
                 time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
                   hour12: false,
                 }),
-              }),
-            );
+                is_edited: Boolean(c.is_edited),
+              };
+            });
           }
 
           return {
@@ -337,6 +354,7 @@ export const useTeams = (
             worker_id: String(task.worker_id),
             createdAt: task.created_at?.split('T')[0] || '',
             comments: serverComments,
+            is_edited: task.is_edited || false
           };
         },
       );
@@ -534,6 +552,24 @@ export const useTeams = (
       return { ok: false, message: '서버에서 권한을 거부했습니다.' };
     }
   };
+
+  // task 수정 핸들러
+  const onUpdateTicket = async (taskId: number, data: { title: string; content: string; worker_id: string }) => {
+    try {
+      const response = await UpdateTicketApi(taskId, data);
+      if (response.success) {
+        // task 무효화 후 최신 데이터로 업데이트
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] }),
+          queryClient.invalidateQueries({ queryKey: ['ticketDetail', taskId] })
+        ]);
+      }
+    } catch (error) {
+      console.error("❌ 테스크 수정 실패:", error);
+      alert("수정에 실패했습니다.");
+    }
+  };
+
 
   /**
    * [기능] createTeam: 새 팀 생성
@@ -761,6 +797,7 @@ export const useTeams = (
     activeLogTab,
     setActiveLogTab,
     handleDeleteTicketApi,
+    onUpdateTicket,
     handleEditPosition,
     pendingTeamId,
     setPendingTeamId,

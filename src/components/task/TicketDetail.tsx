@@ -12,9 +12,21 @@ interface TicketDetailProps {
   handleDeleteTicketApi: (ticketId: number) => Promise<{ ok: boolean; message?: string }>;
   onUpdateComment: (commentId: number, text: string) => Promise<void>;
   onDeleteComment: (commentId: number) => Promise<void>;
+  onUpdateTicket: (taskId: number, data: { title: string; content: string; worker_id: string }) => Promise<void>;
 }
 
-export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleDeleteTicketApi, onUpdateComment, onDeleteComment }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComment, handleDeleteTicketApi, onUpdateComment, onDeleteComment, onUpdateTicket }: TicketDetailProps) => {
+
+  // 권한 체크
+  const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
+  const isRequester = String(currentUser?.uuid) === String(ticket.requester_id);
+
+  const [isEditingTask, setIsEditingTask] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: ticket.title,
+    content: ticket.content,
+    worker_id: ticket.worker_id
+  });
 
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null); // 현재 수정 중인 댓글 ID
   const [editValue, setEditValue] = useState(""); // 수정 중인 입력값
@@ -54,7 +66,15 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
     }
   };
 
-  const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
+  // task 수정 핸들러
+  const handleTaskUpdate = async () => {
+    if (!taskForm.title.trim() || !taskForm.content.trim()) {
+      alert("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+    await onUpdateTicket(ticket.id, taskForm);
+    setIsEditingTask(false);
+  };
 
   // 삭제(요청 취소) 핸들러
   const onClickDelete = async () => {
@@ -84,9 +104,26 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
               #{ticket.task_number}
             </div>
             <div className="min-w-0">
-              <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">
-                {ticket.title}
-              </h3>
+              {isEditingTask ? (
+                <input
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                  className="w-full text-2xl font-black text-slate-900 leading-tight border-b-2 border-blue-500 outline-none"
+                  autoFocus
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h3 className="text-2xl font-black text-slate-900 leading-tight truncate">
+                    {ticket.title}
+                  </h3>
+                  {/* [수정됨] 표시 */}
+                  {ticket.is_edited && (
+                    <span className="shrink-0 bg-slate-100 text-slate-400 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                      [수정됨]
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   STATUS:
@@ -97,12 +134,29 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all shrink-0"
-          >
-            <X size={28} />
-          </button>
+          {/* 수정/저장 버튼 */}
+          <div className="flex items-center gap-2">
+            {isRequester && (
+              isEditingTask ? (
+                <button 
+                  onClick={handleTaskUpdate}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700"
+                >
+                  저장
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsEditingTask(true)}
+                  className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all"
+                >
+                  <Pencil size={20} />
+                </button>
+              )
+            )}
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all">
+              <X size={28} />
+            </button>
+          </div>
         </header>
 
         {/* 바디 섹션: 내용, 담당자 정보, 상태 변경, 댓글 리스트 */}
@@ -112,9 +166,17 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 mb-6">
               <Clock size={12} /> {ticket.createdAt} 발행
             </div>
-            <div className="text-sm text-slate-600 leading-relaxed mb-8">
-              {ticket.content}
-            </div>
+            {isEditingTask ? (
+              <textarea
+                value={taskForm.content}
+                onChange={(e) => setTaskForm({ ...taskForm, content: e.target.value })}
+                className="w-full h-32 p-4 text-sm text-slate-600 leading-relaxed bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-blue-500"
+              />
+            ) : (
+              <div className="text-sm text-slate-600 leading-relaxed mb-8">
+                {ticket.content}
+              </div>
+            )}
             {/* 담당자 정보 */}
             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-center gap-8">
               <div className="text-center">
@@ -128,7 +190,22 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">
                   WORKER
                 </p>
-                <p className="font-black text-blue-600">{ticket.worker}</p>
+                {/* 수정 모드일 때 담당자 선택 Select 박스 노출 */}
+                {isEditingTask ? (
+                  <select
+                    value={taskForm.worker_id}
+                    onChange={(e) => setTaskForm({ ...taskForm, worker_id: e.target.value })}
+                    className="font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg outline-none cursor-pointer"
+                  >
+                    {activeTeam.members.map((m) => (
+                      <option key={m.uuid} value={m.uuid}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="font-black text-blue-600">{ticket.worker}</p>
+                )}
               </div>
               {/* 요청 취소(삭제) 버튼 */}
               {/* 담당자일 때만 버튼 활성화, 아닐 때는 비활성화 스타일 적용 */}
@@ -164,6 +241,7 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
               const isMe = c.user === currentUser.name;
               const isEditing = editingCommentId === c.id;
               const isMenuOpen = activeMenuId === c.id;
+              console.log(`${c.id}번 댓글 수정 여부:`, c.is_edited);
 
               return (
                 <div 
@@ -212,7 +290,17 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
                           : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
                       }`}>
                         {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
-                        {c.text}
+                        
+                        <div className="flex flex-wrap items-end gap-2">
+                          <span>{c.text}</span>
+                          
+                          {/* 댓글 [수정됨] 표시 추가 */}
+                          {c.is_edited && (
+                            <span className="text-[8px] font-bold text-slate-400 opacity-60">
+                              (수정됨)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
 

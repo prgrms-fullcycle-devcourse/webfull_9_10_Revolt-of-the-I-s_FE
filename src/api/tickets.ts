@@ -50,3 +50,9 @@ export const acceptTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/ac
 export const submitTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/submit`);
 export const confirmTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/confirm`);
 export const rejectTicketApi = (taskId: number) => api.post(`/tasks/${taskId}/reject`);
+
+// 테스크 수정 api
+export const UpdateTicketApi = async (taskId: number, data: { title: string; content: string; worker_id: string }) => {
+  const response = await api.patch(`/tasks/${taskId}`, data);
+  return response.data;
+}

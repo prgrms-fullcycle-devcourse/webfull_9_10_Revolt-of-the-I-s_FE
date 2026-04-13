@@ -1,6 +1,8 @@
-import { Plus } from 'lucide-react';
-import type { Team } from '../../types';
+import { Plus, Bell } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import type { CurrentUser, Team } from '../../types';
 import { StatusBadge } from '../status/StatusBadge';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface OnlineUser {
   id: number;
@@ -15,13 +17,38 @@ interface HeaderProps {
   activeTeam: Team;
   onlineUsers: OnlineUser[];
   setIsCreateModalOpen: (open: boolean) => void;
+  currentUser: CurrentUser;
+  setSelectedTicketId: (id: number | null) => void;
 }
 
 export const Header = ({
   view,
   onlineUsers,
   setIsCreateModalOpen,
+  currentUser,
+  setSelectedTicketId
 }: HeaderProps) => {
+  const { 
+    notifications,
+    unreadCount,
+    readNotification, 
+    readAllNotifications 
+  } = useNotifications(currentUser?.uuid);
+
+  // 알림 창 열림/닫힘 상태
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
+  const notiRef = useRef<HTMLDivElement>(null);
+
+  // 알림 창 바깥 클릭 시 닫기 로직
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notiRef.current && !notiRef.current.contains(e.target as Node)) {
+        setIsNotiOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
@@ -61,6 +88,87 @@ export const Header = ({
               </div>
             );
           })}
+        </div>
+
+        {/* 알림 아이콘 섹션 */}
+        <div className="relative" ref={notiRef}>
+          <button
+            onClick={() => setIsNotiOpen(!isNotiOpen)}
+            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all relative"
+          >
+            <Bell size={22} />
+            {/* 읽지 않은 알림 배지 */}
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* 알림 센터 팝업 (알림 목록 렌더링) */}
+          {isNotiOpen && (
+            <div className="absolute right-0 mt-3 w-85 bg-white border border-slate-200 shadow-2xl rounded-[28px] overflow-hidden z-100 animate-in fade-in slide-in-from-top-2">
+              <div className="p-5 border-b border-slate-50 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-black text-slate-800 text-sm">알림 센터</h4>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                {/* 전체 읽음 버튼 */}
+                <button 
+                  onClick={() => readAllNotifications()}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  모두 읽음 처리
+                </button>
+              </div>
+              
+              <div className="max-h-100 overflow-y-auto scrollbar-hide">
+                {notifications.length === 0 ? (
+                  <div className="p-10 text-center text-slate-400 text-xs font-bold">
+                    표시할 알림이 없습니다.
+                  </div>
+                ) : (
+                  notifications.map((noti) => (
+                    <div
+                      key={noti.id}
+                      onClick={() => {
+                        // 특정 알림 클릭 시 읽음 처리 API 호출
+                        readNotification(noti.id);
+                        if (noti.task_id) setSelectedTicketId(noti.task_id);
+                        setIsNotiOpen(false);
+                      }}
+                      className={`p-4 border-b border-slate-50 cursor-pointer transition-all relative flex gap-3 ${
+                        noti.isNew ? 'bg-blue-50/30' : 'bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {/* 읽지 않은 알림 New 표시 */}
+                          {noti.isNew && (
+                            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
+                          )}
+                          <p className={`text-[11px] leading-relaxed ${noti.isNew ? 'font-black text-slate-900' : 'font-bold text-slate-500'}`}>
+                            {noti.message}
+                          </p>
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-300 uppercase">
+                          {new Date(noti.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      
+                      {noti.isNew && (
+                        <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md h-fit">NEW</span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 오른쪽: 액션 버튼 섹션 */}

@@ -59,6 +59,7 @@ export interface Ticket {
   status: string;
   createdAt: string;
   comments: TaskComment[];
+  is_edited: boolean;
 }
 
 // 공통 테스크 데이터
@@ -75,6 +76,7 @@ export interface TaskBaseFromApi {
   worker_name: string;
   created_at: string;
   comment_count: number;
+  is_edited: boolean;
 }
 
 // 테스크 상세 조회 응답 (comments와 상세 유저 정보 포함)
@@ -88,6 +90,7 @@ export interface TaskComment {
   user: string;
   text: string;
   time: string;
+  is_edited: boolean;
 }
 
 // 활동 로그 히스토리 (Sidebar에 출력됨)
@@ -114,6 +117,7 @@ export interface TaskCommentFromApi {
   task_id: number;
   content: string;
   created_at: string;
+  is_edited: boolean;
   user: {
     uuid: string;
     name: string;
@@ -127,6 +131,7 @@ export interface PusherCommentData {
   task_id: number;
   content: string;
   created_at: string;
+  is_edited: boolean;
   user: {
     uuid: string;
     name: string;
@@ -135,6 +140,29 @@ export interface PusherCommentData {
 }
 
 type ArchiveType = 'NOTE' | 'LINK' | 'PDF';
+
+// 알림 타입 정의
+export type NotificationType = "NEW_TASK" | "TASK_UPDATED" | "TASK_DELETED" | "STATUS_CHANGED" | "NEW_COMMENT";
+
+// 알림 api 응답 타입 정의
+export interface NotificationItem {
+  id: number;
+  user_id: string;
+  team_id: number;
+  task_id: number | null;
+  type: NotificationType;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Pusher로 넘어오는 데이터 규격
+export interface PusherNotificationData {
+  type: NotificationType;
+  message: string;
+  taskId: number;
+  teamId: number;
+}
 
 // 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터
 export interface TeamArchiveData {
