@@ -317,6 +317,12 @@ export default function App() {
     });
   };
 
+  const handleOpenCreateTeamModal = () => {
+    setCreateTeamPassword('');
+    setShowCreateTeamPassword(false);
+    setActiveModal('createTeam');
+  };
+
   // 새 팀 개설 모달 닫기
   const handleCloseCreateTeamModal = () => {
     setActiveModal(null);
@@ -331,7 +337,7 @@ export default function App() {
     setAuthPassword(Array(6).fill(''));
     setAuthError('');
     setAuthCursorIndex(0);
-    setShowAuthPassword(true);
+    setShowAuthPassword(false);
     setIsAuthManualEditing(false);
   };
 
@@ -750,7 +756,7 @@ export default function App() {
       setAuthError('');
       setAuthCursorIndex(0);
       setIsAuthManualEditing(false);
-      setShowAuthPassword(true);
+      setShowAuthPassword(false);
       setAuthPage('login');
     } catch (error) {
       console.log(error);
@@ -806,7 +812,7 @@ export default function App() {
           onLogout={handleLogout}
           setPendingTeamId={setPendingTeamId}
           setIsTeamAuthorized={setIsTeamAuthorized}
-          setIsCreateTeamModalOpen={() => setActiveModal('createTeam')}
+          setIsCreateTeamModalOpen={handleOpenCreateTeamModal}
           setIsTeamAuthModalOpen={() => setActiveModal('auth')}
         />
       ) : (
