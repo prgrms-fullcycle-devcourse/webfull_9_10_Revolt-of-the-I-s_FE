@@ -27,24 +27,50 @@ const getDefaultAvatar = (seed: string) => {
   return AVATARS[value % AVATARS.length]
 }
 
+// 프로필 이미지 값이 문자열이면 그대로 쓰고 아니면 빈값 처리 ("null", "undefined" 문자열 및 서버 기본 랜덤 이미지도 제외)
+const getAvatarValue = (value: unknown) => {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return ''
+  // 서버에서 프로필 미설정 유저에게 자동 부여하는 기본 랜덤 이미지는 제외
+  if (trimmed.includes('random-profile')) return ''
+  return trimmed
+}
+
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
 const convertTeam = (team: TeamFromApi): Team => ({
   id: String(team.id),
   name: team.name,
   password: '',
   isMember: team.isMember,
-  members: team.members.map((m) => ({
-    id: m.id,
-    uuid: m.user.uuid,
-    name: m.user.name,
-    position: m.position,
-    avatar:
-    m.user.profile_image ||
-    getDefaultAvatar(m.user.uuid || m.user.email || m.user.name),
-    email: m.user.email,
-    phone: m.user.phone,
-    github: m.user.github_url || '',
-  })),
+  members: team.members.map((m) => {
+    const user = m.user as typeof m.user & {
+      profile_image_url?: unknown
+      profileImage?: unknown
+      avatar?: unknown
+    }
+
+    // 서버에서 내려온 이미지 값 중 문자열만 사용
+    const avatarImage =
+      getAvatarValue(user.profile_image) ||
+      getAvatarValue(user.profile_image_url) ||
+      getAvatarValue(user.profileImage) ||
+      getAvatarValue(user.avatar)
+
+    return {
+      id: m.id,
+      uuid: user.uuid,
+      name: user.name,
+      position: m.position,
+      // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
+      avatar:
+        avatarImage ||
+        getDefaultAvatar(user.uuid || user.email || user.name),
+      email: user.email,
+      phone: user.phone,
+      github: user.github_url || '',
+    }
+  }),
   tickets: [],
   logs: [],
   notes: [],
@@ -196,12 +222,14 @@ export const Lobby = ({
                 key={m.id ?? `${m.email}-${m.name}`}
                 className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm overflow-hidden"
               >
-                {m.avatar ? (
+                {m.avatar && m.avatar.startsWith('http') ? (
                   <img
                     src={m.avatar}
                     alt={m.name}
                     className="w-full h-full object-cover"
                   />
+                ) : m.avatar ? (
+                  <span className="text-sm">{m.avatar}</span>
                 ) : (
                   m.name.slice(0, 1)
                 )}

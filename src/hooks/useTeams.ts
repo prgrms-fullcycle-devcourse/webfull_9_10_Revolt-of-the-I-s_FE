@@ -56,6 +56,27 @@ import {
 import { getOnlineUsersApi } from "../api/member";
 import toast from "react-hot-toast";
 
+// 프로필 이미지가 없을 때 사용할 기본 아바타를 고르는 함수
+const getDefaultAvatar = (seed: string) => {
+  // uuid, 이메일, 이름 문자열을 숫자로 바꿔서
+  const value = seed
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+
+  // 같은 사람은 항상 같은 기본 이미지가 나오도록 처리
+  return AVATARS[value % AVATARS.length]
+}
+
+// 프로필 이미지 값이 문자열이면 그대로 쓰고 아니면 빈값 처리 ("null", "undefined" 문자열 및 서버 기본 랜덤 이미지도 제외)
+const getAvatarValue = (value: unknown) => {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return ''
+  // 서버에서 프로필 미설정 유저에게 자동 부여하는 기본 랜덤 이미지는 제외
+  if (trimmed.includes('random-profile')) return ''
+  return trimmed
+}
+
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
 const getLogDisplayType = (
   actionType: string
@@ -74,19 +95,37 @@ const convertTeam = (team: TeamFromApi): Team => ({
   password: '',
   isMember: team.isMember,
   members: team.members
-    .map((m) => ({
+  .map((m) => {
+    const user = m.user as typeof m.user & {
+      profile_image_url?: unknown
+      profileImage?: unknown
+      avatar?: unknown
+    }
+
+    // 서버에서 내려온 이미지 값 중 문자열만 사용
+    const avatarImage =
+      getAvatarValue(user.profile_image) ||
+      getAvatarValue(user.profile_image_url) ||
+      getAvatarValue(user.profileImage) ||
+      getAvatarValue(user.avatar)
+
+    return {
       id: m.id,
-      uuid: m.user.uuid,
-      name: m.user.name,
+      uuid: user.uuid,
+      name: user.name,
       position: m.position,
+
+      // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
       avatar:
-        m.user.profile_image ||
-        AVATARS[Math.floor(Math.random() * AVATARS.length)],
-      email: m.user.email,
-      phone: m.user.phone,
-      github: m.user.github_url || '',
-    }))
-    .sort((a, b) => Number(a.id) - Number(b.id)),
+        avatarImage ||
+        getDefaultAvatar(user.uuid || user.email || user.name),
+
+      email: user.email,
+      phone: user.phone,
+      github: user.github_url || '',
+    }
+  })
+  .sort((a, b) => Number(a.id) - Number(b.id)),
   tickets: [],
   logs: [],
   notes: [],
@@ -96,11 +135,10 @@ const convertTeam = (team: TeamFromApi): Team => ({
       const statusLabel = m.status || '업무 중';
       const matched = USER_ACTIVITIES.find(a => a.label === statusLabel);
       return [
-
         m.user.uuid,
-        { 
+        {
           label: statusLabel,
-          color: matched?.color || 'bg-green-500' 
+          color: matched?.color || 'bg-green-500'
         },
       ];
     }),
@@ -494,17 +532,33 @@ export const useTeams = (
   if (!onlineUsersData?.success || !onlineUsersData.data) return [];
   
     return onlineUsersData.data.map((item: OnlineUserFromApi) => {
-      const avatarIndex = item.id % AVATARS.length;
-      const matched = USER_ACTIVITIES.find(a => a.label === item.status);
+      const user = item.user as typeof item.user & {
+        profile_image_url?: unknown
+        profileImage?: unknown
+        avatar?: unknown
+      }
+      const matched = USER_ACTIVITIES.find(a => a.label === item.status)
+
+      // 서버에서 내려온 이미지 값 중 문자열만 사용
+      const avatarImage =
+        getAvatarValue(user.profile_image) ||
+        getAvatarValue(user.profile_image_url) ||
+        getAvatarValue(user.profileImage) ||
+        getAvatarValue(user.avatar)
 
       return {
         id: item.id,
-        name: item.user.name,
-        avatar: item.user.profile_image || AVATARS[avatarIndex],
-        status: item.status, 
+        name: user.name,
+
+        // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
+        avatar:
+          avatarImage ||
+          getDefaultAvatar(user.uuid || user.name),
+
+        status: item.status,
         statusColor: matched?.color || 'bg-green-500'
-      };
-    });
+      }
+    })
   }, [onlineUsersData]);
 
   // task 상태 변경
