@@ -175,7 +175,7 @@ export const useTeams = (
   const { data: teamListData } = useQuery({
     queryKey: ['teams', activeTeamId],
     queryFn: () => getTeamMembersApi(Number(activeTeamId)),
-    enabled: !!currentUser,
+    enabled: !!currentUser && !!activeTeamId,
   });
 
   // 활동 중인 팀원 목록 전용 쿼리
