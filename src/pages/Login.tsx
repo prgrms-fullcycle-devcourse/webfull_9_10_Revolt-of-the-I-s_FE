@@ -131,7 +131,6 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
           github: user.github || '',
         })
 
-        alert('구글 로그인 성공')
       } catch {
         alert('구글 로그인은 성공했지만 유저 정보 조회에 실패했습니다.')
       }

@@ -69,11 +69,17 @@ const convertTeam = (team: TeamFromApi): Team => {
     }
   })
 
+  // previewImages도 그대로 쓰지 말고, 깨진 랜덤 이미지 경로면 기본 아바타로 대체
+  const normalizedPreviewImages: string[] = (team.previewImages ?? []).map(
+    (image: string, index: number) =>
+      getAvatarValue(image) || getDefaultAvatar(`preview-${team.id}-${index}`)
+  )
+
   // 로비용 응답이면 previewImages를 화면 표시용 members 형태로만 보정
   const previewMembers =
     mappedMembers.length > 0
       ? mappedMembers
-      : (team.previewImages ?? []).map((image, index) => ({
+      : normalizedPreviewImages.map((image: string, index: number) => ({
           id: index + 1,
           uuid: `preview-${team.id}-${index}`,
           name: `preview-${index}`,
@@ -90,7 +96,10 @@ const convertTeam = (team: TeamFromApi): Team => {
     password: '',
     isMember: team.isMember,
     memberCount: team.memberCount ?? previewMembers.length,
-    previewImages: team.previewImages ?? previewMembers.map((m) => m.avatar || '').filter(Boolean),
+    previewImages:
+      normalizedPreviewImages.length > 0
+        ? normalizedPreviewImages
+        : previewMembers.map((m: { avatar?: string }) => m.avatar || '').filter(Boolean),
     members: previewMembers,
     tickets: [],
     logs: [],
@@ -252,12 +261,27 @@ export const Lobby = ({
                 key={m.id ?? `${m.email}-${m.name}`}
                 className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm overflow-hidden"
               >
-                {m.avatar && m.avatar.startsWith('http') ? (
-                  <img
-                    src={m.avatar}
-                    alt={m.name}
-                    className="w-full h-full object-cover"
-                  />
+                {typeof m.avatar === 'string' &&
+                (m.avatar.startsWith('http') || m.avatar.startsWith('/')) ? (
+                  <>
+                    <img
+                      src={m.avatar}
+                      alt={m.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                        const next =
+                          e.currentTarget.nextElementSibling as HTMLSpanElement | null
+                        if (next) next.style.display = 'flex'
+                      }}
+                    />
+                    <span
+                      className="w-full h-full items-center justify-center text-sm"
+                      style={{ display: 'none' }}
+                    >
+                      {getDefaultAvatar(m.email || m.name || String(m.id))}
+                    </span>
+                  </>
                 ) : m.avatar ? (
                   <span className="text-sm">{m.avatar}</span>
                 ) : (
