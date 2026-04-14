@@ -283,6 +283,21 @@ export const useTeams = (
       refreshTeamData();
     });
 
+    // 테스크 생성 알림 (모든 팀원 대상)
+    teamChannel.bind('task-created', () => {
+      refreshTeamData();
+    });
+
+    // 테스크 내용 수정 알림
+    teamChannel.bind('task-updated', () => {
+      refreshTeamData();
+    });
+
+    // 테스크 삭제 알림
+    teamChannel.bind('task-deleted', () => {
+      refreshTeamData();
+    });
+
     // 개인별 테스크 할당 알림 리스너
     userChannel.bind('new-task-requested', () => {
       refreshTeamData();
@@ -291,6 +306,9 @@ export const useTeams = (
     return () => {
       pusher.unsubscribe(`team-${activeTeamId}`);
       pusher.unsubscribe(`user-${currentUser.uuid}`);
+      // 등록된 모든 바인딩 해제 (메모리 누수 방지)
+      teamChannel.unbind_all();
+      userChannel.unbind_all();
     };
   }, [activeTeamId, currentUser, queryClient]);
 
