@@ -94,12 +94,9 @@ const getLogDisplayType = (
 };
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
-const convertTeam = (team: TeamFromApi): Team => ({
-  id: String(team.id),
-  name: team.name,
-  password: '',
-  isMember: team.isMember,
-  members: team.members
+const convertTeam = (team: TeamFromApi): Team => {
+  // 기존 members 응답이 있으면 그대로 사용
+  const mappedMembers = (team.members ?? [])
     .map((m) => {
       const user = m.user as typeof m.user & {
         profile_image_url?: unknown;
@@ -129,25 +126,52 @@ const convertTeam = (team: TeamFromApi): Team => ({
         github: user.github_url || '',
       };
     })
-    .sort((a, b) => Number(a.id) - Number(b.id)),
-  tickets: [],
-  logs: [],
-  notes: [],
-  links: [],
-  userStatuses: Object.fromEntries(
-    team.members.map((m) => {
-      const statusLabel = m.status || '업무 중';
-      const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel);
-      return [
-        m.user.uuid,
-        {
-          label: statusLabel,
-          color: matched?.color || 'bg-green-500',
-        },
-      ];
-    }),
-  ),
-});
+    .sort((a, b) => Number(a.id) - Number(b.id));
+
+  // 로비용 응답이면 previewImages를 화면 표시용 members 형태로만 보정
+  const previewMembers =
+    mappedMembers.length > 0
+      ? mappedMembers
+      : (team.previewImages ?? []).map((image, index) => ({
+          id: index + 1,
+          uuid: `preview-${team.id}-${index}`,
+          name: `preview-${index}`,
+          position: '',
+          avatar: image,
+          email: '',
+          phone: '',
+          github: '',
+        }));
+
+  return {
+    id: String(team.id),
+    name: team.name,
+    password: '',
+    isMember: team.isMember,
+    memberCount: team.memberCount ?? previewMembers.length,
+    previewImages:
+      team.previewImages ??
+      previewMembers.map((m) => m.avatar || '').filter(Boolean),
+    members: previewMembers,
+    tickets: [],
+    logs: [],
+    notes: [],
+    links: [],
+    userStatuses: Object.fromEntries(
+      (team.members ?? []).map((m) => {
+        const statusLabel = m.status || '업무 중';
+        const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel);
+        return [
+          m.user.uuid,
+          {
+            label: statusLabel,
+            color: matched?.color || 'bg-green-500',
+          },
+        ];
+      }),
+    ),
+  };
+};
 
 /**
  * 특정 팀의 데이터를 최신 상태로 갈아끼워주는 헬퍼 함수
@@ -498,6 +522,7 @@ export const useTeams = (
   const joinedTeams = useMemo(() => {
     if (!currentUser) return [];
     return teams.filter((team) =>
+      team.isMember === true ||
       team.members.some((member) => member.name === currentUser.name),
     );
   }, [teams, currentUser]);
@@ -507,6 +532,7 @@ export const useTeams = (
     if (!currentUser) return teams;
     return teams.filter(
       (team) =>
+        team.isMember !== true &&
         !team.members.some((member) => member.name === currentUser.name),
     );
   }, [teams, currentUser]);

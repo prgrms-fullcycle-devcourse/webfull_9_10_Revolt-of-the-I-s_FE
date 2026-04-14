@@ -196,6 +196,8 @@ export interface Team {
   name: string;
   password: string;
   isMember?: boolean;
+  memberCount?: number; // 로비용 멤버 수
+  previewImages?: string[]; // 로비용 미리보기 이미지
   members: Member[];
   tickets: Ticket[];
   logs: Log[];
@@ -242,9 +244,11 @@ export interface TeamMemberFromApi {
 export interface TeamFromApi {
   id: number;
   name: string;
-  owner_id: string;
+  owner_id?: string;
   isMember: boolean;
-  members: TeamMemberFromApi[];
+  memberCount?: number;
+  previewImages?: string[];
+  members?: TeamMemberFromApi[];
 }
 
 // GET /teams 로비용 조회 전체 응답 타입
