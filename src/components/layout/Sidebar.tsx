@@ -198,26 +198,26 @@ const finalAvatar = myInfoFromTeam?.avatar || currentUser?.avatar;
           onClick={() => fileInputRef.current?.click()}
         >
           {/* ✅ 1순위: currentUser.avatar (가져온 프로필 이미지)가 있으면 이미지 표시 */}
-  {currentUser?.avatar ? (
-  <img 
-    src={finalAvatar}
-    className="w-full h-full object-cover"
-    alt="프로필"
-    key={finalAvatar}
-  />
-) : (
-  <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-    <span className="text-lg font-black text-slate-400">
-      {currentUser?.name?.[0] || 'U'}
-    </span>
-  </div>
-)}
+          {currentUser?.avatar ? (
+          <img 
+            src={finalAvatar}
+            className="w-full h-full object-cover"
+            alt="프로필"
+            key={finalAvatar}
+          />
+        ) : (
+          <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+            <span className="text-lg font-black text-slate-400">
+              {currentUser?.name?.[0] || 'U'}
+            </span>
+          </div>
+        )}
 
-  {/* 마우스 호버 시 오버레이 디자인 개선 */}
-  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 z-20 backdrop-blur-[1px]">
-    <Pencil size={16} className="text-white" />
-  </div>
-</div>
+          {/* 마우스 호버 시 오버레이 디자인 개선 */}
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 z-20 backdrop-blur-[1px]">
+            <Pencil size={16} className="text-white" />
+          </div>
+        </div>
 
         {/* 이름 및 상태 정보 (클릭 시 상태 피커 열기) */}
         <div 
