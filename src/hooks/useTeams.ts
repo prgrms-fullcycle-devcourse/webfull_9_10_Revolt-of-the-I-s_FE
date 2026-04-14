@@ -13,7 +13,6 @@ import type {
   CurrentUser,
   TeamFromApi,
   TeamArchiveData,
-  PusherCommentData,
   TaskBaseFromApi,
   TaskComment,
   TaskCommentFromApi,
@@ -374,9 +373,7 @@ export const useTeams = (
     console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
     const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
 
-    taskChannel.bind('new-comment', (data: PusherCommentData) => {
-      console.log('💬 [Pusher] 실시간 댓글 이벤트 발생!', data);
-      // 💡 여기서 invalidateQueries를 호출해야 위 useMemo가 다시 작동합니다.
+    taskChannel.bind('new-comment', () => {
       queryClient.invalidateQueries({
         queryKey: ['ticketDetail', selectedTicketId],
       });
@@ -445,9 +442,12 @@ export const useTeams = (
           if (isSelected && currentDetail && 'comments' in currentDetail) {
             serverComments = currentDetail.comments.map(
               (c: TaskCommentFromApi): TaskComment => {
+                const writer = baseTeam.members.find((m) => m.name === c.user.name);
                 return {
                   id: c.id,
                   user: c.user.name,
+                  // ✅ 2. 찾은 멤버의 avatar(사진)를 userImage 필드에 넣어줍니다.
+                  userImage: writer?.avatar || null, 
                   text: c.content,
                   time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
                     hour12: false,

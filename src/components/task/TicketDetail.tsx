@@ -233,11 +233,25 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
                   className={`flex gap-3 group relative ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   onMouseLeave={() => setActiveMenuId(null)}
                 >
-                  {/* 아바타 */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                    isMe ? 'bg-blue-600 shadow-md' : 'bg-slate-200'
-                  }`}>
-                    {c.user ? c.user[0] : '?'}
+                  {/* 아바타 영역: 이미지 우선 노출 */}
+                  <div className={`w-8 h-8 rounded-full overflow-hidden relative shrink-0 flex items-center justify-center ${isMe ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                    
+                    {/* 작성자 이미지가 존재할 때 출력 */}
+                    {c.userImage ? (
+                      <img 
+                        src={c.userImage} 
+                        alt={c.user} 
+                        className="w-full h-full object-cover relative z-10"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+
+                    {/* 이미지가 없거나 로드 실패 시 이름 첫 글자 (기존 로직) */}
+                    <span className="text-white font-bold text-[10px] absolute z-0">
+                      {c.user ? c.user[0] : '?'}
+                    </span>
                   </div>
 
                   {/* 말풍선 컨테이너 */}

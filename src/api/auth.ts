@@ -1,5 +1,6 @@
 import type {
-  CurrentUser,
+  // CurrentUser,
+  GetMyInfoResponse,
   GoogleAuthRequest,
   GoogleAuthResponse,
   GoogleSignupRequest,
@@ -132,7 +133,7 @@ export const logoutApi = async (): Promise<LogoutResponse> => {
 }
 
 // 로그인한 유저 정보 조회 api 호출
-export const getMyInfoApi = async (): Promise<CurrentUser> => {
+export const getMyInfoApi = async (): Promise<GetMyInfoResponse> => {
   const response = await api.get('/users/me')
-  return response.data.data
+  return response.data
 }

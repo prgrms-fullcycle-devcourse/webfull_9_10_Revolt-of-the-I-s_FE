@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import type { AxiosError } from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTeamApi, joinTeamApi } from './api/team';
-import { type JoinTeamRequest } from './types';
+import { type GetMyInfoResponse, type JoinTeamRequest } from './types';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
 import { logoutApi, getMyInfoApi } from './api/auth';
 import {
@@ -239,7 +239,7 @@ export default function App() {
   });
 
   // 세션 복원 로직
-  const { data: userData, isLoading: isUserLoading } = useQuery({
+  const { data: userData, isLoading: isUserLoading } = useQuery<GetMyInfoResponse>({
     queryKey: ['myInfo'],
     queryFn: getMyInfoApi,
     staleTime: Infinity,
@@ -248,29 +248,30 @@ export default function App() {
   });
 
   useEffect(() => {
-  if (!userData) {
+  // 데이터가 없거나 실패면 중단
+  if (!userData?.success || !userData.data) {
     if (!isUserLoading) setIsAuthLoading(false);
     return;
   }
 
-  // 이름 복구 로직
-  const savedDisplayName = localStorage.getItem('displayName');
-  const restoredName = userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
+  const userRawData = userData.data;
 
-  if (userData.name) {
-    localStorage.setItem('displayName', userData.name);
-  }
-
-  // 유저 정보 업데이트
   setCurrentUser({
-    id: userData.id ?? Date.now(),
-    uuid: userData.uuid,
-    name: restoredName,
-    email: userData.email || '',
-    phone: userData.phone || '',
-    position: userData.position || '팀원',
-    github: userData.github || '',
+    ...userRawData,
+    id: userRawData.id,
+    uuid: userRawData.uuid,
+    name: userRawData.name || '사용자',
+    // ✅ 서버가 주는 profileImage를 avatar에 연결 (없으면 기본값 '')
+    avatar: userRawData.profileImage || '', 
+    email: userRawData.email || '',
+    phone: userRawData.phone || '',
+    position: userRawData.position || '팀원',
+    github: userRawData.github || '',
   });
+
+  if (userRawData.name) {
+    localStorage.setItem('displayName', userRawData.name);
+  }
 
   import('./utils/pusher').then(({ pusher }) => pusher.connect());
 

@@ -71,6 +71,12 @@ export const Sidebar = ({
       updateProfileImage(formData);
     }
   };
+
+  // 1. 현재 팀원 목록에서 '나(이메일 기준)'를 찾습니다.
+const myInfoFromTeam = activeTeam?.members.find(m => m.email === currentUser?.email);
+
+// 2. 팀원 목록에 내가 있다면 그 사진(avatar)을 쓰고, 없으면 기존 정보를 씁니다.
+const finalAvatar = myInfoFromTeam?.avatar || currentUser?.avatar;
   
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
@@ -187,19 +193,31 @@ export const Sidebar = ({
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl border border-transparent transition-all group/info">
         {/* 아바타/이미지 영역 */}
         <div 
+          key={currentUser.avatar}
           className="relative w-9 h-9 rounded-full shrink-0 cursor-pointer group/avatar overflow-hidden bg-slate-800 flex items-center justify-center"
           onClick={() => fileInputRef.current?.click()}
         >
-          {/* 이름 첫 글자 표시 */}
-          <span className="text-white font-bold text-xs uppercase">
-            {currentUser.name?.[0] || '?'}
-          </span>
+          {/* ✅ 1순위: currentUser.avatar (가져온 프로필 이미지)가 있으면 이미지 표시 */}
+  {currentUser?.avatar ? (
+  <img 
+    src={finalAvatar}
+    className="w-full h-full object-cover"
+    alt="프로필"
+    key={finalAvatar}
+  />
+) : (
+  <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+    <span className="text-lg font-black text-slate-400">
+      {currentUser?.name?.[0] || 'U'}
+    </span>
+  </div>
+)}
 
-          {/* 마우스 호버 시 '수정 가능'임을 알리는 오버레이 */}
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-200">
-            <Pencil size={14} className="text-white" />
-          </div>
-        </div>
+  {/* 마우스 호버 시 오버레이 디자인 개선 */}
+  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 z-20 backdrop-blur-[1px]">
+    <Pencil size={16} className="text-white" />
+  </div>
+</div>
 
         {/* 이름 및 상태 정보 (클릭 시 상태 피커 열기) */}
         <div 
