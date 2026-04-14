@@ -673,19 +673,44 @@ export default function App() {
   };
 
   const handleLeaveTeam = async (teamId: string | number | null) => {
-  if (!teamId) return;
-  try {
-    await leaveTeam(Number(teamId));
+    if (!teamId) return;
 
+    // 낙관적 업데이트용 이전 상태 저장
+    const prevActiveTeamId = activeTeamId;
+    const prevIsTeamAuthorized = isTeamAuthorized;
+    const prevView = view;
+
+    try {
+      // 팀 탈퇴 버튼 클릭 시 즉시 팀 로비로 이동
       setIsTeamAuthorized(false);
       setActiveTeamId(null);
       setView('dashboard');
+      localStorage.removeItem('lastTeamId');
+      localStorage.setItem('isTeamAuthorized', 'false');
+      localStorage.setItem('currentView', 'dashboard');
+
+      await leaveTeam(Number(teamId));
 
       setTimeout(() => {
         alert('팀 탈퇴가 완료되었습니다.');
       }, 100);
     } catch (error: unknown) {
       console.error('탈퇴 처리 중 오류:', error);
+
+      // 탈퇴 실패 시 이전 상태로 복구
+      setIsTeamAuthorized(prevIsTeamAuthorized);
+      setActiveTeamId(prevActiveTeamId);
+      setView(prevView);
+
+      if (prevActiveTeamId) {
+        localStorage.setItem('lastTeamId', String(prevActiveTeamId));
+      }
+      localStorage.setItem(
+        'isTeamAuthorized',
+        String(prevIsTeamAuthorized),
+      );
+      localStorage.setItem('currentView', prevView);
+
       alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
     }
   };
@@ -741,11 +766,7 @@ export default function App() {
         alert(data.error || '로그아웃에 실패했습니다.');
         return;
       }
-      if (data.data?.message) {
-        alert(data.data.message);
-      } else {
-        alert('로그아웃 되었습니다.');
-      }
+      
       setCurrentUser(null);
       setActiveTeamId(null);
       setIsTeamAuthorized(false);
@@ -756,9 +777,7 @@ export default function App() {
       setIsAuthManualEditing(false);
       setShowAuthPassword(false);
       setAuthPage('login');
-    } catch (error) {
-      console.log(error);
-      alert('로그아웃에 실패했습니다.');
+    } catch {
       // 토큰 만료 시, 내 브라우저에서 자리비움 처리
       setCurrentUser(null);
       setActiveTeamId(null);

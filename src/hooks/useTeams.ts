@@ -99,17 +99,17 @@ const convertTeam = (team: TeamFromApi): Team => {
   const mappedMembers = (team.members ?? [])
     .map((m) => {
       const user = m.user as typeof m.user & {
-        profile_image_url?: unknown;
-        profileImage?: unknown;
-        avatar?: unknown;
-      };
+        profile_image_url?: unknown
+        profileImage?: unknown
+        avatar?: unknown
+      }
 
       // 서버에서 내려온 이미지 값 중 문자열만 사용
       const avatarImage =
         getAvatarValue(user.profile_image) ||
         getAvatarValue(user.profile_image_url) ||
         getAvatarValue(user.profileImage) ||
-        getAvatarValue(user.avatar);
+        getAvatarValue(user.avatar)
 
       return {
         id: m.id,
@@ -124,15 +124,21 @@ const convertTeam = (team: TeamFromApi): Team => {
         email: user.email,
         phone: user.phone,
         github: user.github_url || '',
-      };
+      }
     })
-    .sort((a, b) => Number(a.id) - Number(b.id));
+    .sort((a, b) => Number(a.id) - Number(b.id))
+
+  // previewImages도 깨진 랜덤 이미지 경로면 기본 아바타로 대체
+  const normalizedPreviewImages: string[] = (team.previewImages ?? []).map(
+    (image: string, index: number) =>
+      getAvatarValue(image) || getDefaultAvatar(`preview-${team.id}-${index}`)
+  )
 
   // 로비용 응답이면 previewImages를 화면 표시용 members 형태로만 보정
   const previewMembers =
     mappedMembers.length > 0
       ? mappedMembers
-      : (team.previewImages ?? []).map((image, index) => ({
+      : normalizedPreviewImages.map((image: string, index: number) => ({
           id: index + 1,
           uuid: `preview-${team.id}-${index}`,
           name: `preview-${index}`,
@@ -141,7 +147,7 @@ const convertTeam = (team: TeamFromApi): Team => {
           email: '',
           phone: '',
           github: '',
-        }));
+        }))
 
   return {
     id: String(team.id),
@@ -150,8 +156,9 @@ const convertTeam = (team: TeamFromApi): Team => {
     isMember: team.isMember,
     memberCount: team.memberCount ?? previewMembers.length,
     previewImages:
-      team.previewImages ??
-      previewMembers.map((m) => m.avatar || '').filter(Boolean),
+      normalizedPreviewImages.length > 0
+        ? normalizedPreviewImages
+        : previewMembers.map((m: { avatar?: string }) => m.avatar || '').filter(Boolean),
     members: previewMembers,
     tickets: [],
     logs: [],
@@ -159,19 +166,19 @@ const convertTeam = (team: TeamFromApi): Team => {
     links: [],
     userStatuses: Object.fromEntries(
       (team.members ?? []).map((m) => {
-        const statusLabel = m.status || '업무 중';
-        const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel);
+        const statusLabel = m.status || '업무 중'
+        const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel)
         return [
           m.user.uuid,
           {
             label: statusLabel,
             color: matched?.color || 'bg-green-500',
           },
-        ];
+        ]
       }),
     ),
-  };
-};
+  }
+}
 
 /**
  * 특정 팀의 데이터를 최신 상태로 갈아끼워주는 헬퍼 함수

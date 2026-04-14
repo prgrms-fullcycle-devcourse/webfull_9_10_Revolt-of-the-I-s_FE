@@ -84,6 +84,8 @@ export const Signup = ({ goLogin }: SignupProps) => {
   const isNameValid = nameRegex.test(name.trim())
   const isPhoneValid = isPhonePrefixValid && isPhoneLengthValid
   const isEmailValid = emailRegex.test(email.trim())
+
+
   const isPasswordValid = passwordRegex.test(password)
 
   const isPasswordMatch = useMemo(() => {
@@ -112,7 +114,6 @@ export const Signup = ({ goLogin }: SignupProps) => {
       }
 
       setErrorMessage('')
-      alert('회원가입이 완료되었습니다.')
       goLogin()
     },
     onError: (error) => {
@@ -202,7 +203,6 @@ export const Signup = ({ goLogin }: SignupProps) => {
 
       sessionStorage.removeItem('googleSignupUser')
       setErrorMessage('')
-      alert('구글 회원가입이 완료되었습니다.')
       goLogin()
     },
     onError: (error) => {
@@ -414,11 +414,14 @@ export const Signup = ({ goLogin }: SignupProps) => {
                 } ${googleSignupUser ? 'opacity-70 cursor-not-allowed' : ''}`}
                 placeholder="mail@istation.dev"
               />
-              {email && !isEmailValid && (
-                <p className="text-xs text-red-400 ml-1">
-                  올바른 이메일 형식을 입력해주세요.
-                </p>
-              )}
+             {/* 구글 이메일 입력 시 일반 회원가입이 아닌 구글 로그인 안내 */}
+              {email &&
+                !googleSignupUser &&
+                /@(gmail\.com|googlemail\.com)$/i.test(email.trim()) && (
+                  <p className="text-xs text-red-400 ml-1">
+                    구글 이메일은 구글 로그인을 이용해 주세요.
+                  </p>
+                )}
             </div>
 
             {!googleSignupUser && (
