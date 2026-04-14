@@ -10,17 +10,17 @@ import { useEffect, useMemo } from 'react';
 import { pusher } from '../utils/pusher';
 import type { NotificationItem, PusherNotificationData } from '../types';
 
-// 알림 타입별 태그 매핑
-const getNotificationTag = (type: string): string => {
-  switch (type) {
-    case 'NEW_TASK': return '[신규]';
-    case 'NEW_COMMENT': return '[댓글]';
-    case 'TASK_UPDATED': return '[수정]';
-    case 'STATUS_CHANGED': return '[상태]';
-    case 'TASK_DELETED': return '[삭제]';
-    default: return '[알림]';
-  }
-};
+// // 알림 타입별 태그 매핑
+// const getNotificationTag = (type: string): string => {
+//   switch (type) {
+//     case 'NEW_TASK': return '[신규]';
+//     case 'NEW_COMMENT': return '[댓글]';
+//     case 'TASK_UPDATED': return '[수정]';
+//     case 'STATUS_CHANGED': return '[상태]';
+//     case 'TASK_DELETED': return '[삭제]';
+//     default: return '[알림]';
+//   }
+// };
 
 export const useNotifications = (currentUserUuid: string | undefined) => {
   const queryClient = useQueryClient();
@@ -46,8 +46,9 @@ export const useNotifications = (currentUserUuid: string | undefined) => {
     const userChannel = pusher.subscribe(`user-${currentUserUuid}`);
 
     userChannel.bind('new-notification', (data: PusherNotificationData) => {
-      const tag = getNotificationTag(data.type);
-      const fullMessage = `${tag} ${data.message}`;
+      console.log("🚀 Pusher 수신 데이터:", data);
+      const teamLabel = data.teamName ? `[${data.teamName}]` : '[알림]';
+      const fullMessage = `${teamLabel} ${data.message}`;
 
       toast.success(fullMessage, {
         duration: 4000,

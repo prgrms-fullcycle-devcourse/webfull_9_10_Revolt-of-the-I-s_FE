@@ -146,24 +146,34 @@ export const Header = ({
                       }`}
                     >
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {/* 읽지 않은 알림 New 표시 */}
-                          {noti.isNew && (
-                            <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
-                          )}
-                          <p className={`text-[11px] leading-relaxed ${noti.isNew ? 'font-black text-slate-900' : 'font-bold text-slate-500'}`}>
-                            {noti.message}
-                          </p>
-                        </div>
-                        <span className="text-[9px] font-bold text-slate-300 uppercase">
-                          {new Date(noti.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                      {/* 팀 이름 배지 추가 */}
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-black rounded-md uppercase tracking-tighter border border-slate-200">
+                          Team : {noti.teamName || '알 수 없는 팀'}
                         </span>
+                        {/* 읽지 않은 알림 New 점 표시 */}
+                        {!noti.is_read && (
+                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
+                        )}
                       </div>
-                      
-                      {noti.isNew && (
-                        <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md h-fit">NEW</span>
-                      )}
+
+                      <div className="flex flex-col gap-0.5">
+                        <p className={`text-[11px] leading-relaxed ${!noti.is_read ? 'font-black text-slate-900' : 'font-bold text-slate-500'}`}>
+                          {noti.message}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] font-bold text-slate-300 uppercase">
+                            {new Date(noti.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+                    
+                    {!noti.is_read && (
+                      <span className="text-[8px] font-black text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-md h-fit">NEW</span>
+                    )}
+                  </div>
                   ))
                 )}
               </div>

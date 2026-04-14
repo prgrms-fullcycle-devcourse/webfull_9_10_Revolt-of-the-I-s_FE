@@ -12,6 +12,7 @@ export interface Member {
   uuid: string;
   name: string;
   position: string;
+  imgUrl?: string;
   avatar?: string;
   email: string;
   phone: string;
@@ -163,6 +164,7 @@ export interface NotificationItem {
   id: number;
   user_id: string;
   team_id: number;
+  teamName: string;
   task_id: number | null;
   type: NotificationType;
   message: string;
@@ -176,6 +178,7 @@ export interface PusherNotificationData {
   message: string;
   taskId: number;
   teamId: number;
+  teamName: string;
 }
 
 // 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터
