@@ -21,7 +21,7 @@ import type {
   GetOnlineUsersResponse,
 } from '../types';
 import { INITIAL_TEAM, AVATARS, USER_ACTIVITIES } from '../utils/constants';
-import { getTeamsApi, joinTeamApi, leaveTeamApi } from '../api/team';
+import { joinTeamApi, leaveTeamApi } from '../api/team';
 import {
   deleteTicketApi,
   getTicketDetailApi,
@@ -53,35 +53,40 @@ import {
   DeleteCommentApi,
   updateCommentApi,
 } from '../api/comments';
-import { getOnlineUsersApi, updateProfileImageApi } from "../api/member";
-import toast from "react-hot-toast";
+import {
+  getOnlineUsersApi,
+  getTeamMembersApi,
+  updateProfileImageApi,
+} from '../api/member';
+import toast from 'react-hot-toast';
 
 // 프로필 이미지가 없을 때 사용할 기본 아바타를 고르는 함수
 const getDefaultAvatar = (seed: string) => {
   // uuid, 이메일, 이름 문자열을 숫자로 바꿔서
   const value = seed
     .split('')
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
   // 같은 사람은 항상 같은 기본 이미지가 나오도록 처리
-  return AVATARS[value % AVATARS.length]
-}
+  return AVATARS[value % AVATARS.length];
+};
 
 // 프로필 이미지 값이 문자열이면 그대로 쓰고 아니면 빈값 처리 ("null", "undefined" 문자열 및 서버 기본 랜덤 이미지도 제외)
 const getAvatarValue = (value: unknown) => {
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
-  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return ''
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined')
+    return '';
   // 서버에서 프로필 미설정 유저에게 자동 부여하는 기본 랜덤 이미지는 제외
-  if (trimmed.includes('random-profile')) return ''
-  return trimmed
-}
+  if (trimmed.includes('random-profile')) return '';
+  return trimmed;
+};
 
 // 로그의 액션 타입에 따라 UI 색상을 결정하는 헬퍼 함수
 const getLogDisplayType = (
-  actionType: string
+  actionType: string,
 ): 'default' | 'info' | 'success' | 'error' => {
-  if (actionType === 'CREATE') return 'info'; 
+  if (actionType === 'CREATE') return 'info';
   if (actionType === 'MOVE') return 'success';
   if (actionType === 'DELETE') return 'error';
 
@@ -95,37 +100,36 @@ const convertTeam = (team: TeamFromApi): Team => ({
   password: '',
   isMember: team.isMember,
   members: team.members
-  .map((m) => {
-    const user = m.user as typeof m.user & {
-      profile_image_url?: unknown
-      profileImage?: unknown
-      avatar?: unknown
-    }
+    .map((m) => {
+      const user = m.user as typeof m.user & {
+        profile_image_url?: unknown;
+        profileImage?: unknown;
+        avatar?: unknown;
+      };
 
-    // 서버에서 내려온 이미지 값 중 문자열만 사용
-    const avatarImage =
-      getAvatarValue(user.profile_image) ||
-      getAvatarValue(user.profile_image_url) ||
-      getAvatarValue(user.profileImage) ||
-      getAvatarValue(user.avatar)
+      // 서버에서 내려온 이미지 값 중 문자열만 사용
+      const avatarImage =
+        getAvatarValue(user.profile_image) ||
+        getAvatarValue(user.profile_image_url) ||
+        getAvatarValue(user.profileImage) ||
+        getAvatarValue(user.avatar);
 
-    return {
-      id: m.id,
-      uuid: user.uuid,
-      name: user.name,
-      position: m.position,
+      return {
+        id: m.id,
+        uuid: user.uuid,
+        name: user.name,
+        position: m.position,
 
-      // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
-      avatar:
-        avatarImage ||
-        getDefaultAvatar(user.uuid || user.email || user.name),
+        // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
+        avatar:
+          avatarImage || getDefaultAvatar(user.uuid || user.email || user.name),
 
-      email: user.email,
-      phone: user.phone,
-      github: user.github_url || '',
-    }
-  })
-  .sort((a, b) => Number(a.id) - Number(b.id)),
+        email: user.email,
+        phone: user.phone,
+        github: user.github_url || '',
+      };
+    })
+    .sort((a, b) => Number(a.id) - Number(b.id)),
   tickets: [],
   logs: [],
   notes: [],
@@ -133,12 +137,12 @@ const convertTeam = (team: TeamFromApi): Team => ({
   userStatuses: Object.fromEntries(
     team.members.map((m) => {
       const statusLabel = m.status || '업무 중';
-      const matched = USER_ACTIVITIES.find(a => a.label === statusLabel);
+      const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel);
       return [
         m.user.uuid,
         {
           label: statusLabel,
-          color: matched?.color || 'bg-green-500'
+          color: matched?.color || 'bg-green-500',
         },
       ];
     }),
@@ -156,7 +160,7 @@ const convertTeam = (team: TeamFromApi): Team => ({
 export const useTeams = (
   currentUser: CurrentUser | null,
   selectedTicketId: number | null,
-  setSelectedTicketId: (id: number | null) => void
+  setSelectedTicketId: (id: number | null) => void,
 ) => {
   // 새로고침 시, 로컬스토리지에 저장된 팀 ID를 가져오기
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
@@ -169,16 +173,16 @@ export const useTeams = (
 
   // GET /teams API 호출로 팀 목록 가져오기
   const { data: teamListData } = useQuery({
-    queryKey: ['teams'],
-    queryFn: getTeamsApi,
-    enabled: !!currentUser,
+    queryKey: ['teams', activeTeamId],
+    queryFn: () => getTeamMembersApi(Number(activeTeamId)),
+    enabled: !!currentUser && !!activeTeamId,
   });
 
   // 활동 중인 팀원 목록 전용 쿼리
   const { data: onlineUsersData } = useQuery<GetOnlineUsersResponse>({
     queryKey: ['onlineUsers', activeTeamId],
     queryFn: () => {
-      console.log("🚀 온라인 유저 API 호출 시도! 팀 ID:", activeTeamId);
+      console.log('🚀 온라인 유저 API 호출 시도! 팀 ID:', activeTeamId);
       return getOnlineUsersApi(Number(activeTeamId));
     },
     enabled: !!activeTeamId && activeTeamId !== '0',
@@ -245,14 +249,15 @@ export const useTeams = (
     teamChannel.bind('status-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       queryClient.invalidateQueries({ queryKey: ['logs', activeTeamId] });
-      queryClient.invalidateQueries({ queryKey: ['onlineUsers', activeTeamId] });
+      queryClient.invalidateQueries({
+        queryKey: ['onlineUsers', activeTeamId],
+      });
     });
 
     // 테스크 상태 업데이트 리스너
     teamChannel.bind('task-status-updated', () => {
-        refreshTeamData();
-      },
-    );
+      refreshTeamData();
+    });
 
     // 개인별 테스크 할당 알림 리스너
     userChannel.bind('new-task-requested', () => {
@@ -271,7 +276,7 @@ export const useTeams = (
       const statusCode = detailError.response?.status;
 
       if (statusCode === 404) {
-        toast.error("존재하지 않거나 삭제된 테스크입니다.", {
+        toast.error('존재하지 않거나 삭제된 테스크입니다.', {
           icon: '🗑️',
           duration: 4000,
           style: {
@@ -283,8 +288,9 @@ export const useTeams = (
             borderRadius: '16px',
             fontSize: '13px',
             fontWeight: '700',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }
+            boxShadow:
+              '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          },
         });
 
         setSelectedTicketId(null);
@@ -298,11 +304,11 @@ export const useTeams = (
     mutationFn: updateProfileImageApi,
     onSuccess: async (res) => {
       if (res.success) {
-      await queryClient.refetchQueries({ queryKey: ['myInfo'] });
+        await queryClient.refetchQueries({ queryKey: ['myInfo'] });
         queryClient.invalidateQueries({ queryKey: ['teams'] });
         queryClient.invalidateQueries({ queryKey: ['onlineUsers'] });
 
-        toast.success("프로필 이미지가 성공적으로 변경되었습니다.", {
+        toast.success('프로필 이미지가 성공적으로 변경되었습니다.', {
           style: {
             background: '#1e293b',
             color: '#fff',
@@ -314,11 +320,10 @@ export const useTeams = (
       }
     },
     onError: (error) => {
-      console.error("이미지 업로드 실패:", error);
-      toast.error("이미지 변경에 실패했습니다. 다시 시도해주세요.");
-    }
+      console.error('이미지 업로드 실패:', error);
+      toast.error('이미지 변경에 실패했습니다. 다시 시도해주세요.');
+    },
   });
-
 
   useEffect(() => {
     // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
@@ -396,17 +401,19 @@ export const useTeams = (
           let serverComments: TaskComment[] = [];
 
           if (isSelected && currentDetail && 'comments' in currentDetail) {
-            serverComments = currentDetail.comments.map((c: TaskCommentFromApi): TaskComment => {
-              return {
-                id: c.id,
-                user: c.user.name,
-                text: c.content,
-                time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
-                  hour12: false,
-                }),
-                is_edited: Boolean(c.is_edited),
-              };
-            });
+            serverComments = currentDetail.comments.map(
+              (c: TaskCommentFromApi): TaskComment => {
+                return {
+                  id: c.id,
+                  user: c.user.name,
+                  text: c.content,
+                  time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
+                    hour12: false,
+                  }),
+                  is_edited: Boolean(c.is_edited),
+                };
+              },
+            );
           }
 
           return {
@@ -421,7 +428,7 @@ export const useTeams = (
             worker_id: String(task.worker_id),
             createdAt: task.created_at?.split('T')[0] || '',
             comments: serverComments,
-            is_edited: task.is_edited || false
+            is_edited: task.is_edited || false,
           };
         },
       );
@@ -555,37 +562,35 @@ export const useTeams = (
 
   // 데이터 가공
   const onlineUsers = useMemo(() => {
-  // 여기서 onlineUsersData는 이제 GetOnlineUsersResponse 형식이 됩니다.
-  if (!onlineUsersData?.success || !onlineUsersData.data) return [];
-  
+    // 여기서 onlineUsersData는 이제 GetOnlineUsersResponse 형식이 됩니다.
+    if (!onlineUsersData?.success || !onlineUsersData.data) return [];
+
     return onlineUsersData.data.map((item: OnlineUserFromApi) => {
       const user = item.user as typeof item.user & {
-        profile_image_url?: unknown
-        profileImage?: unknown
-        avatar?: unknown
-      }
-      const matched = USER_ACTIVITIES.find(a => a.label === item.status)
+        profile_image_url?: unknown;
+        profileImage?: unknown;
+        avatar?: unknown;
+      };
+      const matched = USER_ACTIVITIES.find((a) => a.label === item.status);
 
       // 서버에서 내려온 이미지 값 중 문자열만 사용
       const avatarImage =
         getAvatarValue(user.profile_image) ||
         getAvatarValue(user.profile_image_url) ||
         getAvatarValue(user.profileImage) ||
-        getAvatarValue(user.avatar)
+        getAvatarValue(user.avatar);
 
       return {
         id: item.id,
         name: user.name,
 
         // 저장된 이미지가 있으면 그걸 쓰고, 없으면 기본 아바타 사용
-        avatar:
-          avatarImage ||
-          getDefaultAvatar(user.uuid || user.name),
+        avatar: avatarImage || getDefaultAvatar(user.uuid || user.name),
 
         status: item.status,
-        statusColor: matched?.color || 'bg-green-500'
-      }
-    })
+        statusColor: matched?.color || 'bg-green-500',
+      };
+    });
   }, [onlineUsersData]);
 
   // task 상태 변경
@@ -637,22 +642,26 @@ export const useTeams = (
   };
 
   // task 수정 핸들러
-  const onUpdateTicket = async (taskId: number, data: { title: string; content: string; worker_id: string }) => {
+  const onUpdateTicket = async (
+    taskId: number,
+    data: { title: string; content: string; worker_id: string },
+  ) => {
     try {
       const response = await UpdateTicketApi(taskId, data);
       if (response.success) {
         // task 무효화 후 최신 데이터로 업데이트
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['tickets', activeTeamId] }),
-          queryClient.invalidateQueries({ queryKey: ['ticketDetail', taskId] })
+          queryClient.invalidateQueries({
+            queryKey: ['tickets', activeTeamId],
+          }),
+          queryClient.invalidateQueries({ queryKey: ['ticketDetail', taskId] }),
         ]);
       }
     } catch (error) {
-      console.error("❌ 테스크 수정 실패:", error);
-      alert("수정에 실패했습니다.");
+      console.error('❌ 테스크 수정 실패:', error);
+      alert('수정에 실패했습니다.');
     }
   };
-
 
   /**
    * [기능] createTeam: 새 팀 생성
@@ -777,7 +786,7 @@ export const useTeams = (
       if (response.success) {
         // 가입된 팀 목록이 바뀌었으므로 서버 데이터를 새로고침
         await queryClient.invalidateQueries({ queryKey: ['teams'] });
-        
+
         // 현재 활성화된 팀 ID 정보 삭제
         setActiveTeamId(null);
         return { ok: true };
@@ -892,6 +901,6 @@ export const useTeams = (
     editNote,
     deleteNote,
     updateProfileImage: uploadImageMutation.mutate,
-    isImageUploading: uploadImageMutation.isPending
+    isImageUploading: uploadImageMutation.isPending,
   };
 };

@@ -2,14 +2,8 @@
  팀원 정보 관련 API 모음
  */
 
-import type { GetOnlineUsersResponse } from "../types";
+import type { GetOnlineUsersResponse, GetTeamsResponse } from '../types';
 import { api } from './client';
-
-// 특정 팀의 팀원 목록 조회
-export const getTeamMembersApi = async (teamId: number) => {
-  const response = await api.get(`/teams/${teamId}/members`);
-  return response.data;
-};
 
 // 요청 데이터 타입 정의
 export interface EditMemberPositionRequest {
@@ -41,7 +35,9 @@ export const editMemberPositionApi = async (
 };
 
 // 활동 중인 맴버 목록 조회 api
-export const getOnlineUsersApi = async (teamId: number): Promise<GetOnlineUsersResponse> => {
+export const getOnlineUsersApi = async (
+  teamId: number,
+): Promise<GetOnlineUsersResponse> => {
   const res = await api.get(`/teams/${teamId}/members/active`);
   return res.data;
 };
@@ -53,5 +49,14 @@ export const updateProfileImageApi = async (formData: FormData) => {
       'Content-Type': 'multipart/form-data',
     },
   });
-  return response.data; 
+  return response.data;
+};
+
+// 팀원 조회 api
+// 팀로비용 팀조회 api와 팀원 조회 api 분리 목적인 임시 api
+export const getTeamMembersApi = async (
+  teamId: number,
+): Promise<GetTeamsResponse> => {
+  const response = await api.get(`/teams/${teamId}/members`);
+  return response.data;
 };
