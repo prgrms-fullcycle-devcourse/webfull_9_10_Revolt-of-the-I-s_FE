@@ -46,7 +46,6 @@ export const useNotifications = (currentUserUuid: string | undefined) => {
     const userChannel = pusher.subscribe(`user-${currentUserUuid}`);
 
     userChannel.bind('new-notification', (data: PusherNotificationData) => {
-      console.log("🚀 Pusher 수신 데이터:", data);
       const teamLabel = data.teamName ? `[${data.teamName}]` : '[알림]';
       const fullMessage = `${teamLabel} ${data.message}`;
 

@@ -205,7 +205,6 @@ export const useTeams = (
   const { data: onlineUsersData } = useQuery<GetOnlineUsersResponse>({
     queryKey: ['onlineUsers', activeTeamId],
     queryFn: () => {
-      console.log('🚀 온라인 유저 API 호출 시도! 팀 ID:', activeTeamId);
       return getOnlineUsersApi(Number(activeTeamId));
     },
     enabled: !!activeTeamId && activeTeamId !== '0',
@@ -370,7 +369,6 @@ export const useTeams = (
     // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
     if (!selectedTicketId) return;
 
-    console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
     const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
 
     taskChannel.bind('new-comment', () => {
@@ -777,7 +775,6 @@ export const useTeams = (
         await queryClient.invalidateQueries({
           queryKey: ['logs', activeTeamId],
         });
-        console.log('✅ 티켓 생성 성공 및 데이터 동기화 완료');
       }
     } catch (error: unknown) {
       console.error('❌ 티켓 생성 중 오류 발생:', error);
@@ -791,16 +788,10 @@ export const useTeams = (
   const handleAddComment = async (ticketId: number, text: string) => {
     if (!text || !currentUser || !activeTeamId) return false;
 
-    console.log(
-      `🚀 [댓글전송] ${ticketId}번 테스크에 댓글 작성 시도: "${text}"`,
-    );
-
     try {
       const response = await createCommentApi(ticketId, text);
 
       if (response.success) {
-        console.log('✅ [서버응답] 댓글 저장 완료. 데이터를 새로고침합니다.');
-
         await Promise.all([
           queryClient.invalidateQueries({
             queryKey: ['ticketDetail', ticketId],

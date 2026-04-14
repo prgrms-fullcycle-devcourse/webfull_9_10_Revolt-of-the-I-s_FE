@@ -239,18 +239,13 @@ const finalAvatar = myInfoFromTeam?.avatar || currentUser?.avatar;
         {isStatusPickerOpen && (
           <StatusPicker 
             currentStatusLabel={myStatus.label}
-            onStatusChange={async (act) => {
-              console.log(`[Step 1] 상태 변경 클릭됨: ${act.label}`);
-              
+            onStatusChange={async (act) => {              
               try {
                 // 서버 API 호출 및 Pusher 방송 유도
-                console.log(`[Step 2] 서버에 상태 업데이트 요청 중...`);
                 await updateMyStatus(act.label); 
                 
                 // UI 닫기
                 setIsStatusPickerOpen(false);
-                
-                console.log(`[Step 3] 상태 변경 프로세스 완료! (Pusher 방송 대기 중)`);
               } catch (error) {
                 console.error(`[Error] 상태 변경 중 오류 발생:`, error);
                 alert("상태를 변경하지 못했습니다. 다시 시도해주세요.");

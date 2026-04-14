@@ -78,7 +78,6 @@ export const Dashboard = ({
 
   // 실시간 감시용 = 티켓이 추가되면 로그 숫자가 변경되어야 함
   useEffect(() => {
-    console.log('현재 티켓 수:', activeTeam.tickets.length);
   }, [activeTeam.tickets]);
 
   const CreateTicketModal = (
