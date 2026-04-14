@@ -8,7 +8,7 @@ import { api } from "./client";
 export const updateMyStatusApi = async (teamId: number, status: string) => {
   try {
     const response = await api.patch(`/users/me/status`, {
-      teamId: String(teamId),
+      teamId,
       status: status 
     });
     

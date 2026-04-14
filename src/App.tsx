@@ -66,6 +66,7 @@ export default function App() {
     leaveTeam,
     editNote,
     deleteNote,
+    updateProfileImage
   } = useTeams(currentUser, selectedTicketId, setSelectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -247,50 +248,47 @@ export default function App() {
   });
 
   useEffect(() => {
-    console.log('userData:', userData);
-    console.log('isUserLoading:', isUserLoading);
-    if (userData) {
-      const savedDisplayName = localStorage.getItem('displayName');
-      const restoredName =
-        userData.name ||
-        savedDisplayName ||
-        userData.email?.split('@')[0] ||
-        '사용자';
+  if (!userData) {
+    if (!isUserLoading) setIsAuthLoading(false);
+    return;
+  }
 
-      if (userData.name) {
-        localStorage.setItem('displayName', userData.name);
-      }
+  // 이름 복구 로직
+  const savedDisplayName = localStorage.getItem('displayName');
+  const restoredName = userData.name || savedDisplayName || userData.email?.split('@')[0] || '사용자';
 
-      setCurrentUser({
-        id: userData.id || Date.now(),
-        uuid: userData.uuid,
-        name: restoredName,
-        avatar: userData.avatar || '',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        position: userData.position || '팀원',
-        github: userData.github || '',
-      });
+  if (userData.name) {
+    localStorage.setItem('displayName', userData.name);
+  }
 
-      import('./utils/pusher').then(({ pusher }) => pusher.connect());
+  // 유저 정보 업데이트
+  setCurrentUser({
+    id: userData.id ?? Date.now(),
+    uuid: userData.uuid,
+    name: restoredName,
+    email: userData.email || '',
+    phone: userData.phone || '',
+    position: userData.position || '팀원',
+    github: userData.github || '',
+  });
 
-      const lastTeamId = localStorage.getItem('lastTeamId');
-      const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+  import('./utils/pusher').then(({ pusher }) => pusher.connect());
 
-      // [로그인 시 자동 처리] 세션 복원 시 마지막 활성 팀을 '업무 중'으로 변경
-      if (lastTeamId) {
-        syncUserStatus(Number(lastTeamId), '업무 중');
-        
-        if (wasAuthorized) {
-          setActiveTeamId(lastTeamId);
-          setIsTeamAuthorized(true);
-        }
-      }
+  const lastTeamId = localStorage.getItem('lastTeamId');
+  const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+
+  if (lastTeamId) {
+    syncUserStatus(Number(lastTeamId), '업무 중');
+    if (wasAuthorized) {
+      setActiveTeamId(lastTeamId);
+      setIsTeamAuthorized(true);
     }
-    if (!isUserLoading) {
-      setIsAuthLoading(false);
-    }
-  }, [userData, isUserLoading, setActiveTeamId, queryClient, syncUserStatus]);
+  }
+
+  if (!isUserLoading) {
+    setIsAuthLoading(false);
+  }
+}, [userData, isUserLoading, setActiveTeamId, queryClient, syncUserStatus]);
 
   // --- 세션 유지 로직 ---
   useEffect(() => {
@@ -821,6 +819,7 @@ export default function App() {
             activeTeam={activeTeam!}
             activeTeamId={activeTeamId}
             currentUser={currentUser}
+            updateProfileImage={updateProfileImage}
             updateMyStatus={updateMyStatus}
             view={view}
             setView={setView}

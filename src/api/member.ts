@@ -45,3 +45,13 @@ export const getOnlineUsersApi = async (teamId: number): Promise<GetOnlineUsersR
   const res = await api.get(`/teams/${teamId}/members/active`);
   return res.data;
 };
+
+// 프로필 이미지 변경 api
+export const updateProfileImageApi = async (formData: FormData) => {
+  const response = await api.patch('/users/profile/image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data; 
+};
