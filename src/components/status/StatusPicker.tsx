@@ -38,8 +38,8 @@ export const StatusPicker = ({ currentStatusLabel, onStatusChange, onLogout, han
             onClick={() => onStatusChange(act)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
               currentStatusLabel === act.label
-                ? 'bg-blue-50 text-blue-600' // 선택된 상태 배경색
-                : 'text-slate-600 hover:bg-slate-50' // 호버 시 배경색
+                ? 'bg-blue-50 text-blue-600'
+                : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
             {/* 각 상태 원형 배지 표시 */}
