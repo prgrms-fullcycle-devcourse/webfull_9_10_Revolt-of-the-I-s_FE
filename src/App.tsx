@@ -691,9 +691,6 @@ export default function App() {
 
       await leaveTeam(Number(teamId));
 
-      setTimeout(() => {
-        alert('팀 탈퇴가 완료되었습니다.');
-      }, 100);
     } catch (error: unknown) {
       console.error('탈퇴 처리 중 오류:', error);
 
