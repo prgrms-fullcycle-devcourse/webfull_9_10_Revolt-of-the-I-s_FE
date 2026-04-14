@@ -38,12 +38,9 @@ const getAvatarValue = (value: unknown) => {
 }
 
 // API 응답 TeamFromApi → 기존 Team 타입으로 변환하는 함수
-const convertTeam = (team: TeamFromApi): Team => ({
-  id: String(team.id),
-  name: team.name,
-  password: '',
-  isMember: team.isMember,
-  members: team.members.map((m) => {
+const convertTeam = (team: TeamFromApi): Team => {
+  // 기존 members 응답이 있으면 그대로 사용
+  const mappedMembers = (team.members ?? []).map((m) => {
     const user = m.user as typeof m.user & {
       profile_image_url?: unknown
       profileImage?: unknown
@@ -70,18 +67,43 @@ const convertTeam = (team: TeamFromApi): Team => ({
       phone: user.phone,
       github: user.github_url || '',
     }
-  }),
-  tickets: [],
-  logs: [],
-  notes: [],
-  links: [],
-  userStatuses: Object.fromEntries(
-    team.members.map((m) => [
-      m.user.name,
-      { label: m.status || '활동 중', color: 'bg-green-500' }
-    ])
-  ),
-})
+  })
+
+  // 로비용 응답이면 previewImages를 화면 표시용 members 형태로만 보정
+  const previewMembers =
+    mappedMembers.length > 0
+      ? mappedMembers
+      : (team.previewImages ?? []).map((image, index) => ({
+          id: index + 1,
+          uuid: `preview-${team.id}-${index}`,
+          name: `preview-${index}`,
+          position: '',
+          avatar: image,
+          email: '',
+          phone: '',
+          github: '',
+        }))
+
+  return {
+    id: String(team.id),
+    name: team.name,
+    password: '',
+    isMember: team.isMember,
+    memberCount: team.memberCount ?? previewMembers.length,
+    previewImages: team.previewImages ?? previewMembers.map((m) => m.avatar || '').filter(Boolean),
+    members: previewMembers,
+    tickets: [],
+    logs: [],
+    notes: [],
+    links: [],
+    userStatuses: Object.fromEntries(
+      (team.members ?? []).map((m) => [
+        m.user.name,
+        { label: m.status || '활동 중', color: 'bg-green-500' }
+      ])
+    ),
+  }
+}
 
 export const Lobby = ({
   currentUser,
@@ -208,7 +230,7 @@ export const Lobby = ({
             {team.name}
           </h3>
           <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-400">
-            <Users size={12} /> {team.members.length}명의 멤버
+            <Users size={12} /> {team.memberCount ?? team.members.length}명의 멤버
           </p>
         </div>
       </div>
@@ -217,7 +239,15 @@ export const Lobby = ({
       <div className="pt-5 border-t border-slate-100 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex -space-x-2">
-            {team.members.slice(0, 3).map((m) => (
+            {(team.previewImages && team.previewImages.length > 0
+                ? team.previewImages.slice(0, 3).map((image, index) => ({
+                    id: index + 1,
+                    avatar: image,
+                    name: `preview-${index}`,
+                    email: `preview-${index}`,
+                  }))
+                : team.members.slice(0, 3)
+              ).map((m) => (
               <div
                 key={m.id ?? `${m.email}-${m.name}`}
                 className="w-7 h-7 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold shadow-sm overflow-hidden"
@@ -231,7 +261,7 @@ export const Lobby = ({
                 ) : m.avatar ? (
                   <span className="text-sm">{m.avatar}</span>
                 ) : (
-                  m.name.slice(0, 1)
+                  m.name?.slice(0, 1) || '?'
                 )}
               </div>
             ))}
