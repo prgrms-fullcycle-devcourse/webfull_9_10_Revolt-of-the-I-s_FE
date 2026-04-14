@@ -114,6 +114,8 @@ export const Signup = ({ goLogin }: SignupProps) => {
       }
 
       setErrorMessage('')
+      // 회원가입 완료 안내 메시지
+      alert('회원가입이 완료되었습니다.')
       goLogin()
     },
     onError: (error) => {
@@ -203,6 +205,8 @@ export const Signup = ({ goLogin }: SignupProps) => {
 
       sessionStorage.removeItem('googleSignupUser')
       setErrorMessage('')
+      // 구글 회원가입 완료 안내 메시지
+      alert('구글 회원가입이 완료되었습니다.')
       goLogin()
     },
     onError: (error) => {
