@@ -197,23 +197,38 @@ const finalAvatar = myInfoFromTeam?.avatar || currentUser?.avatar;
           className="relative w-9 h-9 rounded-full shrink-0 cursor-pointer group/avatar overflow-hidden bg-slate-800 flex items-center justify-center"
           onClick={() => fileInputRef.current?.click()}
         >
-          {/* ✅ 1순위: currentUser.avatar (가져온 프로필 이미지)가 있으면 이미지 표시 */}
-          {currentUser?.avatar ? (
-          <img 
-            src={finalAvatar}
-            className="w-full h-full object-cover"
-            alt="프로필"
-            key={finalAvatar}
-          />
-        ) : (
-          <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-            <span className="text-lg font-black text-slate-400">
-              {currentUser?.name?.[0] || 'U'}
-            </span>
-          </div>
-        )}
+          {/* 이미지 유효성 체크 로직 */}
+          {finalAvatar && (finalAvatar.startsWith('http') || finalAvatar.startsWith('/') || finalAvatar.startsWith('data:')) ? (
+            <img 
+              src={finalAvatar}
+              className="w-full h-full object-cover"
+              alt="프로필"
+              onError={(e) => {
+                // 이미지 로드 실패 시 텍스트로 대체하기 위해 에러 처리
+                (e.target as HTMLImageElement).style.display = 'none';
+                (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
 
-          {/* 마우스 호버 시 오버레이 디자인 개선 */}
+          {/* 이미지가 없거나, 위 조건(경로)이 아니면 이모지/첫글자 출력 */}
+          {(!finalAvatar || !(finalAvatar.startsWith('http') || finalAvatar.startsWith('/') || finalAvatar.startsWith('data:'))) ? (
+            <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+              <span className="text-lg font-black text-slate-500">
+                {/* 이모지라면 그대로 출력, 이름이라면 첫 글자 출력 */}
+                {finalAvatar || currentUser?.name?.[0] || 'U'}
+              </span>
+            </div>
+          ) : (
+            // 이미지 로드 실패 시 나타날 백업 UI 
+            <div className="hidden absolute inset-0 w-full h-full bg-slate-200 items-center justify-center">
+              <span className="text-lg font-black text-slate-500">
+                {currentUser?.name?.[0] || 'U'}
+              </span>
+            </div>
+          )}
+
+          {/* 마우스 호버 시 오버레이 */}
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all duration-300 z-20 backdrop-blur-[1px]">
             <Pencil size={16} className="text-white" />
           </div>

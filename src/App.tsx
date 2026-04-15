@@ -855,6 +855,8 @@ export default function App() {
               setIsCreateModalOpen={() => setActiveModal('create')}
               currentUser={currentUser}
               setSelectedTicketId={setSelectedTicketId}
+              setActiveTeamId={setActiveTeamId}
+              setView={setView}
             />
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               {view === 'dashboard' && activeTeam && (
