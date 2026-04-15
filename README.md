@@ -2,6 +2,9 @@
 
 > **팀 협업 도구 서비스** | React + TypeScript + Vite (Vercel)
 
+[![Vercel](https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://webfull-9-10-revolt-of-the-i-s-fe-e.vercel.app/)
+[![Backend Repo](https://img.shields.io/badge/Backend_Repo-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/prgrms-fullcycle-devcourse/webfull_9_10_Revolt-of-the-I-s_BE)
+
 </br>
 
 ## 📌 서비스 소개
