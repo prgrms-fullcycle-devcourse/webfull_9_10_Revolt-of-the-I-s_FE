@@ -13,7 +13,6 @@ import type {
   CurrentUser,
   TeamFromApi,
   TeamArchiveData,
-  PusherCommentData,
   TaskBaseFromApi,
   TaskComment,
   TaskCommentFromApi,
@@ -213,7 +212,6 @@ export const useTeams = (
   const { data: onlineUsersData } = useQuery<GetOnlineUsersResponse>({
     queryKey: ['onlineUsers', activeTeamId],
     queryFn: () => {
-      console.log('🚀 온라인 유저 API 호출 시도! 팀 ID:', activeTeamId);
       return getOnlineUsersApi(Number(activeTeamId));
     },
     enabled: !!activeTeamId && activeTeamId !== '0',
@@ -378,12 +376,9 @@ export const useTeams = (
     // 특정 테스크 모달이 열려 있을 때만 리스너를 가동합니다.
     if (!selectedTicketId) return;
 
-    console.log(`[Pusher] #${selectedTicketId} 테스크 채널 구독 시도...`);
     const taskChannel = pusher.subscribe(`task-${selectedTicketId}`);
 
-    taskChannel.bind('new-comment', (data: PusherCommentData) => {
-      console.log('💬 [Pusher] 실시간 댓글 이벤트 발생!', data);
-      // 💡 여기서 invalidateQueries를 호출해야 위 useMemo가 다시 작동합니다.
+    taskChannel.bind('new-comment', () => {
       queryClient.invalidateQueries({
         queryKey: ['ticketDetail', selectedTicketId],
       });
@@ -452,9 +447,12 @@ export const useTeams = (
           if (isSelected && currentDetail && 'comments' in currentDetail) {
             serverComments = currentDetail.comments.map(
               (c: TaskCommentFromApi): TaskComment => {
+                const writer = baseTeam.members.find((m) => m.name === c.user.name);
                 return {
                   id: c.id,
                   user: c.user.name,
+                  // ✅ 2. 찾은 멤버의 avatar(사진)를 userImage 필드에 넣어줍니다.
+                  userImage: writer?.avatar || null, 
                   text: c.content,
                   time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
                     hour12: false,
@@ -784,7 +782,6 @@ export const useTeams = (
         await queryClient.invalidateQueries({
           queryKey: ['logs', activeTeamId],
         });
-        console.log('✅ 티켓 생성 성공 및 데이터 동기화 완료');
       }
     } catch (error: unknown) {
       console.error('❌ 티켓 생성 중 오류 발생:', error);
@@ -798,16 +795,10 @@ export const useTeams = (
   const handleAddComment = async (ticketId: number, text: string) => {
     if (!text || !currentUser || !activeTeamId) return false;
 
-    console.log(
-      `🚀 [댓글전송] ${ticketId}번 테스크에 댓글 작성 시도: "${text}"`,
-    );
-
     try {
       const response = await createCommentApi(ticketId, text);
 
       if (response.success) {
-        console.log('✅ [서버응답] 댓글 저장 완료. 데이터를 새로고침합니다.');
-
         await Promise.all([
           queryClient.invalidateQueries({
             queryKey: ['ticketDetail', ticketId],

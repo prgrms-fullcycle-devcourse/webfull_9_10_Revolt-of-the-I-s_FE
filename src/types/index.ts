@@ -12,6 +12,7 @@ export interface Member {
   uuid: string;
   name: string;
   position: string;
+  imgUrl?: string;
   avatar?: string;
   email: string;
   phone: string;
@@ -30,6 +31,35 @@ export interface UserInfoResponse {
   profile_image?: string;
   imageUrl?: string;
   avatar?: string;
+}
+
+// 서버에서 보내주는 유저 데이터의 원본 규격
+export interface UserRawData {
+  id?: number;
+  uuid: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  github?: string;
+  profileImage?: string;
+}
+
+// getMyInfoApi의 전체 응답 타입
+export interface GetMyInfoResponse {
+  success: boolean;
+  data: {
+    id: number;
+    uuid: string;
+    name: string;
+    email: string;
+    profileImage: string; // ✅ 이 부분이 있어야 합니다.
+    phone?: string;
+    position?: string;
+    github?: string;
+  } | null;
+  meta: null;
+  error: string | null;
 }
 
 // 활동 중인 유저 정보 : 서버 응답
@@ -102,6 +132,7 @@ export interface TaskDetailFromApi extends TaskBaseFromApi {
 export interface TaskComment {
   id: number;
   user: string;
+  userImage?: string | null;
   text: string;
   time: string;
   is_edited: boolean;
@@ -163,6 +194,7 @@ export interface NotificationItem {
   id: number;
   user_id: string;
   team_id: number;
+  teamName: string;
   task_id: number | null;
   type: NotificationType;
   message: string;
@@ -176,6 +208,7 @@ export interface PusherNotificationData {
   message: string;
   taskId: number;
   teamId: number;
+  teamName: string;
 }
 
 // 팀 아카이브: 공유 링크, 문서, 회의록 공통 데이터

@@ -15,7 +15,7 @@ interface TicketDetailProps {
   onUpdateTicket: (taskId: number, data: { title: string; content: string; worker_id: string }) => Promise<void>;
 }
 
-export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComment, handleDeleteTicketApi, onUpdateComment, onDeleteComment, onUpdateTicket }: TicketDetailProps) => {
+export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleDeleteTicketApi, onUpdateComment, onDeleteComment, onUpdateTicket }: TicketDetailProps) => {
 
   // 권한 체크
   const isWorker = String(currentUser?.uuid) === String(ticket.worker_id);
@@ -190,22 +190,7 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
                 <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">
                   WORKER
                 </p>
-                {/* 수정 모드일 때 담당자 선택 Select 박스 노출 */}
-                {isEditingTask ? (
-                  <select
-                    value={taskForm.worker_id}
-                    onChange={(e) => setTaskForm({ ...taskForm, worker_id: e.target.value })}
-                    className="font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg outline-none cursor-pointer"
-                  >
-                    {activeTeam.members.map((m) => (
-                      <option key={m.uuid} value={m.uuid}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="font-black text-blue-600">{ticket.worker}</p>
-                )}
+                <p className="font-black text-blue-600">{ticket.worker}</p>
               </div>
               {/* 요청 취소(삭제) 버튼 */}
               {/* 담당자일 때만 버튼 활성화, 아닐 때는 비활성화 스타일 적용 */}
@@ -241,7 +226,6 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
               const isMe = c.user === currentUser.name;
               const isEditing = editingCommentId === c.id;
               const isMenuOpen = activeMenuId === c.id;
-              console.log(`${c.id}번 댓글 수정 여부:`, c.is_edited);
 
               return (
                 <div 
@@ -249,18 +233,31 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
                   className={`flex gap-3 group relative ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   onMouseLeave={() => setActiveMenuId(null)}
                 >
-                  {/* 아바타 */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                    isMe ? 'bg-blue-600 shadow-md' : 'bg-slate-200'
-                  }`}>
-                    {c.user ? c.user[0] : '?'}
+                  {/* 아바타 영역: 이미지 우선 노출 */}
+                  <div className={`w-8 h-8 rounded-full overflow-hidden relative shrink-0 flex items-center justify-center ${isMe ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                    
+                    {/* 작성자 이미지가 존재할 때 출력 */}
+                    {c.userImage ? (
+                      <img 
+                        src={c.userImage} 
+                        alt={c.user} 
+                        className="w-full h-full object-cover relative z-10"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+
+                    {/* 이미지가 없거나 로드 실패 시 이름 첫 글자 (기존 로직) */}
+                    <span className="text-white font-bold text-[10px] absolute z-0">
+                      {c.user ? c.user[0] : '?'}
+                    </span>
                   </div>
 
                   {/* 말풍선 컨테이너 */}
-                  <div className={`relative max-w-[75%] group/bubble`}>
+                  <div className={`relative max-w-[75%] group/bubble flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {isEditing ? (
-                      /* 수정 시, 입력창으로 전환 */
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2 w-full">
                         <textarea
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
@@ -268,57 +265,46 @@ export const TicketDetail = ({ ticket, activeTeam, currentUser, onClose, addComm
                           autoFocus
                         />
                         <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => setEditingCommentId(null)}
-                            className="text-[10px] font-bold text-slate-400"
-                          >
-                            취소
-                          </button>
-                          <button 
-                            onClick={() => handleUpdate(c.id)}
-                            className="text-[10px] font-bold text-blue-600"
-                          >
-                            저장
-                          </button>
+                          <button onClick={() => setEditingCommentId(null)} className="text-[10px] font-bold text-slate-400">취소</button>
+                          <button onClick={() => handleUpdate(c.id)} className="text-[10px] font-bold text-blue-600">저장</button>
                         </div>
                       </div>
                     ) : (
-                      /* 댓글 말풍선 출력 */
-                      <div className={`p-4 rounded-2xl text-xs leading-relaxed ${
-                        isMe 
-                          ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
-                          : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
-                      }`}>
-                        {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
-                        
-                        <div className="flex flex-wrap items-end gap-2">
+                      <>
+                        {/* 댓글 말풍선 */}
+                        <div className={`p-4 rounded-2xl text-xs leading-relaxed ${
+                          isMe 
+                            ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
+                            : 'bg-slate-50 text-slate-600 rounded-tl-none border border-slate-100'
+                        }`}>
+                          {!isMe && <p className="text-[9px] font-black mb-1 opacity-60">{c.user}</p>}
                           <span>{c.text}</span>
-                          
-                          {/* 댓글 [수정됨] 표시 추가 */}
-                          {c.is_edited && (
-                            <span className="text-[8px] font-bold text-slate-400 opacity-60">
-                              (수정됨)
-                            </span>
-                          )}
                         </div>
-                      </div>
+
+                        {/* 표시를 말풍선 바깥쪽으로 이동 */}
+                        {c.is_edited && (
+                          <span className="text-[8px] font-bold text-slate-400 opacity-60 shrink-0 mb-1">
+                            (수정됨)
+                          </span>
+                        )}
+                      </>
                     )}
 
-                    {/* [더보기 버튼] 호버 시 노출 & 내 글일 때만 */}
+                    {/* [더보기 버튼] 내 글일 때만 노출 */}
                     {isMe && !isEditing && (
-                      <div className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover/bubble:opacity-100 transition-opacity`}>
+                      <div className="shrink-0 flex items-center mb-2">
                         <button 
                           onClick={() => setActiveMenuId(isMenuOpen ? null : c.id)}
-                          className="p-1 text-slate-400 hover:text-slate-600"
+                          className="p-1 text-slate-300 hover:text-slate-600 transition-colors"
                         >
                           <MoreHorizontal size={16} />
                         </button>
                       </div>
                     )}
 
-                    {/* 더보기 클릭 시 팝업 메뉴] */}
+                    {/* 더보기 클릭 시 팝업 메뉴 (기존 로직 유지) */}
                     {isMenuOpen && (
-                      <div className={`absolute z-10 top-6 ${isMe ? 'left-0' : 'right-0'} bg-white border border-slate-100 shadow-xl rounded-xl overflow-hidden py-1 min-w-20`}>
+                      <div className={`absolute z-10 top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-white border border-slate-100 shadow-xl rounded-xl overflow-hidden py-1 min-w-20`}>
                         <button 
                           onClick={() => startEdit(c.id, c.text)}
                           className="w-full px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
