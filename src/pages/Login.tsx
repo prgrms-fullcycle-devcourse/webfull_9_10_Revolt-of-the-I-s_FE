@@ -111,21 +111,25 @@ export const Login = ({ setCurrentUser, goSignup }: LoginProps) => {
 
       // 기존 유저면 로그인 완료 처리
       try {
-        const user = await getMyInfoApi()
+        const response = await getMyInfoApi(); 
+        const user = response.data; 
 
-        // 구글 로그인 응답 이름을 새로고침용으로도 저장
-        const googleUser = data.data?.user
+        if (!user) {
+          throw new Error('유저 정보가 없습니다.');
+        }
+
+        const googleUser = data.data?.user;
         const displayName =
-          user.name || googleUser?.name || user.email?.split('@')[0] || '사용자'
+          user.name || googleUser?.name || user.email?.split('@')[0] || '사용자';
 
-        localStorage.setItem('displayName', displayName)
+        localStorage.setItem('displayName', displayName);
 
         setCurrentUser({
           id: typeof user.id === 'number' ? user.id : undefined,
           uuid: user.uuid || '',
           name: displayName,
           position: user.position || '',
-          avatar: user.avatar || '',
+          avatar: user.profileImage || '', 
           email: user.email || googleUser?.email || '',
           phone: user.phone || '',
           github: user.github || '',
