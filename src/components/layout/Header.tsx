@@ -19,14 +19,19 @@ interface HeaderProps {
   setIsCreateModalOpen: (open: boolean) => void;
   currentUser: CurrentUser;
   setSelectedTicketId: (id: number | null) => void;
+  setActiveTeamId: (id: string | null) => void; 
+  setView: (view: 'dashboard' | 'members' | 'archive') => void;
 }
 
 export const Header = ({
   view,
+  activeTeam,
   onlineUsers,
   setIsCreateModalOpen,
   currentUser,
-  setSelectedTicketId
+  setSelectedTicketId,
+  setActiveTeamId,
+  setView
 }: HeaderProps) => {
   const { 
     notifications,
@@ -138,7 +143,20 @@ export const Header = ({
                       onClick={() => {
                         // 특정 알림 클릭 시 읽음 처리 API 호출
                         readNotification(noti.id);
-                        if (noti.task_id) setSelectedTicketId(noti.task_id);
+                        const targetTeamId = String(noti.team_id);
+                        const currentTeamId = String(activeTeam?.id);
+
+                        if (targetTeamId !== currentTeamId) {
+                          if (window.confirm(`'${noti.teamName}' 팀으로 이동하시겠습니까?`)) {
+
+                            setActiveTeamId(targetTeamId);
+                            setView('dashboard');
+                            
+                            if (noti.task_id) setSelectedTicketId(noti.task_id);
+                          }
+                        } else {
+                          if (noti.task_id) setSelectedTicketId(noti.task_id);
+                        }
                         setIsNotiOpen(false);
                       }}
                       className={`p-4 border-b border-slate-50 cursor-pointer transition-all relative flex gap-3 ${
