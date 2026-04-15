@@ -256,12 +256,19 @@ export default function App() {
 
   const userRawData = userData.data;
 
+  // 이름 복구 로직
+  const savedDisplayName = localStorage.getItem('displayName');
+  const restoredName = 
+    userRawData.name || 
+    savedDisplayName || 
+    userRawData.email?.split('@')[0] || 
+    '사용자';
+
   setCurrentUser({
     ...userRawData,
     id: userRawData.id,
     uuid: userRawData.uuid,
-    name: userRawData.name || '사용자',
-    // ✅ 서버가 주는 profileImage를 avatar에 연결 (없으면 기본값 '')
+    name: restoredName,
     avatar: userRawData.profileImage || '', 
     email: userRawData.email || '',
     phone: userRawData.phone || '',
