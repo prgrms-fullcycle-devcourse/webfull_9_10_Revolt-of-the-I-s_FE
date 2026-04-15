@@ -91,6 +91,25 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
       console.error("삭제 중 에러:", error);
     }
   };
+
+  // 댓글 팝업 바깥 클릭 감지를 위한 Ref
+  const commentMenuRef = useRef<HTMLDivElement>(null);
+
+  // ✅ 댓글 메뉴 바깥 클릭 시 닫기 로직
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // 클릭된 타겟이 메뉴 영역(commentMenuRef) 외부에 있다면 닫기
+      if (commentMenuRef.current && !commentMenuRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null);
+      }
+    };
+
+    if (activeMenuId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeMenuId]);
   
   return (
     // 고정된 전체 화면 오버레이 (Backdrop)
@@ -231,7 +250,7 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
                 <div 
                   key={c.id} 
                   className={`flex gap-3 group relative ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
-                  onMouseLeave={() => setActiveMenuId(null)}
+                  // onMouseLeave={() => setActiveMenuId(null)}
                 >
                   {/* 아바타 영역: 이미지 우선 노출 */}
                   <div className={`w-8 h-8 rounded-full overflow-hidden relative shrink-0 flex items-center justify-center ${isMe ? 'bg-blue-600' : 'bg-slate-200'}`}>
@@ -282,49 +301,58 @@ export const TicketDetail = ({ ticket, currentUser, onClose, addComment, handleD
                         </div>
 
                         {/* 표시를 말풍선 바깥쪽으로 이동 */}
+                        <div className={`flex items-center gap-1.5 mb-1 shrink-0 relative ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                         {c.is_edited && (
-                          <span className="text-[8px] font-bold text-slate-400 opacity-60 shrink-0 mb-1">
+                          <span className="text-[8px] font-bold text-slate-400 opacity-60">
                             (수정됨)
                           </span>
                         )}
-                      </>
-                    )}
-
-                    {/* [더보기 버튼] 내 글일 때만 노출 */}
-                    {isMe && !isEditing && (
-                      <div className="shrink-0 flex items-center mb-2">
-                        <button 
-                          onClick={() => setActiveMenuId(isMenuOpen ? null : c.id)}
-                          className="p-1 text-slate-300 hover:text-slate-600 transition-colors"
-                        >
-                          <MoreHorizontal size={16} />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 더보기 클릭 시 팝업 메뉴 (기존 로직 유지) */}
-                    {isMenuOpen && (
-                      <div className={`absolute z-10 top-full mt-1 ${isMe ? 'right-0' : 'left-0'} bg-white border border-slate-100 shadow-xl rounded-xl overflow-hidden py-1 min-w-20`}>
-                        <button 
-                          onClick={() => startEdit(c.id, c.text)}
-                          className="w-full px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <Pencil size={12} /> 수정
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(c.id)}
-                          className="w-full px-3 py-2 text-[10px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
-                        >
-                          <Trash2 size={12} /> 삭제
-                        </button>
+                      
+                        {/* [더보기 버튼] 내 글일 때만 노출 */}
+                        {isMe && !isEditing && (
+                          <div 
+                            className="relative" 
+                            // ✅ 현재 이 댓글의 메뉴가 열려있을 때만 Ref를 연결하여 감지 대상으로 지정
+                            ref={isMenuOpen ? commentMenuRef : null}
+                          >
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation(); 
+                                setActiveMenuId(isMenuOpen ? null : c.id);
+                              }}
+                              className="p-1 text-slate-300 hover:text-slate-600 transition-all rounded-full hover:bg-slate-50"
+                            >
+                              <MoreHorizontal size={16} />
+                            </button>
+                      
+                        {/* ✅ 더보기 버튼 바로 아래에 고정되도록 이동 */}
+                        {isMenuOpen && (
+                          <div className={`absolute z-10 top-full mt-2 ${isMe ? 'right-0' : 'left-0'} bg-white border border-slate-100 shadow-xl rounded-xl overflow-hidden py-1 min-w-24`}>
+                            <button 
+                              onClick={() => startEdit(c.id, c.text)}
+                              className="w-full px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                            >
+                              <Pencil size={12} /> 수정
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(c.id)}
+                              className="w-full px-3 py-2 text-[10px] font-bold text-red-500 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <Trash2 size={12} /> 삭제
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-        </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <div ref={messagesEndRef} />
+    </div>
 
         {/* 푸터 섹션: 댓글 입력 폼 */}
         <div className="px-8 py-6 border-t border-slate-100 bg-white shrink-0">
