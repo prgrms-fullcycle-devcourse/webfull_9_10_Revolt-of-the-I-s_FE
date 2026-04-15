@@ -10,17 +10,12 @@ import { useEffect, useMemo } from 'react';
 import { pusher } from '../utils/pusher';
 import type { NotificationItem, PusherNotificationData } from '../types';
 
-// // 알림 타입별 태그 매핑
-// const getNotificationTag = (type: string): string => {
-//   switch (type) {
-//     case 'NEW_TASK': return '[신규]';
-//     case 'NEW_COMMENT': return '[댓글]';
-//     case 'TASK_UPDATED': return '[수정]';
-//     case 'STATUS_CHANGED': return '[상태]';
-//     case 'TASK_DELETED': return '[삭제]';
-//     default: return '[알림]';
-//   }
-// };
+interface ExtendedNotificationItem extends NotificationItem {
+  team_name?: string;
+  team?: {
+    name: string;
+  };
+}
 
 export const useNotifications = (currentUserUuid: string | undefined) => {
   const queryClient = useQueryClient();
@@ -80,17 +75,23 @@ export const useNotifications = (currentUserUuid: string | undefined) => {
 
   // 데이터 가공
   const processedNotifications = useMemo((): (NotificationItem & { isNew: boolean })[] => {
-    const allList: NotificationItem[] = Array.isArray(allResponse?.data) 
+  const allList: ExtendedNotificationItem[] = Array.isArray(allResponse?.data) 
     ? allResponse.data 
     : [];
-    const unreadList: NotificationItem[] = unreadResponse?.data?.notifications || [];
-    const unreadIds = new Set(unreadList.map(n => n.id));
+    
+  const unreadList: NotificationItem[] = unreadResponse?.data?.notifications || [];
+  const unreadIds = new Set(unreadList.map(n => n.id));
 
-    return allList.map(noti => ({
+  return allList.map(noti => {
+    const teamNameValue = noti.teamName || noti.team_name || noti.team?.name || '알 수 없는 팀';
+
+    return {
       ...noti,
+      teamName: teamNameValue,
       isNew: unreadIds.has(noti.id) || !noti.is_read
-    }));
-  }, [allResponse, unreadResponse]);
+    };
+  });
+}, [allResponse, unreadResponse]);
 
   const readMutation = useMutation({
     mutationFn: (id: number) => readNotificationApi(id),
