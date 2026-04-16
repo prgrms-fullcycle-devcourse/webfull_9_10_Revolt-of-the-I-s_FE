@@ -94,6 +94,7 @@ export const getNotesApi = async (teamId: number) => {
 export interface NoteRequest {
   title: string;
   content: string;
+  version?: number; // 회의록 버전 정보 (옵션)
 }
 
 export const createNoteApi = async (teamId: number, data: NoteRequest) => {
@@ -109,15 +110,21 @@ export const getNoteDetailApi = async (archiveId: number) => {
   return response.data;
 };
 
-export const editNoteApi = async (archiveId: number, data: NoteRequest) => {
+export const editNoteApi = async (
+  archiveId: number,
+  data: NoteRequest & { version: number },
+) => {
   const response = await api.patch(`/archives/${archiveId}/meeting`, {
     title: data.title,
     content: data.content,
+    version: data.version,
   });
   return response.data;
 };
 
-export const deleteNoteApi = async (archiveId: number) => {
-  const response = await api.delete(`/archives/${archiveId}/meeting`);
+export const deleteNoteApi = async (archiveId: number, version: number) => {
+  const response = await api.delete(`/archives/${archiveId}/meeting`, {
+    params: { version },
+  });
   return response.data;
 };

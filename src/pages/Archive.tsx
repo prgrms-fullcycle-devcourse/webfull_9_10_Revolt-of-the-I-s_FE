@@ -145,7 +145,9 @@ export const Archive = ({
             {activeTeam.notes.map((note) => (
               <div
                 key={note.id}
-                onClick={() => setSelectedNote(note)}
+                onClick={() => {
+                  setSelectedNote(note);
+                }}
                 className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer group flex flex-col h-50"
               >
                 <div className="flex justify-between items-start mb-3">

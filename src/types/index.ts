@@ -187,7 +187,12 @@ export interface PusherCommentData {
 type ArchiveType = 'NOTE' | 'LINK' | 'PDF';
 
 // 알림 타입 정의
-export type NotificationType = "NEW_TASK" | "TASK_UPDATED" | "TASK_DELETED" | "STATUS_CHANGED" | "NEW_COMMENT";
+export type NotificationType =
+  | 'NEW_TASK'
+  | 'TASK_UPDATED'
+  | 'TASK_DELETED'
+  | 'STATUS_CHANGED'
+  | 'NEW_COMMENT';
 
 // 알림 api 응답 타입 정의
 export interface NotificationItem {
@@ -218,6 +223,7 @@ export interface TeamArchiveData {
   title: string;
   content: string;
   created_at: string;
+  version?: number; // 회의록 버전 관리용 (낙관적 락)
 }
 
 /**
