@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import type {
   Team,
   Ticket,
@@ -263,9 +263,9 @@ export const useTeams = (
       try {
         const response = await getNotesApi(Number(activeTeamId));
         return response;
-      } catch (error: any) {
-        // 🚀 마지막 회의록 삭제 시 서버가 404를 던지면 빈 배열 구조를 리턴해서 에러를 방어.
-        if (error.response?.status === 404) {
+      } catch (error: unknown) {
+        const axiosError = error as AxiosError;
+        if (axiosError.response?.status === 404) {
           return { success: true, data: [] };
         }
         throw error;
@@ -918,8 +918,9 @@ export const useTeams = (
         return response.data.version;
       }
       throw new Error('버전 정보를 가져올 수 없습니다.');
-    } catch (error) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
         console.warn('이미 삭제된 회의록입니다.');
         return null;
       }
@@ -949,21 +950,42 @@ export const useTeams = (
         return { ok: false };
       }
 
+      const serverVersion = await fetchNoteCurrentVersion(noteId);
+
+      if (serverVersion === null) {
+        window.alert('이미 삭제된 회의록입니다.');
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        return { ok: false, conflict: true };
+      }
+
+      if (serverVersion !== noteVersion) {
+        window.alert(
+          '이미 다른 사용자가 수정했습니다. 최신 내용을 확인해 주세요.',
+        );
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        return { ok: false, conflict: true };
+      }
+
+      // 버전이 같을 때만 수정 호출
       const response = await editNoteApi(noteId, {
         ...data,
-        version: noteVersion, // 확보한 버전 전송
+        version: noteVersion,
       });
 
       if (response.success) {
-        console.log('✅ [수정 완료] 성공적으로 반영됨');
         setNoteVersion(null);
         await queryClient.invalidateQueries({
           queryKey: ['noteData', activeTeamId],
         });
         return { ok: true };
       }
-    } catch (error: any) {
-      if (error.response?.status === 409) {
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 409) {
         window.alert(
           '이미 다른 사용자가 수정했습니다. 최신 내용을 확인해 주세요.',
         );
@@ -977,19 +999,14 @@ export const useTeams = (
 
   // 회의록 삭제
   const deleteNote = async (noteId: number) => {
-    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
-
     try {
       const currentVersion = await fetchNoteCurrentVersion(noteId);
 
       if (currentVersion === null) {
-        // 이미 삭제된 경우이므로 사용자에게 알려주고
         window.alert('이미 삭제된 회의록입니다.');
-        // 목록 갱신해서 유령 데이터를 목록에서 지워줍니다.
         await queryClient.invalidateQueries({
           queryKey: ['noteData', activeTeamId],
         });
-        // 팝업을 닫기 위해 conflict 신호를 보냅니다.
         return { ok: false, conflict: true };
       }
 
@@ -998,19 +1015,28 @@ export const useTeams = (
       await queryClient.invalidateQueries({
         queryKey: ['noteData', activeTeamId],
       });
+      setNoteVersion(null);
       return { ok: true };
     } catch (error: unknown) {
-      const status = error.response?.status;
+      const axiosError = error as AxiosError;
+      const status = axiosError.response?.status;
+
+      if (status === 404) {
+        window.alert('이미 삭제된 회의록입니다.');
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        return { ok: false, conflict: true };
+      }
 
       if (status === 409) {
-        window.alert('이미 수정된 회의록입니다.');
-        queryClient.invalidateQueries({ queryKey: ['noteData', activeTeamId] });
-        return { ok: false, conflict: true }; // 🚀 충돌 리턴
-      } else {
-        if (status === 404) {
-          return { ok: false, conflict: true };
-        }
-        window.alert('삭제에 실패했습니다.');
+        window.alert(
+          '다른 사용자가 회의록을 수정했습니다.최신 내용을 확인해 주세요',
+        );
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        return { ok: false, conflict: true };
       }
 
       return { ok: false };

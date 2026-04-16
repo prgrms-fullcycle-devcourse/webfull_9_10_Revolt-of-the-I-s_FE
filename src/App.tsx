@@ -550,14 +550,18 @@ export default function App() {
     const noteId = selectedNote?.id;
     if (!noteId) return;
 
+    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
+
     try {
       const result = await deleteNote(noteId);
 
-      if (result?.ok) {
-        alert('회의록이 성공적으로 삭제되었습니다.');
+      if (result?.ok || result?.conflict) {
         setSelectedNote(null);
-      } else if (result?.conflict) {
-        setSelectedNote(null);
+
+        // 성공했을 때만 별도의 완료 메시지 노출 (충돌 시엔 훅에서 이미 알럿 띄움)
+        if (result?.ok) {
+          alert('회의록이 성공적으로 삭제되었습니다.');
+        }
       }
     } catch (error) {
       console.log(error);
@@ -756,10 +760,8 @@ export default function App() {
       alert(`내 포지션이 "${myPosition}" 성공적으로 변경되었습니다.`);
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.log('포지션 수정 API 호출 실패 :', error.message);
         alert(error.message || '포지션 수정에 실패했습니다.');
       } else {
-        console.log('알 수 없는 에러 발생 :', error);
         alert('포지션 수정에 실패했습니다.');
       }
     } finally {
@@ -1336,7 +1338,9 @@ export default function App() {
 
           <div className="flex justify-end gap-4">
             <button
-              onClick={(e) => handleDeleteNote(e)}
+              onClick={(e) => {
+                handleDeleteNote(e);
+              }}
               className="px-4 py-4 bg-white hover:bg-red-50 border border-red-200 text-red-500 rounded-2xl font-bold cursor-pointer"
             >
               회의록 삭제
