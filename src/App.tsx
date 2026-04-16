@@ -12,7 +12,7 @@ import {
 import { createDocApi, createQuickLinkApi } from './api/archive';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Toaster } from "react-hot-toast";
+import { Toaster } from 'react-hot-toast';
 
 // 레이아웃 및 페이지
 import { Sidebar } from './components/layout/Sidebar';
@@ -32,7 +32,7 @@ import { Modal } from './components/ui/Modal';
 import { useTeams } from './hooks/useTeams';
 import { type Member, type CurrentUser, type TeamArchiveData } from './types';
 import { validateUrl } from './utils/validation';
-import { updateMyStatusApi } from "./api/status";
+import { updateMyStatusApi } from './api/status';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -66,7 +66,8 @@ export default function App() {
     leaveTeam,
     editNote,
     deleteNote,
-    updateProfileImage
+    updateProfileImage,
+    startEditingNote,
   } = useTeams(currentUser, selectedTicketId, setSelectedTicketId);
 
   // --- UI 상태 관리 ---
@@ -172,15 +173,20 @@ export default function App() {
   const logoutMutation = useMutation({ mutationFn: logoutApi });
 
   // 공통 상태 업데이트 헬퍼 함수
-  const syncUserStatus = useCallback(async (teamId: number, status: string) => {
-    try {
-      await updateMyStatusApi(teamId, status);
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-      queryClient.invalidateQueries({ queryKey: ['onlineUsers', String(teamId)] });
-    } catch (err) {
-      console.warn(`[Status Sync] ${status} 업데이트 실패:`, err);
-    }
-  }, [queryClient]);
+  const syncUserStatus = useCallback(
+    async (teamId: number, status: string) => {
+      try {
+        await updateMyStatusApi(teamId, status);
+        queryClient.invalidateQueries({ queryKey: ['teams'] });
+        queryClient.invalidateQueries({
+          queryKey: ['onlineUsers', String(teamId)],
+        });
+      } catch (err) {
+        console.warn(`[Status Sync] ${status} 업데이트 실패:`, err);
+      }
+    },
+    [queryClient],
+  );
 
   // 팀 생성 API 호출
   const createTeamMutation = useMutation({
@@ -239,64 +245,65 @@ export default function App() {
   });
 
   // 세션 복원 로직
-  const { data: userData, isLoading: isUserLoading } = useQuery<GetMyInfoResponse>({
-    queryKey: ['myInfo'],
-    queryFn: getMyInfoApi,
-    staleTime: Infinity,
-    gcTime: Infinity,
-    retry: false,
-  });
+  const { data: userData, isLoading: isUserLoading } =
+    useQuery<GetMyInfoResponse>({
+      queryKey: ['myInfo'],
+      queryFn: getMyInfoApi,
+      staleTime: Infinity,
+      gcTime: Infinity,
+      retry: false,
+    });
 
   useEffect(() => {
-  // 데이터가 없거나 실패면 중단
-  if (!userData?.success || !userData.data) {
-    if (!isUserLoading) setIsAuthLoading(false);
-    return;
-  }
-
-  const userRawData = userData.data;
-
-  // 이름 복구 로직
-  const savedDisplayName = localStorage.getItem('displayName');
-  const restoredName = 
-    userRawData.name || 
-    savedDisplayName || 
-    userRawData.email?.split('@')[0] || 
-    '사용자';
-
-  setCurrentUser({
-    ...userRawData,
-    id: userRawData.id,
-    uuid: userRawData.uuid,
-    name: restoredName,
-    avatar: userRawData.profileImage || '', 
-    email: userRawData.email || '',
-    phone: userRawData.phone || '',
-    position: userRawData.position || '팀원',
-    github: userRawData.github || '',
-  });
-
-  if (userRawData.name) {
-    localStorage.setItem('displayName', userRawData.name);
-  }
-
-  import('./utils/pusher').then(({ pusher }) => pusher.connect());
-
-  const lastTeamId = localStorage.getItem('lastTeamId');
-  const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
-
-  if (lastTeamId) {
-    syncUserStatus(Number(lastTeamId), '업무 중');
-    if (wasAuthorized) {
-      setActiveTeamId(lastTeamId);
-      setIsTeamAuthorized(true);
+    // 데이터가 없거나 실패면 중단
+    if (!userData?.success || !userData.data) {
+      if (!isUserLoading) setIsAuthLoading(false);
+      return;
     }
-  }
 
-  if (!isUserLoading) {
-    setIsAuthLoading(false);
-  }
-}, [userData, isUserLoading, setActiveTeamId, queryClient, syncUserStatus]);
+    const userRawData = userData.data;
+
+    // 이름 복구 로직
+    const savedDisplayName = localStorage.getItem('displayName');
+    const restoredName =
+      userRawData.name ||
+      savedDisplayName ||
+      userRawData.email?.split('@')[0] ||
+      '사용자';
+
+    setCurrentUser({
+      ...userRawData,
+      id: userRawData.id,
+      uuid: userRawData.uuid,
+      name: restoredName,
+      avatar: userRawData.profileImage || '',
+      email: userRawData.email || '',
+      phone: userRawData.phone || '',
+      position: userRawData.position || '팀원',
+      github: userRawData.github || '',
+    });
+
+    if (userRawData.name) {
+      localStorage.setItem('displayName', userRawData.name);
+    }
+
+    import('./utils/pusher').then(({ pusher }) => pusher.connect());
+
+    const lastTeamId = localStorage.getItem('lastTeamId');
+    const wasAuthorized = localStorage.getItem('isTeamAuthorized') === 'true';
+
+    if (lastTeamId) {
+      syncUserStatus(Number(lastTeamId), '업무 중');
+      if (wasAuthorized) {
+        setActiveTeamId(lastTeamId);
+        setIsTeamAuthorized(true);
+      }
+    }
+
+    if (!isUserLoading) {
+      setIsAuthLoading(false);
+    }
+  }, [userData, isUserLoading, setActiveTeamId, queryClient, syncUserStatus]);
 
   // --- 세션 유지 로직 ---
   useEffect(() => {
@@ -518,10 +525,16 @@ export default function App() {
     setIsEditNotePending(true);
 
     try {
-      await editNote(selectedNote.id, noteData);
-      setSelectedNote({ ...selectedNote, ...noteData });
-      alert('회의록이 성공적으로 수정되었습니다.');
-      setActiveModal(null);
+      const result = await editNote(selectedNote.id, noteData);
+
+      if (result?.ok) {
+        setSelectedNote({ ...selectedNote, ...noteData });
+        alert('회의록이 성공적으로 수정되었습니다.');
+        setActiveModal(null);
+      } else if (result?.conflict) {
+        setActiveModal(null);
+        setSelectedNote(null);
+      }
     } catch (error) {
       console.log(error);
     } finally {
@@ -532,18 +545,22 @@ export default function App() {
   // 회의록 삭제
   const handleDeleteNote = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     const noteId = selectedNote?.id;
     if (!noteId) return;
-    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
 
     try {
-      await deleteNote(noteId);
-      alert('회의록이 성공적으로 삭제되었습니다.');
-      setSelectedNote(null);
+      const result = await deleteNote(noteId);
+
+      if (result?.ok) {
+        alert('회의록이 성공적으로 삭제되었습니다.');
+        setSelectedNote(null);
+      } else if (result?.conflict) {
+        setSelectedNote(null);
+      }
     } catch (error) {
       console.log(error);
-      alert('회의록 삭제에 실패했습니다.');
     }
   };
 
@@ -698,7 +715,6 @@ export default function App() {
       localStorage.setItem('currentView', 'dashboard');
 
       await leaveTeam(Number(teamId));
-
     } catch (error: unknown) {
       console.error('탈퇴 처리 중 오류:', error);
 
@@ -710,10 +726,7 @@ export default function App() {
       if (prevActiveTeamId) {
         localStorage.setItem('lastTeamId', String(prevActiveTeamId));
       }
-      localStorage.setItem(
-        'isTeamAuthorized',
-        String(prevIsTeamAuthorized),
-      );
+      localStorage.setItem('isTeamAuthorized', String(prevIsTeamAuthorized));
       localStorage.setItem('currentView', prevView);
 
       alert('팀 탈퇴 처리 중 문제가 발생했습니다.');
@@ -762,7 +775,10 @@ export default function App() {
         try {
           await syncUserStatus(Number(activeTeamId), '자리 비움');
         } catch (err) {
-          console.warn("로그아웃 상태 업데이트 실패 (무시하고 로그아웃 진행):", err);
+          console.warn(
+            '로그아웃 상태 업데이트 실패 (무시하고 로그아웃 진행):',
+            err,
+          );
         }
       }
 
@@ -771,7 +787,7 @@ export default function App() {
         alert(data.error || '로그아웃에 실패했습니다.');
         return;
       }
-      
+
       setCurrentUser(null);
       setActiveTeamId(null);
       setIsTeamAuthorized(false);
@@ -816,8 +832,8 @@ export default function App() {
 
   return (
     <>
-    {/* 토스트 알림 기능 */}
-    <Toaster 
+      {/* 토스트 알림 기능 */}
+      <Toaster
         position="top-right" // 알림 위치: 우측 상단
         reverseOrder={false}
         toastOptions={{
@@ -1326,7 +1342,10 @@ export default function App() {
               회의록 삭제
             </button>
             <button
-              onClick={() => handleOpenUpdateNoteModal(selectedNote)}
+              onClick={() => {
+                handleOpenUpdateNoteModal(selectedNote);
+                startEditingNote(selectedNote.id);
+              }}
               className="px-4 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold cursor-pointer"
             >
               회의록 수정

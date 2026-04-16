@@ -40,6 +40,7 @@ import {
   deleteQuickLinkApi,
   editNoteApi,
   getDocApi,
+  getNoteDetailApi,
   getNotesApi,
   getQuickLinksApi,
   type NoteRequest,
@@ -98,17 +99,17 @@ const convertTeam = (team: TeamFromApi): Team => {
   const mappedMembers = (team.members ?? [])
     .map((m) => {
       const user = m.user as typeof m.user & {
-        profile_image_url?: unknown
-        profileImage?: unknown
-        avatar?: unknown
-      }
+        profile_image_url?: unknown;
+        profileImage?: unknown;
+        avatar?: unknown;
+      };
 
       // 서버에서 내려온 이미지 값 중 문자열만 사용
       const avatarImage =
         getAvatarValue(user.profile_image) ||
         getAvatarValue(user.profile_image_url) ||
         getAvatarValue(user.profileImage) ||
-        getAvatarValue(user.avatar)
+        getAvatarValue(user.avatar);
 
       return {
         id: m.id,
@@ -123,15 +124,15 @@ const convertTeam = (team: TeamFromApi): Team => {
         email: user.email,
         phone: user.phone,
         github: user.github_url || '',
-      }
+      };
     })
-    .sort((a, b) => Number(a.id) - Number(b.id))
+    .sort((a, b) => Number(a.id) - Number(b.id));
 
   // previewImages도 깨진 랜덤 이미지 경로면 기본 아바타로 대체
   const normalizedPreviewImages: string[] = (team.previewImages ?? []).map(
     (image: string, index: number) =>
-      getAvatarValue(image) || getDefaultAvatar(`preview-${team.id}-${index}`)
-  )
+      getAvatarValue(image) || getDefaultAvatar(`preview-${team.id}-${index}`),
+  );
 
   // 로비용 응답이면 previewImages를 화면 표시용 members 형태로만 보정
   const previewMembers =
@@ -146,7 +147,7 @@ const convertTeam = (team: TeamFromApi): Team => {
           email: '',
           phone: '',
           github: '',
-        }))
+        }));
 
   return {
     id: String(team.id),
@@ -157,7 +158,9 @@ const convertTeam = (team: TeamFromApi): Team => {
     previewImages:
       normalizedPreviewImages.length > 0
         ? normalizedPreviewImages
-        : previewMembers.map((m: { avatar?: string }) => m.avatar || '').filter(Boolean),
+        : previewMembers
+            .map((m: { avatar?: string }) => m.avatar || '')
+            .filter(Boolean),
     members: previewMembers,
     tickets: [],
     logs: [],
@@ -165,19 +168,19 @@ const convertTeam = (team: TeamFromApi): Team => {
     links: [],
     userStatuses: Object.fromEntries(
       (team.members ?? []).map((m) => {
-        const statusLabel = m.status || '업무 중'
-        const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel)
+        const statusLabel = m.status || '업무 중';
+        const matched = USER_ACTIVITIES.find((a) => a.label === statusLabel);
         return [
           m.user.uuid,
           {
             label: statusLabel,
             color: matched?.color || 'bg-green-500',
           },
-        ]
+        ];
       }),
     ),
-  }
-}
+  };
+};
 
 /**
  * 특정 팀의 데이터를 최신 상태로 갈아끼워주는 헬퍼 함수
@@ -256,9 +259,22 @@ export const useTeams = (
   // 활성화된 팀의 회의록 목록 조회
   const { data: noteData } = useQuery({
     queryKey: ['noteData', activeTeamId],
-    queryFn: () => getNotesApi(Number(activeTeamId)),
+    queryFn: async () => {
+      try {
+        const response = await getNotesApi(Number(activeTeamId));
+        return response;
+      } catch (error: any) {
+        // 🚀 마지막 회의록 삭제 시 서버가 404를 던지면 빈 배열 구조를 리턴해서 에러를 방어.
+        if (error.response?.status === 404) {
+          return { success: true, data: [] };
+        }
+        throw error;
+      }
+    },
     enabled: !!activeTeamId && !!currentUser,
   });
+
+  const [noteVersion, setNoteVersion] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -447,12 +463,14 @@ export const useTeams = (
           if (isSelected && currentDetail && 'comments' in currentDetail) {
             serverComments = currentDetail.comments.map(
               (c: TaskCommentFromApi): TaskComment => {
-                const writer = baseTeam.members.find((m) => m.name === c.user.name);
+                const writer = baseTeam.members.find(
+                  (m) => m.name === c.user.name,
+                );
                 return {
                   id: c.id,
                   user: c.user.name,
                   // ✅ 2. 찾은 멤버의 avatar(사진)를 userImage 필드에 넣어줍니다.
-                  userImage: writer?.avatar || null, 
+                  userImage: writer?.avatar || null,
                   text: c.content,
                   time: new Date(c.created_at).toLocaleTimeString('ko-KR', {
                     hour12: false,
@@ -520,7 +538,7 @@ export const useTeams = (
     // 아카이브 회의록 데이터 조립
 
     baseTeam.notes =
-      noteData?.data.map((note: TeamArchiveData) => ({
+      (noteData?.data || []).map((note: TeamArchiveData) => ({
         id: note.id,
         type: note.type,
         title: note.title,
@@ -544,9 +562,10 @@ export const useTeams = (
   // 현재 유저가 참여 중인 팀 목록
   const joinedTeams = useMemo(() => {
     if (!currentUser) return [];
-    return teams.filter((team) =>
-      team.isMember === true ||
-      team.members.some((member) => member.name === currentUser.name),
+    return teams.filter(
+      (team) =>
+        team.isMember === true ||
+        team.members.some((member) => member.name === currentUser.name),
     );
   }, [teams, currentUser]);
 
@@ -891,21 +910,111 @@ export const useTeams = (
     });
   };
 
+  // 회의록 상세 버전만 조회
+  const fetchNoteCurrentVersion = async (noteId: number) => {
+    try {
+      const response = await getNoteDetailApi(noteId);
+      if (response.success && response.data) {
+        return response.data.version;
+      }
+      throw new Error('버전 정보를 가져올 수 없습니다.');
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.warn('이미 삭제된 회의록입니다.');
+        return null;
+      }
+      console.error('버전 조회 실패:', error);
+      return null;
+    }
+  };
+
+  // 회의록 수정 진입 시 버전명 저장 함수
+  const startEditingNote = async (noteId: number) => {
+    try {
+      const response = await getNoteDetailApi(noteId);
+      if (response.success) {
+        setNoteVersion(response.data.version); // 내가 편집을 시작한 '기준' 버전 저장
+        return response.data; // UI에 데이터 뿌려주기용
+      }
+    } catch (error) {
+      console.error('편집 데이터 로드 실패:', error);
+    }
+  };
+
   // 회의록 수정
   const editNote = async (noteId: number, data: NoteRequest) => {
-    await editNoteApi(noteId, data);
+    try {
+      if (noteVersion === null) {
+        alert('버전 정보가 없습니다. 다시 시도해주세요.');
+        return { ok: false };
+      }
 
-    await queryClient.invalidateQueries({
-      queryKey: ['noteData', activeTeamId],
-    });
+      const response = await editNoteApi(noteId, {
+        ...data,
+        version: noteVersion, // 확보한 버전 전송
+      });
+
+      if (response.success) {
+        console.log('✅ [수정 완료] 성공적으로 반영됨');
+        setNoteVersion(null);
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        return { ok: true };
+      }
+    } catch (error: any) {
+      if (error.response?.status === 409) {
+        window.alert(
+          '이미 다른 사용자가 수정했습니다. 최신 내용을 확인해 주세요.',
+        );
+        queryClient.invalidateQueries({ queryKey: ['noteData', activeTeamId] });
+        return { ok: false, conflict: true };
+      }
+      alert('수정 중 오류가 발생했습니다.');
+      return { ok: false };
+    }
   };
 
   // 회의록 삭제
   const deleteNote = async (noteId: number) => {
-    await deleteNoteApi(noteId);
-    await queryClient.invalidateQueries({
-      queryKey: ['noteData', activeTeamId],
-    });
+    if (!window.confirm('정말 이 회의록을 삭제하시겠습니까?')) return;
+
+    try {
+      const currentVersion = await fetchNoteCurrentVersion(noteId);
+
+      if (currentVersion === null) {
+        // 이미 삭제된 경우이므로 사용자에게 알려주고
+        window.alert('이미 삭제된 회의록입니다.');
+        // 목록 갱신해서 유령 데이터를 목록에서 지워줍니다.
+        await queryClient.invalidateQueries({
+          queryKey: ['noteData', activeTeamId],
+        });
+        // 팝업을 닫기 위해 conflict 신호를 보냅니다.
+        return { ok: false, conflict: true };
+      }
+
+      await deleteNoteApi(noteId, currentVersion);
+
+      await queryClient.invalidateQueries({
+        queryKey: ['noteData', activeTeamId],
+      });
+      return { ok: true };
+    } catch (error: unknown) {
+      const status = error.response?.status;
+
+      if (status === 409) {
+        window.alert('이미 수정된 회의록입니다.');
+        queryClient.invalidateQueries({ queryKey: ['noteData', activeTeamId] });
+        return { ok: false, conflict: true }; // 🚀 충돌 리턴
+      } else {
+        if (status === 404) {
+          return { ok: false, conflict: true };
+        }
+        window.alert('삭제에 실패했습니다.');
+      }
+
+      return { ok: false };
+    }
   };
   // 외부 컴포넌트에서 사용할 데이터와 함수 반환
   return {
@@ -944,5 +1053,6 @@ export const useTeams = (
     deleteNote,
     updateProfileImage: uploadImageMutation.mutate,
     isImageUploading: uploadImageMutation.isPending,
+    startEditingNote,
   };
 };
